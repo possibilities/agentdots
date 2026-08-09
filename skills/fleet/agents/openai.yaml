@@ -1,0 +1,6 @@
+interface:
+  display_name: "Fleet"
+  short_description: "Show how the agent* apps depend on each other"
+  default_prompt: "Use $fleet to answer what depends on what across the agent apps."
+policy:
+  allow_implicit_invocation: true

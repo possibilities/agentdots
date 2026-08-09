@@ -1,0 +1,23 @@
+{
+  "agentDefaultArgs": {
+    "claude": "",
+    "codex": "",
+    "pi": ""
+  },
+  "defaultTuiAgent": "claude",
+  "mobilePairingConnectionMode": "local-only",
+  "notifications": {
+    "terminalBell": true
+  },
+  "openLinksInApp": true,
+  "openLinksInAppPreferencePrompted": true,
+  "refreshLocalBaseRefOnWorktreeCreate": true,
+  "showMobileButton": false,
+  "tabAutoGenerateTitle": true,
+  "terminalFontFamily": "0xProto Nerd Font",
+  "terminalFontSize": 20,
+  "terminalMacOptionAsAlt": "true",
+  "terminalPaddingX": 0,
+  "terminalPaddingY": 0,
+  "theme": "dark"
+}
