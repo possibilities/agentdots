@@ -77,9 +77,9 @@ flowchart LR
     funk ==>|scripts/install.sh --install, sync-skills| dots
     dots ==>|official installers| harnesses[Claude Code / Codex / Pi]
     dots ==>|npm pin| browser[agent-browser]
-    dots ==>|checkout contracts| fleet[agentvoice / agentwiki / agentboard / agentsearch / agentkeys / agentbus / agentusage / agentsurface / cass]
+    dots ==>|checkout contracts| fleet[agentvoice / agentwiki / agentboard / agentsearch / agentkeys / agentbus / agentweb / agentscrape / agentbrain / agentusage / agentsurface / cass]
     dots ==>|skills scan + post-sync hooks| skills[all agent skills, agentguidance rendered]
-    dots -.->|config/launchd + install-launchagents| services[agentbrain worker + share + doctor / agentbus daemon + codex app-server / agentusage daemon / agentweb daemon / agentwiki serve]
+    dots -.->|config/launchd + install-launchagents| services[agentbrain worker + share + doctor / agentbus daemon + codex app-server / agentusage daemon / agentweb daemon / agentscrape process-queue / agentwiki serve]
     funk -.->|transcript vault, restic| claudeData[Claude Code transcripts]
     funk ==>|casks| apps[Claude.app / ChatGPT.app / Orca.app]
 ```
@@ -163,7 +163,7 @@ sentence around the match, never from the name alone.
 
 | From | To | What | Evidence |
 | --- | --- | --- | --- |
-| agentdots | agentbrain, agentbus, agentusage, agentweb, agentwiki | installs their commands too, and owns all eight of their launch agents outright — including agentbus.codex-appserver, the resident `codex app-server --listen unix://` that must be listening before any codex TUI launches so sessions auto-attach and stay reachable to the bus — templates, manifest, rendering, and load — for code the checkouts ship but no longer install; a service with two owners would race to render it | `agentdots/config/launchd/*.plist`, `agentdots/scripts/install-launchagents`, asserted by `agentdots/tests/validate.sh` |
+| agentdots | agentbrain, agentbus, agentscrape, agentusage, agentweb, agentwiki | installs their commands too, and owns all nine of their launch agents outright — including agentbus.codex-appserver, the resident `codex app-server --listen unix://` that must be listening before any codex TUI launches so sessions auto-attach and stay reachable to the bus — templates, manifest, rendering, and load — for code the checkouts ship but no longer install; a service with two owners would race to render it | `agentdots/config/launchd/*.plist`, `agentdots/scripts/install-launchagents`, asserted by `agentdots/tests/validate.sh` |
 | funk | agentdots | `./install` calls `scripts/install.sh --install` and nothing else about the fleet: agentdots installs every fleet command and every fleet service, and discovers the tailnet bind address and agentweb's conduit paths itself | `funk/install:161`, `agentdots/scripts/install-agent-clis`, `agentdots/scripts/install-launchagents`; still verified by `funk verify-local-services` |
 | agentdots | agentscrape ↔ agentweb conduit | brokers the session conduit, because it is the only thing that installs both: it renders agentweb's socket and token paths into the agentbrain.worker service, and the worker passes them uninterpreted into the agentscrape children it spawns | `agentdots/scripts/install-launchagents` (agentbrain.worker tokens), asserted by `funk/libexec/verify-local-services:92-105` |
 | funk | Claude Code | hourly transcript vault snapshots the transcript archive with restic | `funk/libexec/install-transcript-vault-agent` |
