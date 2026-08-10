@@ -11,32 +11,30 @@ in the wiki (`agentwiki get funk-boundary`):
 > Depended on by, or deeply related to, the agent\* fleet → Agentdots.
 > Otherwise → Funk.
 
-This is one operator's machine layer, published as working reference
-alongside the agent* fleet it installs. It is orderly — contracts, tests,
-recorded decisions — and deliberately opinionated: the judgment calls stay
-in, stated plainly, rather than generalized away.
+This is one operator's machine layer, published as working reference beside
+the agent* fleet it installs. It is orderly — contracts, tests, recorded
+decisions — and deliberately opinionated: the judgment calls stay in, stated
+plainly, rather than generalized away.
 
-What to expect if you are not that operator: everything resolves from
-`$HOME` (no account name is assumed), the platform is macOS, and the
-installers drive sibling checkouts under `~/code` — the agent* fleet
-(including `agentguidance`, the general skills) and `funk`, which calls in
-from the machine side. A checkout you
-do not have is a skip, not a failure; a vendor CLI installs by its official
-installer, which reaches the network. Run
-`scripts/install.sh --check` to see the full plan before believing any of
-this.
+If you are not that operator: the platform is macOS, every path resolves from
+`$HOME`, and the installers drive sibling checkouts under `~/code` — the
+agent* fleet, `agentguidance` for the general skills, and `funk` calling in
+from the machine side. A checkout you do not have is a skip, not a failure.
+A vendor CLI installs by its own official installer, which reaches the
+network. Run `scripts/install.sh --check` to see the whole plan before
+believing any of this.
 
 ## Layout
 
 - `scripts/` — the installers Funk invokes; the whole external interface.
 - `prompts/` — the operator guidance the installer links into the home:
-  `agentguidance/` (the extension prompts — `SYSTEM.md`, `GUIDELINES.md`,
-  `TOOLS.md` — that agentguidance renders into the collab/build skills,
-  linked into `~/.config/agentguidance/`), `agentvoice/` (the voice
-  orchestrator's
-  doctrine and `server.json`, linked into `~/.config/agentvoice/` and read
-  at server boot), and `AGENTS.md` (the deliberately empty shared home
-  guidance at `~/AGENTS.md` — advice belongs in the extension prompts).
+  - `agentguidance/` — the extension prompts `SYSTEM.md`, `GUIDELINES.md`,
+    and `TOOLS.md`, which agentguidance renders into the collab and build
+    skills. Linked into `~/.config/agentguidance/`.
+  - `agentvoice/` — the voice orchestrator's doctrine and `server.json`,
+    linked into `~/.config/agentvoice/` and read at server boot.
+  - `AGENTS.md` — the deliberately empty shared home guidance at
+    `~/AGENTS.md`. Advice belongs in the extension prompts.
 - `config/` — AI-tool configuration the installer converges: `orca/` (the
   settings and keybindings overlay `scripts/configure-orca`
   merges — never links — into Orca's live state).
@@ -53,19 +51,24 @@ Cross-project decisions and policy live in the wiki, not here: the
 Funk relies on exactly these entry points; their paths, flags, and
 skip-versus-fail semantics are load-bearing:
 
-- `scripts/install.sh --install` — the full AI toolchain: Claude Code,
-  Codex, and Pi by their official installers; Zig (intentional duplicate of
-  Funk's Brewfile); the pinned `@native-sdk/cli@0.7` and `agent-browser`
-  npm globals; the shadcn MCP registration for Codex and Claude Code; the
-  `~/.claude/CLAUDE.md` / `~/.codex/AGENTS.md` guidance links; the extension
-  prompt links; the external skill packs; the AgentVoice CLI, the
-  agentwiki/agentboard/agentsearch/agentkeys/agentusage/agentsurface CLIs,
-  the public `possibilities/claude-swap` fork and codex-swap provider shim
-  through agentusage's installer, and cass —
-  each by its own checkout's contract, skipping checkouts that are absent —
-  and finally `sync-skills`. Funk's `./install` calls this and
-  refuses to finish without it. `--check` prints the plan without changing
-  anything.
+- `scripts/install.sh --install` — the whole AI toolchain, each piece by its
+  own checkout's contract, skipping checkouts that are absent:
+
+  - Claude Code, Codex, and Pi, by their official installers;
+  - Zig (an intentional duplicate of Funk's Brewfile) and `llm`;
+  - the pinned `@native-sdk/cli` and `agent-browser` npm globals;
+  - the shadcn MCP registration for Codex and Claude Code;
+  - the `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md` guidance links, and
+    the extension prompt links;
+  - the external skill packs;
+  - the AgentVoice CLI, and the agentwiki, agentboard, agentsearch,
+    agentkeys, agentusage, and agentsurface CLIs;
+  - the public `possibilities/claude-swap` fork and the codex-swap provider
+    shim, through agentusage's installer;
+  - cass, and finally `sync-skills`.
+
+  Funk's `./install` calls this and refuses to finish without it. `--check`
+  prints the plan without changing anything.
 - `scripts/sync-skills` — the cheap convergence path: the Orca harness
   skills (synchronized and verified) plus the agent* checkout skill scan.
   Funk's scheduled updater calls this every six hours. `--check` prints the
@@ -91,10 +94,9 @@ live machine by hand and call it done. After changing anything here, run:
 tests/validate.sh
 ```
 
-A new fleet tool usually needs no edit at all: name the checkout `agent*`,
-export `skills/<name>/SKILL.md`, give it `scripts/install.sh --install` if it
-has a CLI, and the scan and `scripts/install-agent-clis` conventions pick it
-up. Whether to advertise it in `prompts/agentguidance/TOOLS.md` is a
-decision —
-make it deliberately, per the `tool-advertisement-policy` wiki page
-(`agentwiki get tool-advertisement-policy`).
+A new fleet tool usually needs almost no edit here. Name the checkout
+`agent*` and export `skills/<name>/SKILL.md`, and the skills scan ships it.
+Only a tool with its own CLI installer joins the explicit loop in
+`scripts/install-agent-clis`. Whether to advertise it in
+`prompts/agentguidance/TOOLS.md` is a separate decision — make it
+deliberately, per the `tool-advertisement-policy` wiki page.
