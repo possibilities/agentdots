@@ -42,6 +42,7 @@ SERVICES=(
     "agentbus.codex-appserver|agentbus|agentbus|codex-appserver.log"
     "agentusage.daemon|agentusage|agentusaged|daemon.log"
     "agentweb.daemon|agentweb|agentwebd|daemon.log"
+    "agentscrape.process-queue|agentscrape|agentscrape|process-queue.log"
     "agentwiki.serve|agentwiki|agentwiki|serve.log"
 )
 
@@ -196,6 +197,14 @@ service_tokens() {
             printf 'CSWAP_BIN=%s\n' "$(command -v cswap || printf '%s' "$bin_dir/cswap")"
             printf 'CODEX_SWAP_BIN=%s\n' \
                 "$(command -v codex-swap || printf '%s' "$bin_dir/codex-swap")"
+            ;;
+        agentscrape.process-queue)
+            # The directory launchd watches. Agentscrape's CLI enqueues into it
+            # and the service drains it, so it is shared state rather than
+            # service configuration, and it is derived the same way the CLI
+            # derives it.
+            printf 'QUEUE=%s\n' \
+                "${XDG_DATA_HOME:-$HOME/.local/share}/agentscrape/queue"
             ;;
         agentwiki.serve)
             printf 'PORT=%s\n' "$AGENTWIKI_PORT"

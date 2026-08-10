@@ -585,11 +585,16 @@ for template in config/launchd/*.plist; do
     if grep -Eq '__[A-Z]+_(PROGRAM|HOME|PATH|LOG)__' "$template"; then
         fail "template still carries a per-tool token: $template"
     fi
-    for required in '<key>RunAtLoad</key>' '<key>Umask</key>' \
+    for required in '<key>Umask</key>' \
         '<key>StandardOutPath</key>' '<key>StandardErrorPath</key>'; do
         grep -Fq "$required" "$template" \
             || fail "template omits $required: $template"
     done
+    # Correct at login, by one route or the other: started outright, or started
+    # by launchd because the directory it watches is not empty.
+    if ! grep -Eq '<key>(RunAtLoad|QueueDirectories)</key>' "$template"; then
+        fail "template declares neither RunAtLoad nor QueueDirectories: $template"
+    fi
     grep -Fq '<string>__LOG__</string>' "$template" \
         || fail "template does not log through the standard token: $template"
     # A service is either resident or periodic; one of the two must say so.
