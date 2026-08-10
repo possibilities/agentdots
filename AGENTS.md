@@ -54,6 +54,13 @@ Where things go:
 - A new fleet tool: usually nothing — the `agent*` skills scan and the
   `install-agent-clis` loop are conventions. Add the checkout to the loop
   only if it has a CLI installer.
+- A statusline change: `config/statusline/`, converged by
+  `scripts/install-statusline`. One bar in three harness idioms, because
+  that is all the harnesses offer — claude runs a render command per frame,
+  pi replaces its footer from an extension, and codex draws its own bar and
+  only lets an operator choose and order a fixed set of items. A field
+  added to one renderer belongs in the others wherever they can know it;
+  each renderer's comments record what its harness cannot.
 - An operator extension prompt edit: `prompts/agentguidance/`, then
   `scripts/install.sh --install` (or wait for the six-hour sync plus the
   next render) so the rendered skills pick it up.

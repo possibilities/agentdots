@@ -1,0 +1,197 @@
+#!/bin/bash
+#
+# Install the fleet statusline into all three harnesses.
+#
+# One bar, three mechanisms, because the harnesses differ in what they let an
+# operator draw:
+#
+#   claude  runs an arbitrary command per render and pipes it a JSON payload,
+#           so config/statusline/claude-statusline.sh draws the whole bar.
+#   pi      has no status line but does have a replaceable footer, so
+#           config/statusline/pi-statusline.ts draws the same fields from its
+#           extension API.
+#   codex   renders its own status line and only lets an operator choose and
+#           order items from a fixed set. There is no custom renderer to
+#           install, so the closest thing is the ordered pick below.
+#
+# Rerunnable: every step converges and reports, and an independent file that
+# this script does not own is preserved rather than replaced.
+
+set -euo pipefail
+
+check_only=0
+script_dir=$(cd -P -- "$(dirname -- "$0")" && pwd)
+repo_root=$(cd -P -- "$script_dir/.." && pwd)
+source_dir="$repo_root/config/statusline"
+
+# Codex's status line items, in the fleet bar's order: where it is, what is
+# running, how full the context is, and what the subscription has left. The
+# ids are `codex-rs/tui/src/bottom_pane/status_line_setup.rs`'s kebab-case
+# spellings, verified present in the installed binary — codex has no
+# documented list, and an unrecognized id is dropped silently.
+#
+# `permissions` has no counterpart in the other two renderers and is kept
+# anyway: yolo is on by default for launches through agentsurface, so the
+# sandbox summary is the one place the bar says the gates are down.
+CODEX_STATUS_LINE_ITEMS='["project-name", "git-branch", "branch-changes", "model-with-reasoning", "fast-mode", "permissions", "context-used", "five-hour-limit", "weekly-limit"]'
+
+usage() {
+    cat <<'EOF'
+Usage: scripts/install-statusline [--install|--check]
+
+Install the fleet statusline for Claude Code, Pi, and Codex.
+
+Options:
+  --install  Install or converge the statusline in all three harnesses
+  --check    Print the plan without changing the system
+EOF
+}
+
+die() {
+    printf 'Agentdots statusline: %s\n' "$*" >&2
+    exit 1
+}
+
+# Claude reads one command from settings.json per render. Orca writes its own
+# statusLine entry there pointing at its telemetry sink, so a naive overwrite
+# silently blanks Orca's view of the session; the renderer forwards the
+# payload to that sink before drawing, which is what makes replacing the entry
+# safe. An Orca update may re-install and clobber this, so the whole step is
+# convergent: rerun to restore it.
+install_claude_statusline() {
+    local source="$source_dir/claude-statusline.sh"
+    local target="$HOME/.claude/statusline.sh"
+    local settings="$HOME/.claude/settings.json"
+
+    [ -s "$source" ] || die "claude renderer is missing or empty: $source"
+    chmod +x "$source"
+
+    if [ ! -L "$target" ] && [ -s "$target" ]; then
+        die "refusing to replace an independent claude renderer: $target"
+    fi
+    mkdir -p "$HOME/.claude"
+    ln -sfn "$source" "$target"
+    cmp -s "$source" "$target" \
+        || die "linked claude renderer does not resolve to $source: $target"
+
+    [ -e "$settings" ] || printf '{}\n' >"$settings"
+    jq --arg command "$target" \
+        '.statusLine = {"type": "command", "command": $command}' \
+        "$settings" >"$settings.agentdots-tmp" \
+        || die "claude settings are not valid JSON: $settings"
+    mv -- "$settings.agentdots-tmp" "$settings"
+    printf 'Installed the claude statusline: %s.\n' "$target"
+}
+
+# Pi loads every .ts in its extensions directory at startup. The name is
+# ours and carries the owner, so it cannot collide with Orca's extensions
+# sitting beside it.
+install_pi_statusline() {
+    local source="$source_dir/pi-statusline.ts"
+    local target="$HOME/.pi/agent/extensions/agentdots-statusline.ts"
+
+    [ -s "$source" ] || die "pi renderer is missing or empty: $source"
+    if [ ! -L "$target" ] && [ -s "$target" ]; then
+        die "refusing to replace an independent pi extension: $target"
+    fi
+    mkdir -p "$(dirname "$target")"
+    ln -sfn "$source" "$target"
+    cmp -s "$source" "$target" \
+        || die "linked pi renderer does not resolve to $source: $target"
+    printf 'Installed the pi statusline extension: %s.\n' "$target"
+}
+
+# Codex's config is TOML, and it has no `config set` subcommand. Rather than
+# grow a TOML writer, rewrite only the two keys this script owns inside the
+# `[tui]` table, leaving every other key, comment, and table exactly where the
+# operator or Codex itself put them.
+install_codex_statusline() {
+    local config="$HOME/.codex/config.toml"
+
+    mkdir -p "$HOME/.codex"
+    [ -e "$config" ] || : >"$config"
+    CODEX_STATUS_LINE_ITEMS="$CODEX_STATUS_LINE_ITEMS" /usr/bin/python3 - "$config" <<'PYTHON' \
+        || die "failed to converge the codex status line: $config"
+import os
+import sys
+
+path = sys.argv[1]
+items = os.environ["CODEX_STATUS_LINE_ITEMS"]
+owned = ("status_line", "status_line_use_colors")
+
+with open(path, encoding="utf-8") as handle:
+    lines = handle.read().split("\n")
+
+# A single pass: track which table each line belongs to, drop the owned keys
+# from [tui] wherever they are, and remember where [tui] ends so the fresh
+# pair can be appended inside it.
+table = ""
+kept: list[str] = []
+tui_end = None
+for line in lines:
+    stripped = line.strip()
+    if stripped.startswith("[") and stripped.endswith("]"):
+        if table == "tui":
+            tui_end = len(kept)
+        table = stripped[1:-1].strip().strip('"')
+    elif table == "tui" and stripped.split("=")[0].strip() in owned:
+        continue
+    kept.append(line)
+if table == "tui" and tui_end is None:
+    tui_end = len(kept)
+
+entries = [f"status_line = {items}", "status_line_use_colors = true"]
+if tui_end is None:
+    while kept and kept[-1].strip() == "":
+        kept.pop()
+    # The blank line separates [tui] from whatever preceded it; an otherwise
+    # empty config has nothing to separate from.
+    kept.extend([*([""] if kept else []), "[tui]", *entries])
+else:
+    # Land inside [tui], above any blank lines separating it from the next
+    # table, so the pair reads as part of the table rather than orphaned
+    # after a gap.
+    while tui_end > 0 and kept[tui_end - 1].strip() == "":
+        tui_end -= 1
+    kept[tui_end:tui_end] = entries
+
+with open(path, "w", encoding="utf-8") as handle:
+    handle.write("\n".join(kept).rstrip("\n") + "\n")
+PYTHON
+    printf 'Converged the codex status line items: %s.\n' "$config"
+}
+
+case "${1:-}" in
+    --install) ;;
+    --check) check_only=1 ;;
+    -h | --help)
+        usage
+        exit 0
+        ;;
+    *)
+        usage >&2
+        exit 64
+        ;;
+esac
+[ "$#" -eq 1 ] || {
+    usage >&2
+    exit 64
+}
+
+if [ "$check_only" -eq 1 ]; then
+    cat <<EOF
+Fleet statusline:
+  ln -sfn config/statusline/claude-statusline.sh ~/.claude/statusline.sh  # forwards the payload to Orca's sink before drawing
+  set .statusLine in ~/.claude/settings.json  # Orca reinstalls its own entry on update; rerun to restore
+  ln -sfn config/statusline/pi-statusline.ts ~/.pi/agent/extensions/agentdots-statusline.ts  # pi has a footer, not a status line
+  set [tui] status_line in ~/.codex/config.toml  # codex renders its own bar; only the item list is ours
+    $CODEX_STATUS_LINE_ITEMS
+EOF
+    exit 0
+fi
+
+command -v jq >/dev/null 2>&1 || die "jq is required to edit ~/.claude/settings.json"
+
+install_claude_statusline
+install_pi_statusline
+install_codex_statusline

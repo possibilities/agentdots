@@ -477,6 +477,30 @@ grep -F 'run_without_controlling_terminal /bin/sh' scripts/install.sh >/dev/null
 grep -F 'POSIX::setsid()' scripts/install.sh >/dev/null \
     || fail "Pi installer detachment does not start a new session"
 
+# The fleet statusline is one bar in three harness idioms: a render command
+# for claude, a footer extension for pi, and an ordered pick from codex's
+# fixed item set — codex has no custom renderer to install.
+# shellcheck disable=SC2016 # Match the literal helper invocation in the script.
+grep -F '"$script_dir/install-statusline" --install' scripts/install.sh >/dev/null \
+    || fail "installer does not converge the fleet statusline"
+# shellcheck disable=SC2016 # Match the literal helper invocation in the script.
+grep -F '"$script_dir/install-statusline" --check' scripts/install.sh >/dev/null \
+    || fail "installation plan omits the fleet statusline"
+[ -x scripts/install-statusline ] \
+    || fail "the statusline installer is not executable"
+for renderer in config/statusline/claude-statusline.sh config/statusline/pi-statusline.ts; do
+    [ -s "$renderer" ] \
+        || fail "statusline renderer is missing or empty: $renderer"
+done
+# Every step preserves a file it does not own, the same conflict rule the
+# guidance links follow.
+[ "$(grep -c 'refusing to replace an independent' scripts/install-statusline)" -eq 2 ] \
+    || fail "the statusline installer would replace an independent claude or pi file"
+# Orca writes its own statusLine entry pointing at its telemetry sink;
+# replacing that entry is only safe because the renderer forwards the payload
+# to it first. Losing the forward blanks Orca's view of every claude session.
+grep -F 'agent-hooks/claude-statusline.sh' config/statusline/claude-statusline.sh >/dev/null \
+    || fail "the claude renderer does not forward its payload to Orca's telemetry sink"
 # shellcheck disable=SC2016 # Match the literal helper invocation in the script.
 grep -F '"$script_dir/install-agentvoice-cli"' scripts/install.sh >/dev/null \
     || fail "installer does not install the AgentVoice voice CLI"

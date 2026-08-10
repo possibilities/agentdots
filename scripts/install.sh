@@ -250,6 +250,7 @@ Agent skills:
   npx --yes skills add https://github.com/shadcn/ui --agent codex claude-code pi --skill shadcn --global --yes
   npx --yes skills add https://github.com/vercel-labs/native --agent codex claude-code pi --skill native-sdk --global --yes
 EOF
+    "$script_dir/install-statusline" --check
     "$script_dir/sync-skills" --check
     if [ -f "$HOME/code/agentchats/scripts/install.sh" ]; then
         "$HOME/code/agentchats/scripts/install.sh" --check
@@ -378,6 +379,12 @@ link_agentvoice_config
 
 printf 'Removing the retired llm model configuration if Agentdots owns it.\n'
 remove_retired_llm_config
+
+# The fleet statusline is harness configuration in each CLI's own idiom, so
+# it converges here rather than from a launcher. It runs after the three CLIs
+# are installed above: the codex step edits config.toml, which the Codex
+# installer creates.
+"$script_dir/install-statusline" --install
 
 printf 'Installing the global skill discovery helper.\n'
 npx --yes skills add https://github.com/vercel-labs/skills \
