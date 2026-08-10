@@ -15,8 +15,9 @@
   repo owns its own hardened installer and exports its own skills; Agentdots
   invokes contracts, it does not reach inside — but it decides that every
   one of them is installed. `install-agent-clis` runs each checkout's own
-  installer, and `config/launchd/` defines every fleet service, because a
-  service with two owners has them racing to render it. A fleet checkout
+  installer, and `config/launchd/` defines every fleet service except
+  `agentscrape.process-queue` (see that directory's README for why), because
+  a service with two owners has them racing to render it. A fleet checkout
   ships the code; this repository decides that it is present and when it
   runs. Funk installs no fleet component at all.
 - `claude-swap` is the one fleet dependency that is not ours. Upstream is a
@@ -60,8 +61,7 @@ Where things go:
   has a CLI installer, and note the ordering constraint in the comment there
   if it has one. The `agent*` skills scan needs nothing. A loop member's
   installer must be rerunnable, because a present checkout that fails stops
-  the whole install — `agentscrape` is out of the loop for exactly that
-  reason.
+  the whole install.
 - A new long-running fleet service: a template in `config/launchd/`, an
   entry in the manifest at the top of `scripts/install-launchagents`, and
   assertions in `tests/validate.sh`. `config/launchd/README.md` is the
