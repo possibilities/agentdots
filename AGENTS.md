@@ -8,11 +8,22 @@
   When a change straddles the boundary, decide with the rubric, then record
   the call in that page if it sets precedent. Every path here resolves from
   `$HOME` — nothing may assume a particular account name.
-- The fleet lives beside this checkout: `~/code/agent*` — including
-  `~/code/agentguidance`, the general guidance skills and their renderer —
-  and `~/code/funk`. Each fleet repo owns its own hardened
-  installer and exports its own skills; Agentdots invokes contracts, it does
-  not reach inside.
+- The fleet lives beside this checkout: every `~/code/agent*` checkout
+  without exception — including `~/code/agentguidance`, the general guidance
+  skills and their renderer — plus `~/code/funk` and `~/code/codex-swap`,
+  the first-party account-swapping launcher for codex and pi. Each fleet
+  repo owns its own hardened installer and exports its own skills; Agentdots
+  invokes contracts, it does not reach inside.
+- `claude-swap` is the one fleet dependency that is not ours. Upstream is a
+  third-party project, so the machine currently runs a patched fork
+  (`possibilities/claude-swap`, `main`) cloned to `~/src/claude-swap` under
+  the `~/src` convention for other people's code. Agentusage's
+  `scripts/install-providers.sh` provisions it and refuses a checkout whose
+  fork remote is not ours. This is temporary: once the outstanding PRs land
+  upstream, the fork collapses back to a plain upstream install, and that
+  change belongs in agentusage, not here. Neither swap tool goes in
+  `install-agent-clis` — both arrive through agentusage's installer, which
+  is why that loop runs agentusage before agentsurface.
 - Every fleet repo's `AGENTS.md` ends with the same "The fleet" section
   pointing back here: the skills scan and its cadence, the fleet-map rule,
   and agentguidance as the home of general doctrine. Changing any of those
