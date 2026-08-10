@@ -31,7 +31,7 @@ US=$'\x1f'
 # false as absent. No # comments inside the jq program: bash misparses them in a
 # command substitution inside a heredoc.
 IFS="$US" read -r CUR_DIR PROJ_DIR MODEL EFFORT CTX_PCT CTX_IN CTX_MAX \
-  COST ADDED REMOVED RL5 RL5_AT RL7 RL7_AT FAST THINK STYLE <<EOF
+  COST ADDED REMOVED RL5 RL5_AT RL7 RL7_AT FAST THINK STYLE VERSION <<EOF
 $(printf '%s' "$payload" | jq -j '[
   (.workspace.current_dir // .cwd // ""),
   (.workspace.project_dir // ""),
@@ -49,7 +49,8 @@ $(printf '%s' "$payload" | jq -j '[
   (.rate_limits.seven_day.resets_at // 0),
   (if .fast_mode then 1 else 0 end),
   (if .thinking.enabled == false then 0 else 1 end),
-  (.output_style.name // "default")
+  (.output_style.name // "default"),
+  (.version // "")
 ] | map(tostring) | join("\u001f")' 2>/dev/null)
 EOF
 if [ -z "$MODEL" ]; then
@@ -163,6 +164,9 @@ if [ "$RL7" -ge 0 ] 2>/dev/null; then
   limits+=$(limit_seg 7d "$RL7" "$RL7_AT")
 fi
 [ -n "$limits" ] && out+="${SEP}${limits}"
+
+# --- harness version ---
+[ -n "$VERSION" ] && out+="${SEP}${D}${VERSION}${R}"
 
 # --- balanced account ---
 # claude-swap pins an account by pointing CLAUDE_CONFIG_DIR at a per-account

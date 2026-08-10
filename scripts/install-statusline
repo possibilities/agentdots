@@ -43,7 +43,7 @@ source_dir="$repo_root/config/statusline"
 # only the Spark window in the balanced session. They are kept because they
 # cost nothing when absent and are correct whenever the data arrives; if
 # codex-swap ever relays the snapshots, the bar gains them with no edit.
-CODEX_STATUS_LINE_ITEMS='["project-name", "git-branch", "branch-changes", "model-with-reasoning", "fast-mode", "permissions", "context-used", "five-hour-limit", "weekly-limit"]'
+CODEX_STATUS_LINE_ITEMS='["project-name", "git-branch", "branch-changes", "model-with-reasoning", "fast-mode", "permissions", "context-used", "five-hour-limit", "weekly-limit", "codex-version"]'
 
 usage() {
     cat <<'EOF'

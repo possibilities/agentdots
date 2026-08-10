@@ -14,7 +14,8 @@
 // API has moved renders a shorter bar instead of throwing.
 
 import { execFile } from "node:child_process"
-import { basename } from "node:path"
+import { readFileSync, realpathSync } from "node:fs"
+import { basename, dirname, join } from "node:path"
 
 interface Theme {
   fg(color: string, text: string): string
@@ -112,6 +113,48 @@ async function probeGit(cwd: string): Promise<GitState> {
   return state
 }
 
+/**
+ * Pi's own version. It is not on the extension API, so it comes from the
+ * package that owns the running entry point.
+ *
+ * Why realpath first: pi is normally launched through an npm/nvm bin symlink,
+ * and node keeps that launcher path in argv — walking its parents searches the
+ * bin tree instead of the installed package. Resolving the link first anchors
+ * the walk in the package, while a bundled binary or a direct dist/cli.js
+ * launch stays valid.
+ *
+ * An unresolved version renders no segment rather than a guess: the bar would
+ * otherwise state a version the operator cannot act on.
+ */
+function resolveVersion(entryPath: string = process.argv[1] ?? ""): string {
+  let anchor = entryPath
+  try {
+    anchor = realpathSync(entryPath)
+  } catch {
+    // A moved install or a transient launcher path still gets the walk below.
+  }
+  let dir = dirname(anchor)
+  for (let depth = 0; depth < 8; depth++) {
+    try {
+      const pkg = JSON.parse(readFileSync(join(dir, "package.json"), "utf8")) as {
+        name?: unknown
+        version?: unknown
+      }
+      // Pi and Orca's OMP runtime publish the same agent under different
+      // names, so match the shared suffix rather than either exact name.
+      if (typeof pkg.name === "string" && pkg.name.includes("coding-agent") && typeof pkg.version === "string") {
+        return pkg.version
+      }
+    } catch {
+      // Keep walking toward the package root.
+    }
+    const parent = dirname(dir)
+    if (parent === dir) break
+    dir = parent
+  }
+  return ""
+}
+
 /** 452094 -> 452k, 1000000 -> 1.0M — the claude renderer's `human`. */
 function human(value: number): string {
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`
@@ -155,6 +198,7 @@ export interface RenderInput {
   contextTokens: number | null
   contextWindow: number
   cost: number
+  version: string
 }
 
 /** Exported for the render test; pi itself only calls the installer below. */
@@ -194,10 +238,14 @@ export function renderStatusLine(input: RenderInput, theme: Theme): string {
     parts.push(theme.fg("success", `+${input.git.insertions}`) + " " + theme.fg("error", `-${input.git.deletions}`))
   }
 
+  if (input.version !== "") parts.push(theme.fg("dim", input.version))
+
   return parts.join(sep)
 }
 
 export default function (pi: Api): void {
+  // Resolved once: the running package cannot change mid-session.
+  const version = resolveVersion()
   let git: GitState = EMPTY_GIT
   let requestRender = (): void => {}
   let refresh = (_ctx: Ctx): void => {}
@@ -241,6 +289,7 @@ export default function (pi: Api): void {
                 contextTokens: usage?.tokens ?? null,
                 contextWindow: usage?.contextWindow ?? ctx.model?.contextWindow ?? 0,
                 cost: sessionCost(ctx),
+                version,
               },
               theme,
             ),
