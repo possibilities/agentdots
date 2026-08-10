@@ -6,7 +6,7 @@ script_dir=$(cd -P -- "$(dirname -- "$0")" && pwd)
 repo_root=$(cd -P -- "$script_dir/.." && pwd)
 
 die() {
-    printf 'agentdots configure-orca: %s\n' "$*" >&2
+    printf 'agentstart configure-orca: %s\n' "$*" >&2
     exit 1
 }
 
@@ -14,7 +14,7 @@ usage() {
     cat <<'EOF'
 Usage: scripts/configure-orca [--check]
 
-Apply the Agentdots-managed Orca settings overlay (config/orca/) without
+Apply the AgentStart-managed Orca settings overlay (config/orca/) without
 adopting Orca's generated state, credentials, projects, worktrees, or
 session data. `funk configure-orca` delegates here.
 
@@ -38,8 +38,8 @@ find_jq() {
 }
 
 orca_is_running() {
-    if [ -n "${AGENTDOTS_TEST_ORCA_RUNNING:-}" ]; then
-        [ "$AGENTDOTS_TEST_ORCA_RUNNING" = 1 ]
+    if [ -n "${AGENTSTART_TEST_ORCA_RUNNING:-}" ]; then
+        [ "$AGENTSTART_TEST_ORCA_RUNNING" = 1 ]
         return
     fi
     /usr/bin/pgrep -x Orca >/dev/null 2>&1
@@ -128,7 +128,7 @@ elif [ "$check_only" -eq 1 ]; then
 else
     keybindings_dir=$(dirname "$keybindings_file")
     mkdir -p "$keybindings_dir"
-    keybindings_tmp=$(mktemp "$keybindings_dir/.agentdots-keybindings.XXXXXX")
+    keybindings_tmp=$(mktemp "$keybindings_dir/.agentstart-keybindings.XXXXXX")
     cleanup_keybindings() {
         rm -f "$keybindings_tmp"
     }
@@ -263,13 +263,13 @@ if orca_is_running; then
     # Writing now would race Orca's own writer and lose settings. This is a
     # deferrable condition, not a broken installation, so it exits EX_TEMPFAIL
     # rather than a general error: Funk's ./install reports it and keeps going.
-    printf 'agentdots configure-orca: Orca is running and its settings differ; quit Orca, then rerun funk configure-orca\n' >&2
+    printf 'agentstart configure-orca: Orca is running and its settings differ; quit Orca, then rerun funk configure-orca\n' >&2
     exit 75
 fi
 
 data_dir=$(dirname "$data_file")
 mkdir -p "$data_dir"
-tmp_file=$(mktemp "$data_dir/.agentdots-settings.XXXXXX")
+tmp_file=$(mktemp "$data_dir/.agentstart-settings.XXXXXX")
 cleanup() {
     rm -f "$tmp_file"
 }

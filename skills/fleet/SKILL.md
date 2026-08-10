@@ -24,7 +24,7 @@ pinned binaries — each with the evidence that proves it.
 ## Keeping it honest
 
 The map is maintained, not generated: a change that adds or removes a
-cross-tool call must update `MAP.md` in the same commit (Agentdots'
+cross-tool call must update `MAP.md` in the same commit (AgentStart's
 `AGENTS.md` makes this a rule). To verify an edge or hunt for new ones:
 
 ```sh
@@ -42,7 +42,7 @@ grep -rn 'skill' ~/code/agent*/skills/*/SKILL.md \
 grep -rn 'CONDUIT\|unix:' ~/code/agent*/src ~/code/funk/libexec 2>/dev/null | grep -v node_modules
 
 # service edges: what funk's launchd points at
-grep -rn 'agent' ~/code/agentdots/scripts/install-agent-clis
+grep -rn 'agent' ~/code/agentstart/scripts/install-agent-clis
 ```
 
 If a verified edge is missing from `MAP.md`, add it — edge, kind, evidence,

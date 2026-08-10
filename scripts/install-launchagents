@@ -22,10 +22,10 @@ script_dir=$(cd -P -- "$(dirname -- "$0")" && pwd)
 repo_root=$(cd -P -- "$script_dir/.." && pwd)
 source_dir="$repo_root/config/launchd"
 
-launch_agents_dir="${AGENTDOTS_INSTALL_LAUNCH_AGENTS_DIR:-$HOME/Library/LaunchAgents}"
-bin_dir="${AGENTDOTS_INSTALL_BIN_DIR:-$HOME/.local/bin}"
+launch_agents_dir="${AGENTSTART_INSTALL_LAUNCH_AGENTS_DIR:-$HOME/Library/LaunchAgents}"
+bin_dir="${AGENTSTART_INSTALL_BIN_DIR:-$HOME/.local/bin}"
 state_root="${XDG_STATE_HOME:-$HOME/.local/state}"
-launchctl_bin="${AGENTDOTS_INSTALL_LAUNCHCTL:-launchctl}"
+launchctl_bin="${AGENTSTART_INSTALL_LAUNCHCTL:-launchctl}"
 render_temp=""
 
 # Every service in the fleet, in install order:
@@ -48,8 +48,8 @@ SERVICES=(
 
 # agentwiki's two loopback origins. Named here rather than left to the CLI's
 # defaults so a resident service never moves a port because a default changed.
-AGENTWIKI_PORT="${AGENTDOTS_INSTALL_AGENTWIKI_PORT:-7777}"
-AGENTWIKI_ARTIFACT_PORT="${AGENTDOTS_INSTALL_AGENTWIKI_ARTIFACT_PORT:-7778}"
+AGENTWIKI_PORT="${AGENTSTART_INSTALL_AGENTWIKI_PORT:-7777}"
+AGENTWIKI_ARTIFACT_PORT="${AGENTSTART_INSTALL_AGENTWIKI_ARTIFACT_PORT:-7778}"
 
 usage() {
     cat <<'EOF'
@@ -64,12 +64,12 @@ EOF
 }
 
 die() {
-    printf 'Agentdots launch agents: %s\n' "$*" >&2
+    printf 'AgentStart launch agents: %s\n' "$*" >&2
     exit 1
 }
 
 note() {
-    printf 'Agentdots launch agents: %s\n' "$*"
+    printf 'AgentStart launch agents: %s\n' "$*"
 }
 
 launchctl_available() {
@@ -147,13 +147,13 @@ service_tokens() {
             # Agentweb derives them.
             local agentweb_state socket token
             agentweb_state="${XDG_STATE_HOME:-$HOME/.local/state}/agentweb"
-            if [ -n "${AGENTDOTS_INSTALL_CONDUIT_SOCKET+set}" ]; then
-                socket="$AGENTDOTS_INSTALL_CONDUIT_SOCKET"
+            if [ -n "${AGENTSTART_INSTALL_CONDUIT_SOCKET+set}" ]; then
+                socket="$AGENTSTART_INSTALL_CONDUIT_SOCKET"
             else
                 socket="$agentweb_state/runtime/agentweb.sock"
             fi
-            if [ -n "${AGENTDOTS_INSTALL_CONDUIT_TOKEN_FILE+set}" ]; then
-                token="$AGENTDOTS_INSTALL_CONDUIT_TOKEN_FILE"
+            if [ -n "${AGENTSTART_INSTALL_CONDUIT_TOKEN_FILE+set}" ]; then
+                token="$AGENTSTART_INSTALL_CONDUIT_TOKEN_FILE"
             else
                 token="$agentweb_state/worker-token"
             fi
@@ -170,8 +170,8 @@ service_tokens() {
             # fail, and not a reason to withdraw an ingress either: the
             # already-installed address is kept.
             local host
-            if [ -n "${AGENTDOTS_INSTALL_SHARE_HOST+set}" ]; then
-                host="$AGENTDOTS_INSTALL_SHARE_HOST"
+            if [ -n "${AGENTSTART_INSTALL_SHARE_HOST+set}" ]; then
+                host="$AGENTSTART_INSTALL_SHARE_HOST"
             else
                 host="$(tailnet_address)"
                 [ -n "$host" ] || host="$(preserved_arg "$label" --host)"
@@ -214,7 +214,7 @@ service_tokens() {
 }
 
 owned_marker() {
-    printf 'agentdots-installer-owned: %s.v1' "$1"
+    printf 'agentstart-installer-owned: %s.v1' "$1"
 }
 
 # Ours, a predecessor's, somebody else's, or absent. Only a stranger is refused.
@@ -249,7 +249,7 @@ render_plist() {
     trap 'rm -f -- "$render_temp"' EXIT
     local temp="$render_temp"
 
-    AGENTDOTS_RENDER_TOKENS="$(
+    AGENTSTART_RENDER_TOKENS="$(
         printf 'PROGRAM=%s\nHOME=%s\nPATH=%s\nLOG=%s\n' \
             "$program" "$HOME" "$(service_path)" "$log"
         printf '%s' "$tokens"
@@ -262,7 +262,7 @@ from xml.sax.saxutils import quoteattr
 source, destination = sys.argv[1], sys.argv[2]
 
 values = {}
-for line in os.environ["AGENTDOTS_RENDER_TOKENS"].split("\n"):
+for line in os.environ["AGENTSTART_RENDER_TOKENS"].split("\n"):
     if not line:
         continue
     key, _, value = line.partition("=")

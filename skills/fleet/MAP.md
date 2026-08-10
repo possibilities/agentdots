@@ -8,7 +8,7 @@ Four kinds of edge:
 - **routes** (dashed): a skill deliberately handing work to another skill.
   Breaking the target skill strands the routing.
 - **serves** (dotted): a launchd service running fleet code, or a tool
-  reading another's data on disk. Every fleet service is agentdots'; the
+  reading another's data on disk. Every fleet service is agentstart's; the
   machine's own reverse-DNS services are funk's.
 - **pins**: a binary installed at an exact version because a consumer locks
   or resolves it by contract.
@@ -73,14 +73,14 @@ flowchart LR
 ```mermaid
 flowchart LR
     funk[funk ./install + updater]
-    dots[agentdots]
+    start[agentstart]
 
-    funk ==>|scripts/install.sh --install, sync-skills| dots
-    dots ==>|official installers| harnesses[Claude Code / Codex / Pi]
-    dots ==>|npm pin| browser[agent-browser]
-    dots ==>|checkout contracts| fleet[agentvoice / agentwiki / agentboard / agentsearch / agentkeys / agentbus / agentweb / agentscrape / agentbrain / agentusage / agentsurface / cass]
-    dots ==>|skills scan + post-sync hooks| skills[all agent skills, agentguidance rendered]
-    dots -.->|config/launchd + install-launchagents| services[agentbrain worker + share + doctor / agentbus daemon + codex app-server / agentusage daemon / agentweb daemon / agentscrape process-queue / agentwiki serve]
+    funk ==>|scripts/install.sh --install, sync-skills| start
+    start ==>|official installers| harnesses[Claude Code / Codex / Pi]
+    start ==>|npm pin| browser[agent-browser]
+    start ==>|checkout contracts| fleet[agentvoice / agentwiki / agentboard / agentsearch / agentkeys / agentbus / agentweb / agentscrape / agentbrain / agentusage / agentsurface / cass]
+    start ==>|skills scan + post-sync hooks| skills[all agent skills, agentguidance rendered]
+    start -.->|config/launchd + install-launchagents| services[agentbrain worker + share + doctor / agentbus daemon + codex app-server / agentusage daemon / agentweb daemon / agentscrape process-queue / agentwiki serve]
     funk -.->|transcript vault, restic| claudeData[Claude Code transcripts]
     funk ==>|casks| apps[Claude.app / ChatGPT.app / Orca.app]
 ```
@@ -112,7 +112,7 @@ flowchart LR
         email -.->|reads via| gogCli[gog] & notify
     end
 
-    tools[TOOLS.md — agentdots prompts, spliced into collab and build at render] -.-> search & scrape & brain & browser & wiki & board & groom & chats & bus & notify
+    tools[TOOLS.md — agentstart prompts, spliced into collab and build at render] -.-> search & scrape & brain & browser & wiki & board & groom & chats & bus & notify
 ```
 
 The TOOLS.md node is the widest fan-out in the fleet and this repository is
@@ -144,12 +144,12 @@ sentence around the match, never from the name alone.
 
 | Caller | Callee | What | Evidence |
 | --- | --- | --- | --- |
-| agentdots | agentusage | `install-agent-clis` invokes the checkout's `scripts/install.sh --install`, which provisions the public claude-swap fork before installing the observer. It no longer writes a `codex-swap` shim — that command has one owner now | `agentdots/scripts/install-agent-clis`; `agentusage/scripts/install-providers.sh` |
-| agentdots | codex-swap | `install-agent-clis` invokes `scripts/install.sh --install`, which provisions the managed codex-multi-auth fork under `~/src` and writes the `codex-swap` command with that path baked in as a default — the seam that lets launchd-supervised app-servers resolve a dependency able to host them | `agentdots/scripts/install-agent-clis`; `codex-swap/scripts/install.sh` |
+| agentstart | agentusage | `install-agent-clis` invokes the checkout's `scripts/install.sh --install`, which provisions the public claude-swap fork before installing the observer. It no longer writes a `codex-swap` shim — that command has one owner now | `agentstart/scripts/install-agent-clis`; `agentusage/scripts/install-providers.sh` |
+| agentstart | codex-swap | `install-agent-clis` invokes `scripts/install.sh --install`, which provisions the managed codex-multi-auth fork under `~/src` and writes the `codex-swap` command with that path baked in as a default — the seam that lets launchd-supervised app-servers resolve a dependency able to host them | `agentstart/scripts/install-agent-clis`; `codex-swap/scripts/install.sh` |
 | agentsurface | agentusage | `agentusage balance claude\|codex --json` picks the account for a balanced launch | `agentsurface/src/balance.ts:64,124` |
 | agentsurface | claude-swap | wraps balanced Claude launches as `cswap run <slot> --share-history` | `agentsurface/src/balance.ts:57-90` |
 | agentsurface | codex-swap | wraps codex as `codex-swap run`/`resume <id>`, pi as `codex-swap pi run` | `agentsurface/src/balance.ts:167-180` |
-| agentsurface | claude / codex / pi | launches the real harness binary (shims make bare commands balanced; `AGENTSURFACE_LAUNCH=1` breaks recursion) | `agentsurface/src/launch.ts:27`; shims in `agentdots/scripts/install-agentsurface-shims` |
+| agentsurface | claude / codex / pi | launches the real harness binary (shims make bare commands balanced; `AGENTSURFACE_LAUNCH=1` breaks recursion) | `agentsurface/src/launch.ts:27`; shims in `agentstart/scripts/install-agentsurface-shims` |
 | agentsurface | Orca | optional surface backend, three operations: **place** checks runtime health, resolves or creates repos/worktrees, and creates a terminal containing the finished harness command; **survey** reads a worktree, its repo's base ref, and its live terminals; **release** stops those terminals and removes the worktree (never with `--force` — Orca's force discards uncommitted work). An Orca refusal fails closed instead of launching locally | `agentsurface/src/surface-orca.ts:33-46` (place), `48-87` (survey), `89-120` (release), `122-139` (doctor) |
 | agentbus | codex-swap | the codex app-server supervisor gates on `codex-swap app-server check --json` (exit 0 = this ndy can host a pinned server; any nonzero idles the supervisor and logs codex-swap's reason verbatim), enumerates `snapshot --json` → `data.accounts[]` filtered to `enabled && present && auth.reloginRequired !== true`, and runs one `codex-swap app-server run --account <key> --listen unix://<sock>` per account under `<busHome>/codex/`. `app-server --help` exiting 0 still means the surface exists, but that is not the same question as "runs will work" | `agentbus/src/codex-appserver.ts` (computeDesired), `agentbus/docs/adr/0002-codex-appserver-supervisor-modes.md`; `codex-swap/docs/handoff.md` §39 |
 | codex-swap | codex-multi-auth fork | pins app-server launches to the `possibilities/codex-multi-auth` fork carrying `fix/app-server-canonical-home`: stock 2.8.3 routes `app-server` through an ephemeral shadow home, where Codex refuses the symlinked `app-server-control` and the thread index is a frozen copy. `app-server check` reads the resolved wrapper and refuses to host without the fix. Offered upstream; the pin retires when a release carries it | `codex-swap/src/appserver/capability.ts`; `~/src/codex-multi-auth` (`origin` upstream, `fork` ours, `main` tracks `fork/main`) |
@@ -165,31 +165,31 @@ sentence around the match, never from the name alone.
 | agentbus | claude | daemon mirrors `claude agents --json` every 15s for peer names and activity — claude names are harness-owned, the bus follows | `agentbus/src/claude-mirror.ts:29-48` |
 | agentbus | codex app-server | bridge of hand-rolled WebSocket-over-UDS JSON-RPC clients, one per app-server socket (canonical default plus the supervisor's per-account directory): `thread/loaded/list` discovery, `thread/read` for each newly attached thread's cwd and name (the only source before a thread's first turn — nothing is on disk until then), `turn/start`/`turn/steer` injection routed to the owning server; pinned semantics verified on codex-cli 0.147.0 | `agentbus/src/codex.ts` (startCodexBridge, describeThread), wiki `steering-codex-programmatically` |
 | agentbus | agentsurface | daemon mirrors `agentsurface x-runs --x-json` every 15s to name peers a surface launched, joining a run record to a peer by session id first and resolved workspace path second. Gap-fill only and never a replacement, so an absent or failing agentsurface cannot change an answer the bus would otherwise give; the command exiting nonzero is a no-op, not an error | `agentbus/src/surface-mirror.ts`, `agentsurface/docs/adr/0020-codex-landings-serialize-per-workspace.md` |
-| Claude Code | agentbus | the agentbus plugin's always-on monitor runs `agentbus recv --follow`, holding every interactive session's receive stream | `agentbus/plugins/claude/monitors/monitors.json`, installed by `agentdots/scripts/install-agentbus-adapters` |
-| pi | agentbus | the agentbus extension joins over the daemon socket, injects envelopes via `pi.sendMessage`, and exports `AGENTBUS_SESSION` so bash tools attribute sends | `agentbus/extensions/pi/agentbus.ts`, linked by `agentdots/scripts/install-agentbus-adapters` |
+| Claude Code | agentbus | the agentbus plugin's always-on monitor runs `agentbus recv --follow`, holding every interactive session's receive stream | `agentbus/plugins/claude/monitors/monitors.json`, installed by `agentstart/scripts/install-agentbus-adapters` |
+| pi | agentbus | the agentbus extension joins over the daemon socket, injects envelopes via `pi.sendMessage`, and exports `AGENTBUS_SESSION` so bash tools attribute sends | `agentbus/extensions/pi/agentbus.ts`, linked by `agentstart/scripts/install-agentbus-adapters` |
 
 ### serves / data
 
 | From | To | What | Evidence |
 | --- | --- | --- | --- |
-| agentdots | agentbrain, agentbus, agentscrape, agentusage, agentweb, agentwiki | installs their commands too, and owns all nine of their launch agents outright — including agentbus.codex-appserver, the supervisor that keeps account-pinned app-servers alive (one default-socket server without codex-swap; one per enabled account through codex-swap's app-server surface; none while that surface is missing — agentbus ADR 0002) — templates, manifest, rendering, and load — for code the checkouts ship but no longer install; a service with two owners would race to render it | `agentdots/config/launchd/*.plist`, `agentdots/scripts/install-launchagents`, asserted by `agentdots/tests/validate.sh` |
-| funk | agentdots | `./install` calls `scripts/install.sh --install` and nothing else about the fleet: agentdots installs every fleet command and every fleet service, and discovers the tailnet bind address and agentweb's conduit paths itself | `funk/install:161`, `agentdots/scripts/install-agent-clis`, `agentdots/scripts/install-launchagents`; still verified by `funk verify-local-services` |
-| agentdots | agentscrape ↔ agentweb conduit | brokers the session conduit, because it is the only thing that installs both: it renders agentweb's socket and token paths into the agentbrain.worker service, and the worker passes them uninterpreted into the agentscrape children it spawns | `agentdots/scripts/install-launchagents` (agentbrain.worker tokens), asserted by `funk/libexec/verify-local-services:92-105` |
+| agentstart | agentbrain, agentbus, agentscrape, agentusage, agentweb, agentwiki | installs their commands too, and owns all nine of their launch agents outright — including agentbus.codex-appserver, the supervisor that keeps account-pinned app-servers alive (one default-socket server without codex-swap; one per enabled account through codex-swap's app-server surface; none while that surface is missing — agentbus ADR 0002) — templates, manifest, rendering, and load — for code the checkouts ship but no longer install; a service with two owners would race to render it | `agentstart/config/launchd/*.plist`, `agentstart/scripts/install-launchagents`, asserted by `agentstart/tests/validate.sh` |
+| funk | agentstart | `./install` calls `scripts/install.sh --install` and nothing else about the fleet: agentstart installs every fleet command and every fleet service, and discovers the tailnet bind address and agentweb's conduit paths itself | `funk/install:161`, `agentstart/scripts/install-agent-clis`, `agentstart/scripts/install-launchagents`; still verified by `funk verify-local-services` |
+| agentstart | agentscrape ↔ agentweb conduit | brokers the session conduit, because it is the only thing that installs both: it renders agentweb's socket and token paths into the agentbrain.worker service, and the worker passes them uninterpreted into the agentscrape children it spawns | `agentstart/scripts/install-launchagents` (agentbrain.worker tokens), asserted by `funk/libexec/verify-local-services:92-105` |
 | funk | Claude Code | hourly transcript vault snapshots the transcript archive with restic | `funk/libexec/install-transcript-vault-agent` |
 | agentboard | agentwiki | stored data, distinct from the publish call: board items hold agentwiki slugs (`link <ref> --wiki <slug>` / `unlink`), so changing wiki's slug scheme breaks stored links even where publishing never runs | `agentboard/skills/board/SKILL.md:228-232`, reciprocated `agentwiki/skills/wiki/SKILL.md:133-134` |
 | cass (agentchats) | Claude Code, Codex, Pi | builds and refreshes the search index over the local session stores; cass itself is upstream software — the official checksummed installer, gh-resolved — with only the `agentchats` state CLI linked editable from the checkout | `agentchats/scripts/install.sh:6,95,123-129,137` |
 | agentkeys | funk configs | audits the interception chain across Karabiner/skhd/Ghostty/tmux/Neovim — files funk stows | `agentkeys` skill description; funk stow packages |
 | agentboard, agentchats | each other's CLIs | the shared "agent* state dump" bearings convention: one cross-tool contract for state dumps, with a common ~4-chars-per-token budget | `agentboard/src/help.ts:367`, `agentchats/bin/agentchats:13`, `agentboard/src/brief.ts:140` |
-| agentdots statusline | claude-swap | the claude renderer names the balanced account by reading `CLAUDE_CONFIG_DIR`, whose basename claude-swap spells `<n>-<slugified-email>`; renaming that profile directory silently drops the account segment. No counterpart for codex or pi — codex-swap pins an account by swapping auth in place and exports nothing naming it | `agentdots/config/statusline/claude-statusline.sh` (balanced-account segment); `claude-swap/src/claude_swap/session.py:161-167` |
-| agentdots statusline | Orca | the claude renderer forwards its stdin payload to Orca's `~/.orca/agent-hooks/claude-statusline.sh` sink before drawing: taking over `statusLine` in `~/.claude/settings.json` otherwise blanks Orca's view of the session. An Orca update may reinstall its own entry; `scripts/install-statusline --install` restores ours | `agentdots/config/statusline/claude-statusline.sh` (Orca forward); `agentdots/scripts/install-statusline` |
+| agentstart statusline | claude-swap | the claude renderer names the balanced account by reading `CLAUDE_CONFIG_DIR`, whose basename claude-swap spells `<n>-<slugified-email>`; renaming that profile directory silently drops the account segment. No counterpart for codex or pi — codex-swap pins an account by swapping auth in place and exports nothing naming it | `agentstart/config/statusline/claude-statusline.sh` (balanced-account segment); `claude-swap/src/claude_swap/session.py:161-167` |
+| agentstart statusline | Orca | the claude renderer forwards its stdin payload to Orca's `~/.orca/agent-hooks/claude-statusline.sh` sink before drawing: taking over `statusLine` in `~/.claude/settings.json` otherwise blanks Orca's view of the session. An Orca update may reinstall its own entry; `scripts/install-statusline --install` restores ours | `agentstart/config/statusline/claude-statusline.sh` (Orca forward); `agentstart/scripts/install-statusline` |
 
 ### pins
 
 | Binary | Version | Why | Evidence |
 | --- | --- | --- | --- |
-| agent-browser | 0.33.2 | one pin, two independent path contracts: Agentweb digest-locks the exact build and launches its configured absolute path (default `~/Library/pnpm/bin/agent-browser`, never PATH), while Agentscrape resolves the `~/.local/bin/agent-browser` link before PATH — relocating one path fixes only that consumer's half | `agentdots/scripts/install.sh` (`agent_browser_version`), `agentweb/src/config-schema.ts:51,83`, `agentweb/src/paths.ts:268`, `agentscrape/src/browser.ts:386` |
-| @native-sdk/cli | 0.7 line | the native-sdk skill documents 0.7 and its agent helpers are version-matched | `agentdots/scripts/install.sh` (`native_sdk_version`) |
-| zig | Brewfile-tracked, duplicated in the installer | AgentVoice's native duplex audio path and Native SDK packaging build against it | `agentdots/scripts/install.sh` |
+| agent-browser | 0.33.2 | one pin, two independent path contracts: Agentweb digest-locks the exact build and launches its configured absolute path (default `~/Library/pnpm/bin/agent-browser`, never PATH), while Agentscrape resolves the `~/.local/bin/agent-browser` link before PATH — relocating one path fixes only that consumer's half | `agentstart/scripts/install.sh` (`agent_browser_version`), `agentweb/src/config-schema.ts:51,83`, `agentweb/src/paths.ts:268`, `agentscrape/src/browser.ts:386` |
+| @native-sdk/cli | 0.7 line | the native-sdk skill documents 0.7 and its agent helpers are version-matched | `agentstart/scripts/install.sh` (`native_sdk_version`) |
+| zig | Brewfile-tracked, duplicated in the installer | AgentVoice's native duplex audio path and Native SDK packaging build against it | `agentstart/scripts/install.sh` |
 
 Both managed forks rebase their **install branch** onto upstream on every
 install — the integration branch each installer builds and binds — gated by

@@ -3,7 +3,7 @@
 set -euo pipefail
 
 die() {
-    printf 'Agentdots agentsurface shims installer: %s\n' "$*" >&2
+    printf 'AgentStart agentsurface shims installer: %s\n' "$*" >&2
     exit 1
 }
 
@@ -36,7 +36,7 @@ for harness in claude codex pi; do
     shim="$shim_dir/$harness"
     cat >"$shim" <<EOF
 #!/usr/bin/env bash
-# Agentdots-managed agentsurface shim: bare \`$harness\` balances across
+# AgentStart-managed agentsurface shim: bare \`$harness\` balances across
 # accounts. AGENTSURFACE_LAUNCH=1 (managed launch) or AGENTSURFACE_SHIM_BYPASS=1
 # (manual escape) exec the real binary instead. Regenerate with
 # \`funk install-agentsurface-shims\`; do not edit in place.

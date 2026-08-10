@@ -3,7 +3,7 @@
 set -euo pipefail
 
 die() {
-    printf 'Agentdots skill sync: %s\n' "$*" >&2
+    printf 'AgentStart skill sync: %s\n' "$*" >&2
     exit 1
 }
 
@@ -50,16 +50,16 @@ esac
 # - The Orca harness skills (orca-cli, orchestration, computer-use) from the
 #   app's repository. The Orca application itself is Funk's — a Homebrew cask
 #   left to its own updater — but its skills are harness configuration, which
-#   is Agentdots' domain, so they are synchronized and verified here.
+#   is AgentStart's domain, so they are synchronized and verified here.
 # - Every agent* checkout under ~/code that exports skills/<name>/SKILL.md.
-#   That convention is the whole interface: Agentdots discovers participants
+#   That convention is the whole interface: AgentStart discovers participants
 #   instead of listing them, so a project that grows or renames a skill is
 #   synchronized on the next convergence without an edit here. This checkout
 #   is itself a participant, and so is agentguidance, whose post-sync hook
 #   (below) re-renders the templates the scan ships.
 #
-# AGENTDOTS_CODE_ROOT exists so the tests can point the scan at a fixture tree.
-code_root="${AGENTDOTS_CODE_ROOT:-$HOME/code}"
+# AGENTSTART_CODE_ROOT exists so the tests can point the scan at a fixture tree.
+code_root="${AGENTSTART_CODE_ROOT:-$HOME/code}"
 
 if [ "$check_only" -eq 1 ]; then
     printf '  npx --yes skills add https://github.com/stablyai/orca --agent codex claude-code pi --skill orca-cli orchestration computer-use --global --yes\n'
@@ -67,8 +67,8 @@ else
     [ "$(uname -s)" = Darwin ] || die "macOS is required"
     [ "$(id -u)" -ne 0 ] || die "run as the target user, not root"
 
-    if [ -n "${AGENTDOTS_NPX_BIN:-}" ] && [ -x "$AGENTDOTS_NPX_BIN" ]; then
-        npx_bin="$AGENTDOTS_NPX_BIN"
+    if [ -n "${AGENTSTART_NPX_BIN:-}" ] && [ -x "$AGENTSTART_NPX_BIN" ]; then
+        npx_bin="$AGENTSTART_NPX_BIN"
     elif command -v npx >/dev/null 2>&1; then
         npx_bin=$(command -v npx)
     else
@@ -96,7 +96,7 @@ else
         --skill orca-cli orchestration computer-use \
         --global --yes
 
-    tmpdir=$(mktemp -d "${TMPDIR:-/tmp}/agentdots-sync-skills.XXXXXX")
+    tmpdir=$(mktemp -d "${TMPDIR:-/tmp}/agentstart-sync-skills.XXXXXX")
     trap 'rm -rf "$tmpdir"' EXIT
     skills_json="$tmpdir/skills.json"
     "$npx_bin" --yes skills list --global --json >"$skills_json"
@@ -125,7 +125,7 @@ else
 fi
 
 if [ ! -d "$code_root" ]; then
-    [ "$check_only" -eq 1 ] || printf 'Agentdots skill sync: no checkout root at %s; skipping the project scan.\n' \
+    [ "$check_only" -eq 1 ] || printf 'AgentStart skill sync: no checkout root at %s; skipping the project scan.\n' \
         "$code_root"
     exit 0
 fi
@@ -189,6 +189,6 @@ for project in "$code_root"/agent*/; do
 done
 
 if [ "$check_only" -eq 0 ] && [ "$synchronized" -eq 0 ]; then
-    printf 'Agentdots skill sync: no agent* checkout under %s exports skills; nothing to synchronize.\n' \
+    printf 'AgentStart skill sync: no agent* checkout under %s exports skills; nothing to synchronize.\n' \
         "$code_root"
 fi

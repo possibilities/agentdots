@@ -1,14 +1,14 @@
-# AgentDots
+# AgentStart
 
-[![CI](https://github.com/possibilities/agentdots/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/possibilities/agentdots/actions/workflows/ci.yml)
+[![CI](https://github.com/possibilities/agentstart/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/possibilities/agentstart/actions/workflows/ci.yml)
 
-Agentdots is the AI half of this machine: the installer and home for
+AgentStart is the AI half of this machine: the installer and home for
 everything the agent fleet in `~/code` depends on. Funk owns the machine —
 Homebrew, Stow, launchd, macOS settings — and calls into this checkout for
 the rest. The boundary rubric is one sentence, recorded with its case law
 in the wiki (`agentwiki get funk-boundary`):
 
-> Depended on by, or deeply related to, the agent\* fleet → Agentdots.
+> Depended on by, or deeply related to, the agent\* fleet → AgentStart.
 > Otherwise → Funk.
 
 This is one operator's machine layer, published as working reference beside

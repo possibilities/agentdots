@@ -15,7 +15,7 @@ The frame is identical for every service, and deviating from it is a bug:
 
 - **Label** — `<tool>.<service>`, matching the file name exactly.
 - **Ownership marker** — the second line is
-  `<!-- agentdots-installer-owned: <label>.v1 -->`. The installer refuses to
+  `<!-- agentstart-installer-owned: <label>.v1 -->`. The installer refuses to
   unload or replace a service carrying anything else, so a hand-written or
   third-party agent that happens to share a label is never touched.
 - **Tokens** — `__UPPER_SNAKE__`, replaced with XML-escaped absolute values at
@@ -35,7 +35,7 @@ The frame is identical for every service, and deviating from it is a bug:
   `~/.local/state/<tool>/<service>.log`.
 - **`RunAtLoad`** — every service is expected to be correct at login.
 - **Missing tool, no service.** A service whose checkout or program is absent
-  is skipped, never failed, matching the rest of the Agentdots installer.
+  is skipped, never failed, matching the rest of the AgentStart installer.
 
 ## What is deliberately per-service
 

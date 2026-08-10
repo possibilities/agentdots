@@ -116,7 +116,7 @@ grep -F 'post-sync hook failed' scripts/sync-skills >/dev/null \
 # A machine that has not cloned AgentVoice is a skip, not a failure: the CLI is
 # one of several optional checkout-backed tools and an install must not stop
 # for a machine that simply does not have it.
-skip_test_dir=$(mktemp -d "${TMPDIR:-/tmp}/agentdots-validate.XXXXXX")
+skip_test_dir=$(mktemp -d "${TMPDIR:-/tmp}/agentstart-validate.XXXXXX")
 trap 'rm -rf "$skip_test_dir"' EXIT
 agentvoice_missing_home="$skip_test_dir/agentvoice-missing-home"
 mkdir -p "$agentvoice_missing_home"
@@ -145,7 +145,7 @@ mkdir -p "$(dirname "$orca_state")"
 printf '%s\n' \
     '{"repos":[{"id":"preserve-me"}],"settings":{"showMenuBarIcon":false,"notifications":{"enabled":false}}}' \
     >"$orca_state"
-HOME="$orca_home" AGENTDOTS_TEST_ORCA_RUNNING=0 "$root/scripts/configure-orca" >/dev/null
+HOME="$orca_home" AGENTSTART_TEST_ORCA_RUNNING=0 "$root/scripts/configure-orca" >/dev/null
 jq -e '
   .repos == [{"id":"preserve-me"}] and
   .settings.showMenuBarIcon == false and
@@ -166,13 +166,13 @@ jq -e '
 ' "$orca_state" >/dev/null || fail "Orca settings overlay did not preserve unrelated state"
 jq -e 'type == "object" and .version == 1' "$orca_home/.orca/keybindings.json" >/dev/null \
     || fail "Orca keybindings overlay was not merged into the live file"
-HOME="$orca_home" AGENTDOTS_TEST_ORCA_RUNNING=1 "$root/scripts/configure-orca" >/dev/null
+HOME="$orca_home" AGENTSTART_TEST_ORCA_RUNNING=1 "$root/scripts/configure-orca" >/dev/null
 orca_state_tmp="$orca_state.tmp"
 jq '.settings.theme = "system"' "$orca_state" >"$orca_state_tmp"
 mv "$orca_state_tmp" "$orca_state"
 set +e
 orca_running_output=$(
-    HOME="$orca_home" AGENTDOTS_TEST_ORCA_RUNNING=1 \
+    HOME="$orca_home" AGENTSTART_TEST_ORCA_RUNNING=1 \
         "$root/scripts/configure-orca" 2>&1
 )
 orca_running_status=$?
@@ -185,11 +185,11 @@ set -e
     || fail "running-Orca guard did not exit EX_TEMPFAIL: $orca_running_status"
 printf '%s\n' "$orca_running_output" | grep -F 'quit Orca' >/dev/null \
     || fail "Orca running-profile guard did not explain how to reconcile"
-HOME="$orca_home" AGENTDOTS_TEST_ORCA_RUNNING=0 "$root/scripts/configure-orca" >/dev/null
+HOME="$orca_home" AGENTSTART_TEST_ORCA_RUNNING=0 "$root/scripts/configure-orca" >/dev/null
 jq -e '.settings.theme == "dark"' "$orca_state" >/dev/null \
     || fail "Orca settings did not reconcile after the running-profile guard cleared"
 mv "$orca_state" "$orca_state.merged-test"
-HOME="$orca_home" AGENTDOTS_TEST_ORCA_RUNNING=0 "$root/scripts/configure-orca" >/dev/null
+HOME="$orca_home" AGENTSTART_TEST_ORCA_RUNNING=0 "$root/scripts/configure-orca" >/dev/null
 jq -e '
   .settings.defaultTuiAgent == "claude" and
   .settings.mobilePairingConnectionMode == "local-only" and
@@ -229,15 +229,15 @@ mkdir -p "$code_skills_root/agentdemo/scripts"
 cat >"$code_skills_root/agentdemo/scripts/post-sync" <<'EOF'
 #!/bin/bash
 set -euo pipefail
-[ -z "${AGENTDOTS_TEST_HOOK_EXIT:-}" ] || exit "$AGENTDOTS_TEST_HOOK_EXIT"
+[ -z "${AGENTSTART_TEST_HOOK_EXIT:-}" ] || exit "$AGENTSTART_TEST_HOOK_EXIT"
 touch "$(cd -P -- "$(dirname -- "$0")/.." && pwd)/post-sync-ran"
 EOF
 chmod +x "$code_skills_root/agentdemo/scripts/post-sync"
 
 sync_plan=$(
-    AGENTDOTS_CODE_ROOT="$code_skills_root" \
-        AGENTDOTS_NPX_BIN="$root/tests/fixtures/npx" \
-        AGENTDOTS_TEST_NPX_LOG="$code_skills_log" \
+    AGENTSTART_CODE_ROOT="$code_skills_root" \
+        AGENTSTART_NPX_BIN="$root/tests/fixtures/npx" \
+        AGENTSTART_TEST_NPX_LOG="$code_skills_log" \
         "$root/scripts/sync-skills" --check
 )
 [ ! -s "$code_skills_log" ] \
@@ -263,9 +263,9 @@ printf '%s\n' "$sync_plan" \
 [ ! -e "$code_skills_root/agentdemo/post-sync-ran" ] \
     || fail "skill sync plan ran a post-sync hook instead of only printing"
 
-AGENTDOTS_CODE_ROOT="$code_skills_root" \
-    AGENTDOTS_NPX_BIN="$root/tests/fixtures/npx" \
-    AGENTDOTS_TEST_NPX_LOG="$code_skills_log" \
+AGENTSTART_CODE_ROOT="$code_skills_root" \
+    AGENTSTART_NPX_BIN="$root/tests/fixtures/npx" \
+    AGENTSTART_TEST_NPX_LOG="$code_skills_log" \
     "$root/scripts/sync-skills" >/dev/null
 grep -F 'npx-stub <--yes> <skills> <add> <https://github.com/stablyai/orca> <--agent> <codex> <claude-code> <pi> <--skill> <orca-cli> <orchestration> <computer-use> <--global> <--yes>' \
     "$code_skills_log" >/dev/null \
@@ -290,9 +290,9 @@ fi
 # A failing hook is a failing sync, and the message names the project.
 set +e
 hook_failure=$(
-    AGENTDOTS_CODE_ROOT="$code_skills_root" \
-        AGENTDOTS_NPX_BIN="$root/tests/fixtures/npx" \
-        AGENTDOTS_TEST_HOOK_EXIT=9 \
+    AGENTSTART_CODE_ROOT="$code_skills_root" \
+        AGENTSTART_NPX_BIN="$root/tests/fixtures/npx" \
+        AGENTSTART_TEST_HOOK_EXIT=9 \
         "$root/scripts/sync-skills" 2>&1
 )
 hook_failure_status=$?
@@ -309,9 +309,9 @@ printf '%s\n' "$hook_failure" | grep -F 'agentdemo post-sync hook failed' >/dev/
 # Orca step.
 set +e
 scan_failure=$(
-    AGENTDOTS_CODE_ROOT="$code_skills_root" \
-        AGENTDOTS_NPX_BIN="$root/tests/fixtures/npx" \
-        AGENTDOTS_TEST_NPX_LOCAL_EXIT=9 \
+    AGENTSTART_CODE_ROOT="$code_skills_root" \
+        AGENTSTART_NPX_BIN="$root/tests/fixtures/npx" \
+        AGENTSTART_TEST_NPX_LOCAL_EXIT=9 \
         "$root/scripts/sync-skills" 2>&1
 )
 scan_failure_status=$?
@@ -324,9 +324,9 @@ printf '%s\n' "$scan_failure" | grep -F 'agentdemo' >/dev/null \
 # A failure on the Orca step itself must also propagate, before any scanning.
 set +e
 orca_failure_output=$(
-    AGENTDOTS_CODE_ROOT="$code_skills_root" \
-        AGENTDOTS_NPX_BIN="$root/tests/fixtures/npx" \
-        AGENTDOTS_TEST_NPX_EXIT=7 \
+    AGENTSTART_CODE_ROOT="$code_skills_root" \
+        AGENTSTART_NPX_BIN="$root/tests/fixtures/npx" \
+        AGENTSTART_TEST_NPX_EXIT=7 \
         "$root/scripts/sync-skills" 2>&1
 )
 orca_failure_status=$?
@@ -342,15 +342,15 @@ fi
 
 # The installation plan embeds the skill sync's own plan, pointed at the
 # fixture tree so the asserted lines are the same on every machine.
-install_plan=$(AGENTDOTS_CODE_ROOT="$code_skills_root" "$root/scripts/install.sh" --check)
+install_plan=$(AGENTSTART_CODE_ROOT="$code_skills_root" "$root/scripts/install.sh" --check)
 # shellcheck disable=SC2016 # The plan lines are asserted literally, $-signs and all.
 for required_install in \
     'curl -fsSL https://claude.ai/install.sh | bash' \
     'curl -fsSL https://chatgpt.com/codex/install.sh | CODEX_NON_INTERACTIVE=1 sh' \
     'curl -fsSL https://pi.dev/install.sh | sh  # in its own session, no controlling terminal' \
     'brew install or upgrade zig  # AgentVoice'"'"'s native duplex audio path builds against it' \
-    'brew install or upgrade llm  # an AI CLI, so Agentdots'"'"' outright — moved out of Funk'"'"'s Brewfile' \
-    'remove Agentdots-owned ~/Library/Application Support/io.datasette.llm/extra-openai-models.yaml symlink  # its extra model records are obsolete' \
+    'brew install or upgrade llm  # an AI CLI, so AgentStart'"'"'s outright — moved out of Funk'"'"'s Brewfile' \
+    'remove AgentStart-owned ~/Library/Application Support/io.datasette.llm/extra-openai-models.yaml symlink  # its extra model records are obsolete' \
     'scripts/configure-orca  # apply the Orca settings overlay; Funk'"'"'s ./install runs it via funk configure-orca' \
     'npm install --global @native-sdk/cli@0.7  # the line the native-sdk skill documents' \
     'npm install --global agent-browser@0.33.2  # Agentweb'"'"'s config.json digest-locks this exact build' \
@@ -546,17 +546,17 @@ grep -F '"$agentchats_root/scripts/install.sh" --install' scripts/install.sh >/d
 # The Funk boundary, from this side: nothing here may install a desktop cask,
 # migrate gh credentials, or grow launchd machinery — those are Funk's.
 if grep -Eq -- '--cask' scripts/install.sh scripts/sync-skills; then
-    fail "an Agentdots script crossed the Funk boundary: casks are Funk's"
+    fail "an AgentStart script crossed the Funk boundary: casks are Funk's"
 fi
 if grep -F 'oauth_token' scripts/install.sh >/dev/null; then
-    fail "an Agentdots script crossed the Funk boundary: gh migration is Funk's"
+    fail "an AgentStart script crossed the Funk boundary: gh migration is Funk's"
 fi
 # launchd is now split rather than wholly Funk's: a bare <tool>.<service> label
 # is a fleet service and this repository owns it; a reverse-DNS label is the
 # machine's and stays with Funk. The boundary that remains is the naming, so
 # what is tested is that nothing here installs a machine-shaped service.
 if grep -Eq '<string>(com|org|net)\.' config/launchd/*.plist; then
-    fail "an Agentdots launch agent used a reverse-DNS label: machine services are Funk's"
+    fail "an AgentStart launch agent used a reverse-DNS label: machine services are Funk's"
 fi
 # The updater path stays unattended-safe: sync-skills runs every six hours with
 # no sudo and no service restarts, so it must never reach launchd.
@@ -579,7 +579,7 @@ for template in config/launchd/*.plist; do
     # The marker is what lets the installer tell its own service from a
     # stranger's, so a template whose marker does not match its own file name
     # would either be refused forever or adopt something it should not.
-    grep -Fq "agentdots-installer-owned: $label.v1" "$template" \
+    grep -Fq "agentstart-installer-owned: $label.v1" "$template" \
         || fail "template is missing or misnaming its ownership marker: $template"
     grep -Fq "<string>$label</string>" "$template" \
         || fail "template Label does not match its file name: $template"

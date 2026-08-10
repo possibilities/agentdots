@@ -1,15 +1,15 @@
-# Agentdots context
+# AgentStart context
 
 **The fleet** — the agent apps in `~/code` whose checkouts are named
 `agent*` — `agentguidance` carries the general skills — plus `cass` from
 `agentchats`.
 Each fleet repo owns its own hardened installer and exports its own skills;
-Agentdots invokes contracts and never reaches inside a sibling checkout.
+AgentStart invokes contracts and never reaches inside a sibling checkout.
 _Avoid_: suite, monorepo, workspace.
 
 **The boundary rubric** — the one-sentence ownership test between this
 repository and Funk: depended on by or deeply related to the fleet →
-Agentdots; the machine itself (Homebrew, Stow, launchd, macOS settings,
+AgentStart; the machine itself (Homebrew, Stow, launchd, macOS settings,
 account migration) → Funk. Recorded with its case law in the wiki
 (`agentwiki get funk-boundary`). _Avoid_: split, refactor, migration
 (those name the event; the rubric names the rule).

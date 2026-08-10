@@ -2,12 +2,12 @@
 
 set -u
 
-if [ -n "${AGENTDOTS_TEST_NPX_LOG:-}" ]; then
+if [ -n "${AGENTSTART_TEST_NPX_LOG:-}" ]; then
     {
         printf 'npx-stub'
         printf ' <%s>' "$@"
         printf '\n'
-    } >>"$AGENTDOTS_TEST_NPX_LOG"
+    } >>"$AGENTSTART_TEST_NPX_LOG"
 fi
 
 # A local-path `skills add` is the per-checkout scan; a URL add is an external
@@ -16,7 +16,7 @@ fi
 if [ "${1:-}" = "--yes" ] && [ "${2:-}" = skills ] && [ "${3:-}" = add ]; then
     case "${4:-}" in
         /*)
-            exit "${AGENTDOTS_TEST_NPX_LOCAL_EXIT:-${AGENTDOTS_TEST_NPX_EXIT:-0}}"
+            exit "${AGENTSTART_TEST_NPX_LOCAL_EXIT:-${AGENTSTART_TEST_NPX_EXIT:-0}}"
             ;;
     esac
 fi
@@ -50,4 +50,4 @@ esac
 
 # Callers that need to see a failing skills tool set this; everything else gets
 # the successful path above regardless of which branch matched.
-exit "${AGENTDOTS_TEST_NPX_EXIT:-0}"
+exit "${AGENTSTART_TEST_NPX_EXIT:-0}"

@@ -1,7 +1,7 @@
 #!/bin/bash
 # Claude Code status line — the fleet statusline's claude renderer.
 #
-# Agentdots owns this file; ~/.claude/statusline.sh links at it and
+# AgentStart owns this file; ~/.claude/statusline.sh links at it and
 # scripts/install-statusline points Claude's settings.json here. The pi
 # renderer beside it draws the same fields in the same order from pi's
 # extension API; codex has no custom renderer, so the installer picks the

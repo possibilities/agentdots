@@ -1,8 +1,8 @@
-# Agentdots agent guidance
+# AgentStart agent guidance
 
 ## Repository context
 
-- `~/code/agentdots` owns AI-toolchain installation for this machine. Funk
+- `~/code/agentstart` owns AI-toolchain installation for this machine. Funk
   (`~/code/funk`) owns the machine itself and invokes this checkout; the
   rubric and its case law live in the wiki (`agentwiki get funk-boundary`).
   When a change straddles the boundary, decide with the rubric, then record
@@ -12,7 +12,7 @@
   without exception — including `~/code/agentguidance`, the general guidance
   skills and their renderer — plus `~/code/funk` and `~/code/codex-swap`,
   the first-party account-swapping launcher for codex and pi. Each fleet
-  repo owns its own hardened installer and exports its own skills; Agentdots
+  repo owns its own hardened installer and exports its own skills; AgentStart
   invokes contracts, it does not reach inside — but it decides that every
   one of them is installed. `install-agent-clis` runs each checkout's own
   installer, and `config/launchd/` defines every fleet service, because a

@@ -58,7 +58,7 @@ EOF
 }
 
 die() {
-    printf 'Agentdots statusline: %s\n' "$*" >&2
+    printf 'AgentStart statusline: %s\n' "$*" >&2
     exit 1
 }
 
@@ -87,9 +87,9 @@ install_claude_statusline() {
     [ -e "$settings" ] || printf '{}\n' >"$settings"
     jq --arg command "$target" \
         '.statusLine = {"type": "command", "command": $command}' \
-        "$settings" >"$settings.agentdots-tmp" \
+        "$settings" >"$settings.agentstart-tmp" \
         || die "claude settings are not valid JSON: $settings"
-    mv -- "$settings.agentdots-tmp" "$settings"
+    mv -- "$settings.agentstart-tmp" "$settings"
     printf 'Installed the claude statusline: %s.\n' "$target"
 }
 
@@ -98,7 +98,7 @@ install_claude_statusline() {
 # sitting beside it.
 install_pi_statusline() {
     local source="$source_dir/pi-statusline.ts"
-    local target="$HOME/.pi/agent/extensions/agentdots-statusline.ts"
+    local target="$HOME/.pi/agent/extensions/agentstart-statusline.ts"
 
     [ -s "$source" ] || die "pi renderer is missing or empty: $source"
     if [ ! -L "$target" ] && [ -s "$target" ]; then
@@ -193,7 +193,7 @@ if [ "$check_only" -eq 1 ]; then
 Fleet statusline:
   ln -sfn config/statusline/claude-statusline.sh ~/.claude/statusline.sh  # forwards the payload to Orca's sink before drawing
   set .statusLine in ~/.claude/settings.json  # Orca reinstalls its own entry on update; rerun to restore
-  ln -sfn config/statusline/pi-statusline.ts ~/.pi/agent/extensions/agentdots-statusline.ts  # pi has a footer, not a status line
+  ln -sfn config/statusline/pi-statusline.ts ~/.pi/agent/extensions/agentstart-statusline.ts  # pi has a footer, not a status line
   set [tui] status_line in ~/.codex/config.toml  # codex renders its own bar; only the item list is ours
     $CODEX_STATUS_LINE_ITEMS
 EOF

@@ -14,12 +14,12 @@
 set -euo pipefail
 
 die() {
-    printf 'Agentdots agentbus adapters installer: %s\n' "$*" >&2
+    printf 'AgentStart agentbus adapters installer: %s\n' "$*" >&2
     exit 1
 }
 
 note() {
-    printf 'Agentdots agentbus adapters installer: %s\n' "$*"
+    printf 'AgentStart agentbus adapters installer: %s\n' "$*"
 }
 
 [ "$#" -eq 0 ] || {

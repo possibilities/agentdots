@@ -1,6 +1,6 @@
 // Pi status line — the fleet statusline's pi renderer.
 //
-// Agentdots owns this file; ~/.pi/agent/extensions/agentdots-statusline.ts
+// AgentStart owns this file; ~/.pi/agent/extensions/agentstart-statusline.ts
 // links at it. It draws the same fields in the same order as the claude
 // renderer beside it, minus the two pi cannot know: Anthropic subscription
 // rate limits, and which account a balanced launch picked (codex-swap pins

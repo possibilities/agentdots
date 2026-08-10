@@ -11,7 +11,7 @@ usage() {
 Usage: scripts/install.sh [--install|--check]
 
 Install the AI command-line tools, harness configuration, and agent skills
-owned by Agentdots. Funk's ./install invokes this after converging Homebrew
+owned by AgentStart. Funk's ./install invokes this after converging Homebrew
 and the AI desktop applications; it is also safe to run standalone.
 
 Options:
@@ -21,7 +21,7 @@ EOF
 }
 
 die() {
-    printf 'Agentdots installer: %s\n' "$*" >&2
+    printf 'AgentStart installer: %s\n' "$*" >&2
     exit 1
 }
 
@@ -79,7 +79,7 @@ configure_shadcn_mcp() {
     claude mcp add --scope user shadcn -- npx shadcn@latest mcp
 }
 
-# Agentdots owns the shared home guidance file: ~/AGENTS.md links at
+# AgentStart owns the shared home guidance file: ~/AGENTS.md links at
 # prompts/AGENTS.md, which stays deliberately empty — global advice belongs
 # in the extension prompts below, rendered into the collab and build skills,
 # not in a file loaded into every session. Claude Code reads only CLAUDE.md,
@@ -124,14 +124,14 @@ remove_retired_llm_config() {
 
     if [ -L "$target" ] && [ "$(readlink "$target")" = "$retired_source" ]; then
         rm -- "$target"
-        printf 'Removed retired Agentdots-owned llm model configuration: %s.\n' "$target"
+        printf 'Removed retired AgentStart-owned llm model configuration: %s.\n' "$target"
     elif [ -e "$target" ] || [ -L "$target" ]; then
         printf 'Leaving independent llm model configuration untouched: %s.\n' "$target"
     fi
 }
 
 # The voice orchestrator's doctrine and server configuration are fleet
-# guidance, so Agentdots owns them: prompts/agentvoice/ is the source of
+# guidance, so AgentStart owns them: prompts/agentvoice/ is the source of
 # truth and ~/.config/agentvoice is per-file links into this checkout. The
 # filenames — ORCHESTRATOR.md, ORCHESTRATOR_SESSION_START.md, server.json —
 # are AgentVoice's discovery contract (~/code/agentvoice/docs/field-guide.md
@@ -160,7 +160,7 @@ link_agentvoice_config() {
     done
 }
 
-# The operator extension prompts are cross-project guidance, so Agentdots
+# The operator extension prompts are cross-project guidance, so AgentStart
 # owns them: prompts/agentguidance/ here is the source of truth, and
 # ~/.config/agentguidance is links into this checkout. Agentguidance's
 # renderer reads that directory when composing the collab and build skills,
@@ -219,7 +219,7 @@ Command-line tools:
   curl -fsSL https://chatgpt.com/codex/install.sh | CODEX_NON_INTERACTIVE=1 sh
   curl -fsSL https://pi.dev/install.sh | sh  # in its own session, no controlling terminal
   brew install or upgrade zig  # AgentVoice's native duplex audio path builds against it
-  brew install or upgrade llm  # an AI CLI, so Agentdots' outright — moved out of Funk's Brewfile
+  brew install or upgrade llm  # an AI CLI, so AgentStart's outright — moved out of Funk's Brewfile
   npm install --global @native-sdk/cli@0.7  # the line the native-sdk skill documents
   npm install --global agent-browser@0.33.2  # Agentweb's config.json digest-locks this exact build
   ln -sfn "$(command -v agent-browser)" ~/.local/bin/agent-browser  # the candidate Agentscrape resolves before PATH
@@ -235,7 +235,7 @@ Agent guidance:
   ln -sfn ~/AGENTS.md ~/.codex/AGENTS.md  # Codex skips empty guidance files
   ln -sfn prompts/agentguidance/{SYSTEM,GUIDELINES,TOOLS}.md into ~/.config/agentguidance  # the extension prompts agentguidance renders against
   ln -sfn prompts/agentvoice/{ORCHESTRATOR.md,ORCHESTRATOR_SESSION_START.md,server.json} into ~/.config/agentvoice  # the voice orchestrator's doctrine, read at server boot
-  remove Agentdots-owned ~/Library/Application Support/io.datasette.llm/extra-openai-models.yaml symlink  # its extra model records are obsolete
+  remove AgentStart-owned ~/Library/Application Support/io.datasette.llm/extra-openai-models.yaml symlink  # its extra model records are obsolete
 
 Related, not run by --install:
   scripts/configure-orca  # apply the Orca settings overlay; Funk's ./install runs it via funk configure-orca
@@ -320,7 +320,7 @@ printf 'Installing Pi with its official installer.\n'
 printf 'Installing or upgrading Zig for Native SDK packaging (intentional duplicate of Funk'\''s Brewfile).\n'
 install_or_upgrade_formula zig
 
-# llm is an AI CLI, so it is Agentdots' outright — moved out of Funk's
+# llm is an AI CLI, so it is AgentStart's outright — moved out of Funk's
 # Brewfile rather than duplicated from it.
 printf 'Installing or upgrading the llm CLI.\n'
 install_or_upgrade_formula llm
@@ -378,7 +378,7 @@ link_extension_prompts
 printf 'Linking the AgentVoice doctrine into ~/.config/agentvoice.\n'
 link_agentvoice_config
 
-printf 'Removing the retired llm model configuration if Agentdots owns it.\n'
+printf 'Removing the retired llm model configuration if AgentStart owns it.\n'
 remove_retired_llm_config
 
 # The fleet statusline is harness configuration in each CLI's own idiom, so
@@ -435,25 +435,25 @@ printf 'Verifying the installed Native SDK agent documentation helpers.\n'
 native skills list >/dev/null
 
 # The AgentVoice voice CLI is linked editable from its own checkout by its
-# cli:install contract (dependencies, sox, a global bun link). Agentdots only
+# cli:install contract (dependencies, sox, a global bun link). AgentStart only
 # invokes it; a machine without the checkout skips inside the script, so only
 # a present-but-broken checkout fails here.
 agentvoice_cli_status=0
 "$script_dir/install-agentvoice-cli" || agentvoice_cli_status=$?
 if [ "$agentvoice_cli_status" -ne 0 ]; then
-    printf 'Agentdots installer: AgentVoice CLI install failed (exit %s). Fix the reported problem, then rerun scripts/install.sh --install or scripts/install-agentvoice-cli.\n' \
+    printf 'AgentStart installer: AgentVoice CLI install failed (exit %s). Fix the reported problem, then rerun scripts/install.sh --install or scripts/install-agentvoice-cli.\n' \
         "$agentvoice_cli_status" >&2
     exit "$agentvoice_cli_status"
 fi
 
 # The agentwiki, agentboard, and agentsearch CLIs install by their own hardened
-# contract (frozen deps, ~/.local/bin symlink, deployed-SHA receipt). Agentdots
+# contract (frozen deps, ~/.local/bin symlink, deployed-SHA receipt). AgentStart
 # only invokes it; a machine without a checkout skips inside the script, so
 # only a present-but-broken checkout fails here.
 agent_clis_status=0
 "$script_dir/install-agent-clis" || agent_clis_status=$?
 if [ "$agent_clis_status" -ne 0 ]; then
-    printf 'Agentdots installer: agent CLIs install failed (exit %s). Fix the reported problem, then rerun scripts/install.sh --install or scripts/install-agent-clis.\n' \
+    printf 'AgentStart installer: agent CLIs install failed (exit %s). Fix the reported problem, then rerun scripts/install.sh --install or scripts/install-agent-clis.\n' \
         "$agent_clis_status" >&2
     exit "$agent_clis_status"
 fi
@@ -464,7 +464,7 @@ fi
 agentbus_adapters_status=0
 "$script_dir/install-agentbus-adapters" || agentbus_adapters_status=$?
 if [ "$agentbus_adapters_status" -ne 0 ]; then
-    printf 'Agentdots installer: agentbus adapters install failed (exit %s). Fix the reported problem, then rerun scripts/install.sh --install or scripts/install-agentbus-adapters.\n' \
+    printf 'AgentStart installer: agentbus adapters install failed (exit %s). Fix the reported problem, then rerun scripts/install.sh --install or scripts/install-agentbus-adapters.\n' \
         "$agentbus_adapters_status" >&2
     exit "$agentbus_adapters_status"
 fi
@@ -480,12 +480,12 @@ if [ -f "$agentchats_root/scripts/install.sh" ]; then
     agentchats_status=0
     "$agentchats_root/scripts/install.sh" --install || agentchats_status=$?
     if [ "$agentchats_status" -ne 0 ]; then
-        printf 'Agentdots installer: cass install failed (exit %s). Fix the reported problem, then rerun scripts/install.sh --install or %s/scripts/install.sh --install.\n' \
+        printf 'AgentStart installer: cass install failed (exit %s). Fix the reported problem, then rerun scripts/install.sh --install or %s/scripts/install.sh --install.\n' \
             "$agentchats_status" "$agentchats_root" >&2
         exit "$agentchats_status"
     fi
 else
-    printf 'Agentdots installer: no agentchats checkout at %s; skipping cass.\n' \
+    printf 'AgentStart installer: no agentchats checkout at %s; skipping cass.\n' \
         "$agentchats_root"
 fi
 

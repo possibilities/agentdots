@@ -3,13 +3,13 @@
 set -euo pipefail
 
 die() {
-    printf 'Agentdots AgentVoice CLI installer: %s\n' "$*" >&2
+    printf 'AgentStart AgentVoice CLI installer: %s\n' "$*" >&2
     exit 1
 }
 
 find_bun() {
-    if [ -n "${AGENTDOTS_BUN_BIN:-}" ] && [ -x "$AGENTDOTS_BUN_BIN" ]; then
-        printf '%s\n' "$AGENTDOTS_BUN_BIN"
+    if [ -n "${AGENTSTART_BUN_BIN:-}" ] && [ -x "$AGENTSTART_BUN_BIN" ]; then
+        printf '%s\n' "$AGENTSTART_BUN_BIN"
         return
     fi
     if command -v bun >/dev/null 2>&1; then
@@ -35,14 +35,14 @@ find_bun() {
 
 # AgentVoice remains its own repository and owns its editable install:
 # dependencies, environment checks (codex, sox), and linking a global
-# `agentvoice` back into the checkout with bun link. Agentdots only invokes
+# `agentvoice` back into the checkout with bun link. AgentStart only invokes
 # that contract. A machine that has not cloned the checkout is a skip, not a
 # failure; a present checkout that fails to install is a real error and
 # propagates. Rerunning is safe: every step is fix-forward and relinking
 # repoints the same global command.
 agentvoice_root="$HOME/code/agentvoice"
 if [ ! -f "$agentvoice_root/package.json" ]; then
-    printf 'Agentdots AgentVoice CLI installer: no checkout at %s; skipping.\n' \
+    printf 'AgentStart AgentVoice CLI installer: no checkout at %s; skipping.\n' \
         "$agentvoice_root"
     exit 0
 fi

@@ -3,7 +3,7 @@
 set -euo pipefail
 
 die() {
-    printf 'Agentdots agent CLIs installer: %s\n' "$*" >&2
+    printf 'AgentStart agent CLIs installer: %s\n' "$*" >&2
     exit 1
 }
 
@@ -17,7 +17,7 @@ die() {
 
 # Each project owns its own hardened installer: frozen dependency install, a
 # ~/.local/bin symlink back into the checkout, a deployed-SHA receipt, and its
-# own refusal rules for dirty trees and foreign files. Agentdots decides only
+# own refusal rules for dirty trees and foreign files. AgentStart decides only
 # that these CLIs belong on this machine. A machine that has not cloned a
 # checkout is a skip, not a failure; a present checkout that fails to install
 # is a real error and propagates. Rerunning is safe: the installers are
@@ -51,7 +51,7 @@ for tool in agentwiki agentboard agentsearch agentkeys agentbus \
     agentweb agentscrape agentbrain codex-swap agentusage agentsurface; do
     tool_root="$HOME/code/$tool"
     if [ ! -f "$tool_root/scripts/install.sh" ]; then
-        printf 'Agentdots agent CLIs installer: no checkout at %s; skipping.\n' "$tool_root"
+        printf 'AgentStart agent CLIs installer: no checkout at %s; skipping.\n' "$tool_root"
         continue
     fi
     printf 'Installing %s from %s.\n' "$tool" "$tool_root"
