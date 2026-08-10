@@ -35,7 +35,7 @@ grep -rnE 'Bun\.spawn|spawn\(|execFile' ~/code/agent*/src \
 # skill routing: one skill naming another. Verify from the surrounding
 # sentence — agentboard, agentwiki, and agentbrain each have their OWN
 # `search` subcommand that name-matches the search skill and is not it.
-grep -rn 'skill' ~/code/agent*/skills/*/SKILL.md ~/code/arthack/*/SKILL.md \
+grep -rn 'skill' ~/code/agent*/skills/*/SKILL.md \
   | grep -iE 'scrape|search|brain|board|groom|wiki|browser|chats|keys'
 
 # IPC edges spawn-greps miss: unix-socket conduits and injected env

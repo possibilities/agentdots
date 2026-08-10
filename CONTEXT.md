@@ -1,7 +1,8 @@
 # Agentdots context
 
 **The fleet** — the agent apps in `~/code` whose checkouts are named
-`agent*`, plus `arthack` (personal skills) and `cass` from `agentchats`.
+`agent*` — `agentguidance` carries the general skills — plus `cass` from
+`agentchats`.
 Each fleet repo owns its own hardened installer and exports its own skills;
 Agentdots invokes contracts and never reaches inside a sibling checkout.
 _Avoid_: suite, monorepo, workspace.
@@ -24,9 +25,10 @@ Skills install into harnesses; agentsurface shims balance their bare
 launches. _Avoid_: agent (ambiguous with the fleet apps), IDE.
 
 **Extension prompts** — the operator's `SYSTEM.md`, `GUIDELINES.md`, and
-`TOOLS.md` under `prompts/arthack/`, linked into `~/.config/arthack` and
-rendered by Art Hack into the collab/build skills. Their three names are
-Art Hack's contract; an unrecognized file renders to nothing. _Avoid_:
+`TOOLS.md` under `prompts/agentguidance/`, linked into
+`~/.config/agentguidance` and rendered by agentguidance into the
+collab/build skills. Their three names are agentguidance's contract; an
+unrecognized file renders to nothing. _Avoid_:
 config files, dotfiles.
 
 **Advertisement** — a tool's one line in `TOOLS.md` saying when to load its

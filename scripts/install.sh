@@ -164,22 +164,23 @@ link_agentvoice_config() {
     done
 }
 
-# The operator extension prompts are cross-project guidance, so Agentdots owns
-# them: prompts/arthack/ here is the source of truth, and ~/.config/arthack is
-# links into this checkout. Art Hack's renderer reads that directory when
-# composing the collab and build skills, so these links must exist before the
-# render step below. The recognized names — SYSTEM.md, GUIDELINES.md,
-# TOOLS.md — are Art Hack's contract; an unrecognized file renders to nothing.
-# An independent non-symlink file with content is preserved and reported, the
+# The operator extension prompts are cross-project guidance, so Agentdots
+# owns them: prompts/agentguidance/ here is the source of truth, and
+# ~/.config/agentguidance is links into this checkout. Agentguidance's
+# renderer reads that directory when composing the collab and build skills,
+# so these links must exist before its post-sync hook fires in sync-skills.
+# The recognized names — SYSTEM.md, GUIDELINES.md, TOOLS.md — are
+# agentguidance's contract; an unrecognized file renders to nothing. An
+# independent non-symlink file with content is preserved and reported, the
 # same conflict rule as the guidance links above.
 link_extension_prompts() {
-    local config_dir="$HOME/.config/arthack"
+    local config_dir="$HOME/.config/agentguidance"
     local name
     local source
     local target
 
     for name in SYSTEM.md GUIDELINES.md TOOLS.md; do
-        source="$repo_root/prompts/arthack/$name"
+        source="$repo_root/prompts/agentguidance/$name"
         target="$config_dir/$name"
         [ -f "$source" ] \
             || die "extension prompt source is missing: $source"
@@ -236,7 +237,7 @@ Agent guidance:
   ln -sfn prompts/AGENTS.md ~/AGENTS.md  # deliberately empty; advice belongs in the extension prompts
   ln -sfn ~/AGENTS.md ~/.claude/CLAUDE.md  # Claude Code reads CLAUDE.md, not AGENTS.md
   ln -sfn ~/AGENTS.md ~/.codex/AGENTS.md  # Codex skips empty guidance files
-  ln -sfn prompts/arthack/{SYSTEM,GUIDELINES,TOOLS}.md into ~/.config/arthack  # the extension prompts Art Hack renders against
+  ln -sfn prompts/agentguidance/{SYSTEM,GUIDELINES,TOOLS}.md into ~/.config/agentguidance  # the extension prompts agentguidance renders against
   ln -sfn prompts/agentvoice/{ORCHESTRATOR.md,ORCHESTRATOR_SESSION_START.md,server.json} into ~/.config/agentvoice  # the voice orchestrator's doctrine, read at server boot
   ln -sfn config/llm/extra-openai-models.yaml into ~/Library/Application Support/io.datasette.llm  # llm's model configuration
 
@@ -252,8 +253,6 @@ Agent skills:
   npx --yes skills add https://github.com/vercel/ai-elements --agent codex claude-code pi --skill ai-elements --global --yes
   npx --yes skills add https://github.com/shadcn/ui --agent codex claude-code pi --skill shadcn --global --yes
   npx --yes skills add https://github.com/vercel-labs/native --agent codex claude-code pi --skill native-sdk --global --yes
-  npx --yes skills add "$HOME/code/arthack" --agent codex claude-code pi --skill collab build resource-create resource-update story --global --yes
-  "$HOME/code/arthack/scripts/render"
 EOF
     "$script_dir/sync-skills" --check
     if [ -f "$HOME/code/agentchats/scripts/install.sh" ]; then
@@ -264,36 +263,6 @@ fi
 
 [ "$(uname -s)" = Darwin ] || die "macOS is required"
 [ "$(id -u)" -ne 0 ] || die "run as the target user, not root"
-
-# Art Hack keeps root-level skill directories and a render contract, so it
-# stays explicit rather than joining the agent* scan. Like every other
-# checkout-backed tool, a machine that has not cloned it is a skip, not a
-# failure — but a present checkout missing any piece of its contract is
-# broken and dies, because installing its skills without the pieces below
-# ships them broken.
-art_hack_root="$HOME/code/arthack"
-art_hack_present=0
-if [ -d "$art_hack_root" ]; then
-    art_hack_present=1
-    for art_hack_skill in collab build; do
-        [ -f "$art_hack_root/$art_hack_skill/SKILL.md" ] \
-            || die "Art Hack skill source is missing: $art_hack_root/$art_hack_skill/SKILL.md"
-        [ -f "$art_hack_root/$art_hack_skill/agents/openai.yaml" ] \
-            || die "Art Hack skill manifest is missing: $art_hack_root/$art_hack_skill/agents/openai.yaml"
-    done
-    for art_hack_skill in resource-create resource-update story; do
-        [ -f "$art_hack_root/$art_hack_skill/SKILL.md" ] \
-            || die "Art Hack skill source is missing: $art_hack_root/$art_hack_skill/SKILL.md"
-        [ -f "$art_hack_root/$art_hack_skill/agents/openai.yaml" ] \
-            || die "Art Hack skill manifest is missing: $art_hack_root/$art_hack_skill/agents/openai.yaml"
-        # The skills installer ships only each skill directory, so the shared
-        # resource manifest schema must resolve inside both of them.
-        [ -f "$art_hack_root/$art_hack_skill/MANIFEST.md" ] \
-            || die "Art Hack resource schema is missing: $art_hack_root/$art_hack_skill/MANIFEST.md"
-    done
-    [ -x "$art_hack_root/scripts/render" ] \
-        || die "Art Hack skill renderer is missing: $art_hack_root/scripts/render"
-fi
 
 brew_bin=$(find_brew) || die "Homebrew is not installed"
 brew_prefix=$("$brew_bin" --prefix)
@@ -406,7 +375,7 @@ configure_shadcn_mcp
 printf 'Linking the shared agent guidance for Claude Code and Codex.\n'
 link_agent_guidance
 
-printf 'Linking the operator extension prompts into ~/.config/arthack.\n'
+printf 'Linking the operator extension prompts into ~/.config/agentguidance.\n'
 link_extension_prompts
 
 printf 'Linking the AgentVoice doctrine into ~/.config/agentvoice.\n'
@@ -459,27 +428,6 @@ npx --yes skills add https://github.com/vercel-labs/native \
     --skill native-sdk \
     --global --yes
 
-if [ "$art_hack_present" -eq 1 ]; then
-    printf 'Synchronizing the personal Art Hack agent skills.\n'
-    npx --yes skills add "$art_hack_root" \
-        --agent codex claude-code pi \
-        --skill collab build resource-create resource-update story \
-        --global --yes
-
-    # The skills installer ships the raw templates, so rendering must always
-    # follow it: Art Hack's renderer replaces each shared SKILL.md with the
-    # template composed with the operator's extension prompts from
-    # ~/.config/arthack, and the per-agent links keep resolving to that
-    # artifact.
-    printf 'Rendering the Art Hack skills with their extension prompts.\n'
-    command -v bun >/dev/null 2>&1 \
-        || die "bun is required to render the Art Hack skills"
-    "$art_hack_root/scripts/render"
-else
-    printf 'Agentdots installer: no Art Hack checkout at %s; skipping its skills and render.\n' \
-        "$art_hack_root"
-fi
-
 printf 'Verifying the installed Native SDK agent documentation helpers.\n'
 native skills list >/dev/null
 
@@ -527,13 +475,12 @@ else
         "$agentchats_root"
 fi
 
-# Every other agent tool publishes its skills by convention — skills/<name>/
+# Every agent tool publishes its skills by convention — skills/<name>/
 # inside a checkout named agent* — so they are discovered rather than listed
 # here, and a tool that adds or renames a skill needs no edit in this file.
-# That includes this checkout's own skills. The explicit Art Hack lines above
-# stay explicit because they are not that convention: Art Hack keeps
-# root-level skill directories and must be rendered against the operator's
-# extension prompts afterwards. sync-skills also refreshes the Orca harness
-# skills; the Orca application itself is Funk's, installed as a Homebrew cask
-# beside the other AI desktop applications.
+# That includes this checkout's own skills and agentguidance's, whose
+# post-sync hook re-renders the templates the scan ships against the
+# operator extension prompts linked above. sync-skills also refreshes the
+# Orca harness skills; the Orca application itself is Funk's, installed as
+# a Homebrew cask beside the other AI desktop applications.
 "$script_dir/sync-skills"

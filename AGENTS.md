@@ -8,8 +8,9 @@
   When a change straddles the boundary, decide with the rubric, then record
   the call in that page if it sets precedent. Every path here resolves from
   `$HOME` — nothing may assume a particular account name.
-- The fleet lives beside this checkout: `~/code/agent*` plus `~/code/arthack`
-  (personal skills) and `~/code/funk`. Each fleet repo owns its own hardened
+- The fleet lives beside this checkout: `~/code/agent*` — including
+  `~/code/agentguidance`, the general guidance skills and their renderer —
+  and `~/code/funk`. Each fleet repo owns its own hardened
   installer and exports its own skills; Agentdots invokes contracts, it does
   not reach inside.
 
@@ -18,7 +19,7 @@
 Every durable AI-stack change belongs in this repository and converges by
 rerunning `scripts/install.sh --install`. Do not hand-configure the live
 machine, and do not grow a second installer or synchronization path here,
-in Funk, or in `~/code/arthack`.
+in Funk, or in `~/code/agentguidance`.
 
 The external interface is exactly `scripts/install.sh` (`--install`,
 `--check`), `scripts/sync-skills` (`--check`), and
@@ -37,7 +38,7 @@ Where things go:
 - A new fleet tool: usually nothing — the `agent*` skills scan and the
   `install-agent-clis` loop are conventions. Add the checkout to the loop
   only if it has a CLI installer.
-- An operator extension prompt edit: `prompts/arthack/`, then
+- An operator extension prompt edit: `prompts/agentguidance/`, then
   `scripts/install.sh --install` (or wait for the six-hour sync plus the
   next render) so the rendered skills pick it up.
 - A cross-project decision that belongs to no single repo: the wiki
@@ -63,6 +64,6 @@ tests/validate.sh
 
 After changing installation behavior, also run
 `scripts/install.sh --install` and compare the installed `collab` manifest
-with its Art Hack source manifest — the same convergence check Funk's
+with its agentguidance source template — the same convergence check Funk's
 guidance prescribes. `AGENTS.md` is the canonical guidance file; `CLAUDE.md`
 is a symlink to it.

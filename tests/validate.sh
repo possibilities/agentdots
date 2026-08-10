@@ -45,12 +45,12 @@ for orca_overlay in settings.json keybindings.json; do
         || fail "Orca overlay is missing or invalid JSON: config/orca/$orca_overlay"
 done
 
-# The installer links these into ~/.config/arthack and Art Hack renders every
-# skill against them, so an empty or missing prompt ships broken skills to a
-# fresh account.
+# The installer links these into ~/.config/agentguidance and agentguidance
+# renders every skill against them, so an empty or missing prompt ships
+# broken skills to a fresh account.
 for prompt in SYSTEM.md GUIDELINES.md TOOLS.md; do
-    [ -s "prompts/arthack/$prompt" ] \
-        || fail "extension prompt is missing or empty: prompts/arthack/$prompt"
+    [ -s "prompts/agentguidance/$prompt" ] \
+        || fail "extension prompt is missing or empty: prompts/agentguidance/$prompt"
 done
 
 # The AgentVoice doctrine is linked into ~/.config/agentvoice and read once
@@ -102,12 +102,14 @@ if grep -rn '/Users/' scripts prompts config skills README.md AGENTS.md CONTEXT.
 fi
 [ -s LICENSE ] || fail "public repository is missing its LICENSE"
 
-# Art Hack follows the checkout convention: absent is a skip, present but
-# incomplete dies.
-grep -F 'art_hack_present=0' scripts/install.sh >/dev/null \
-    || fail "installer no longer treats a missing Art Hack checkout as a skip"
-grep -F 'no Art Hack checkout at' scripts/install.sh >/dev/null \
-    || fail "installer does not report a skipped Art Hack checkout clearly"
+# The post-sync hook is how agentguidance's templates survive the scan:
+# sync-skills must run a participant's executable scripts/post-sync right
+# after its skills land, and a failing hook must name the project.
+# shellcheck disable=SC2016 # Match the literal hook invocation.
+grep -F '"$project/scripts/post-sync"' scripts/sync-skills >/dev/null \
+    || fail "sync-skills does not run a participant's post-sync hook"
+grep -F 'post-sync hook failed' scripts/sync-skills >/dev/null \
+    || fail "sync-skills does not propagate a failing post-sync hook"
 
 # A machine that has not cloned AgentVoice is a skip, not a failure: the CLI is
 # one of several optional checkout-backed tools and an install must not stop
@@ -218,6 +220,17 @@ for code_skills_fixture in \
     notagent/skills/x; do
     printf '# fixture skill\n' >"$code_skills_root/$code_skills_fixture/SKILL.md"
 done
+# agentdemo carries a post-sync hook (the agentguidance pattern): it must
+# appear in the plan, fire after the real sync, and fail the run when it
+# fails.
+mkdir -p "$code_skills_root/agentdemo/scripts"
+cat >"$code_skills_root/agentdemo/scripts/post-sync" <<'EOF'
+#!/bin/bash
+set -euo pipefail
+[ -z "${AGENTDOTS_TEST_HOOK_EXIT:-}" ] || exit "$AGENTDOTS_TEST_HOOK_EXIT"
+touch "$(cd -P -- "$(dirname -- "$0")/.." && pwd)/post-sync-ran"
+EOF
+chmod +x "$code_skills_root/agentdemo/scripts/post-sync"
 
 sync_plan=$(
     AGENTDOTS_CODE_ROOT="$code_skills_root" \
@@ -242,6 +255,11 @@ printf '%s\n' "$sync_plan" \
 if printf '%s\n' "$sync_plan" | grep -Eq 'agentquiet|notagent'; then
     fail "skill sync plan includes a checkout that is not a participant"
 fi
+printf '%s\n' "$sync_plan" \
+    | grep -F "\"$code_skills_root/agentdemo/scripts/post-sync\"" >/dev/null \
+    || fail "skill sync plan omits a participant's post-sync hook"
+[ ! -e "$code_skills_root/agentdemo/post-sync-ran" ] \
+    || fail "skill sync plan ran a post-sync hook instead of only printing"
 
 AGENTDOTS_CODE_ROOT="$code_skills_root" \
     AGENTDOTS_NPX_BIN="$root/tests/fixtures/npx" \
@@ -264,6 +282,23 @@ if grep -E 'agentquiet|notagent' "$code_skills_log" >/dev/null; then
 fi
 [ "$(grep -c 'skills> <add>' "$code_skills_log")" -eq 3 ] \
     || fail "skill sync did not invoke the skills tool exactly once per source"
+[ -e "$code_skills_root/agentdemo/post-sync-ran" ] \
+    || fail "skill sync did not run a participant's post-sync hook after its skills landed"
+
+# A failing hook is a failing sync, and the message names the project.
+set +e
+hook_failure=$(
+    AGENTDOTS_CODE_ROOT="$code_skills_root" \
+        AGENTDOTS_NPX_BIN="$root/tests/fixtures/npx" \
+        AGENTDOTS_TEST_HOOK_EXIT=9 \
+        "$root/scripts/sync-skills" 2>&1
+)
+hook_failure_status=$?
+set -e
+[ "$hook_failure_status" -ne 0 ] \
+    || fail "skill sync ignored a failing post-sync hook"
+printf '%s\n' "$hook_failure" | grep -F 'agentdemo post-sync hook failed' >/dev/null \
+    || fail "post-sync hook failure does not name the project to fix"
 
 # A checkout without skills is silently not a participant, but a participant
 # whose synchronization fails is a real error, and the message has to name the
@@ -325,7 +360,7 @@ for required_install in \
     'ln -sfn ~/AGENTS.md ~/.claude/CLAUDE.md  # Claude Code reads CLAUDE.md, not AGENTS.md' \
     'ln -sfn ~/AGENTS.md ~/.codex/AGENTS.md  # Codex skips empty guidance files' \
     'ln -sfn prompts/agentvoice/{ORCHESTRATOR.md,ORCHESTRATOR_SESSION_START.md,server.json} into ~/.config/agentvoice  # the voice orchestrator'"'"'s doctrine, read at server boot' \
-    'ln -sfn prompts/arthack/{SYSTEM,GUIDELINES,TOOLS}.md into ~/.config/arthack  # the extension prompts Art Hack renders against' \
+    'ln -sfn prompts/agentguidance/{SYSTEM,GUIDELINES,TOOLS}.md into ~/.config/agentguidance  # the extension prompts agentguidance renders against' \
     'npx --yes skills add https://github.com/stablyai/orca --agent codex claude-code pi --skill orca-cli orchestration computer-use --global --yes' \
     'npx --yes skills add https://github.com/vercel-labs/skills --agent codex claude-code pi --skill find-skills --global --yes' \
     'npx --yes skills add https://github.com/anthropics/skills --agent codex claude-code pi --skill frontend-design --global --yes' \
@@ -335,9 +370,8 @@ for required_install in \
     'npx --yes skills add https://github.com/vercel/ai-elements --agent codex claude-code pi --skill ai-elements --global --yes' \
     'npx --yes skills add https://github.com/shadcn/ui --agent codex claude-code pi --skill shadcn --global --yes' \
     'npx --yes skills add https://github.com/vercel-labs/native --agent codex claude-code pi --skill native-sdk --global --yes' \
-    "npx --yes skills add \"\$HOME/code/arthack\" --agent codex claude-code pi --skill collab build resource-create resource-update story --global --yes" \
     "npx --yes skills add \"$code_skills_root/agentdemo\" --agent codex claude-code pi --skill demo second --global --yes" \
-    "\"\$HOME/code/arthack/scripts/render\""; do
+    "\"$code_skills_root/agentdemo/scripts/post-sync\""; do
     printf '%s\n' "$install_plan" | grep -F "$required_install" >/dev/null \
         || fail "installation plan is missing: $required_install"
 done
@@ -371,29 +405,17 @@ for sync_invocation in \
     grep -F "$sync_invocation" scripts/install.sh >/dev/null \
         || fail "installer does not run the skill sync: $sync_invocation"
 done
-# The sync must follow the explicit lines it deliberately does not replace.
-install_sync_line=$(
-    # shellcheck disable=SC2016 # Match the literal helper invocation.
-    grep -n -F '"$script_dir/sync-skills"' scripts/install.sh \
-        | grep -v -F -- '--check' | cut -d: -f1
-)
-install_render_line=$(
-    # shellcheck disable=SC2016 # Match the literal render invocation; the
-    # string also appears in its earlier -x precondition, so the last match is
-    # the invocation itself.
-    grep -n -F '"$art_hack_root/scripts/render"' scripts/install.sh \
-        | tail -1 | cut -d: -f1
-)
-[ "$install_render_line" -lt "$install_sync_line" ] \
-    || fail "installer runs the skill sync before the explicit Art Hack lines"
-grep -F "art_hack_root=\"\$HOME/code/arthack\"" scripts/install.sh >/dev/null \
-    || fail "installer does not own the Art Hack skill source"
-grep -F "npx --yes skills add \"\$art_hack_root\"" scripts/install.sh >/dev/null \
-    || fail "installer does not synchronize the Art Hack skills"
-grep -F "for art_hack_skill in collab build; do" scripts/install.sh >/dev/null \
-    || fail "installer does not validate the collab and build skill sources"
-grep -F "\$art_hack_root/\$art_hack_skill/agents/openai.yaml" scripts/install.sh >/dev/null \
-    || fail "installer does not validate the Art Hack skill manifests"
+# Agentguidance ships through the scan like every participant; an explicit
+# line for it here would be the second synchronization path its guidance
+# forbids, and the render belongs to its post-sync hook, not to this
+# installer.
+if grep -En 'arthack|agentguidance' scripts/install.sh \
+    | grep -vF 'prompts/agentguidance' \
+    | grep -vF '.config/agentguidance' \
+    | grep -vF 'agentguidance renders' \
+    | grep -vF "agentguidance's" >/dev/null; then
+    fail "installer grew agentguidance handling beyond the extension prompts; the scan and post-sync hook own the rest"
+fi
 grep -F 'link_agent_guidance' scripts/install.sh >/dev/null \
     || fail "installer does not link the shared agent guidance"
 # shellcheck disable=SC2016 # Match the literal target paths in the script.

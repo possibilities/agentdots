@@ -68,7 +68,7 @@ flowchart LR
     dots ==>|official installers| harnesses[Claude Code / Codex / Pi]
     dots ==>|npm pin| browser[agent-browser]
     dots ==>|checkout contracts| fleet[agentvoice / agentwiki / agentboard / agentsearch / agentkeys / agentsurface / cass]
-    dots ==>|skills scan + render| skills[all agent skills + arthack]
+    dots ==>|skills scan + post-sync hooks| skills[all agent skills, agentguidance rendered]
     funk -.->|launchd services| services[agentbrain worker + share ingress / agentweb daemon / agentusage daemon]
     funk -.->|transcript vault, restic| claudeData[Claude Code transcripts]
     funk ==>|casks| apps[Claude.app / ChatGPT.app / Orca.app]
@@ -93,7 +93,7 @@ flowchart LR
         keys
     end
 
-    subgraph arthackSkills [arthack skills]
+    subgraph guidanceSkills [agentguidance skills]
         resource[resource-create / resource-update] -.->|built on| brainCli[agentbrain CLI]
         story -.->|publishes via| wikiCli[agentwiki CLI]
     end
@@ -102,7 +102,8 @@ flowchart LR
 ```
 
 The TOOLS.md node is the widest fan-out in the fleet and this repository is
-its origin: `arthack/scripts/render` splices `prompts/arthack/TOOLS.md`
+its origin: `agentguidance/scripts/render` splices
+`prompts/agentguidance/TOOLS.md`
 into the collab and build skills at their `<!-- extension-prompt: TOOLS.md -->`
 markers, so those two skills route to all eight advertised tools without
 their templates naming any of them. That is why the tool-advertisement
@@ -167,8 +168,8 @@ sentence around the match, never from the name alone.
 | browser | scrape, search | fetching content is scrape; finding pages is search |
 | wiki | board, brain, chats | the durable home the others cite into. Wiki's `search` is its own subcommand, not the search skill |
 | TOOLS.md (this repo) | search, scrape, brain, browser, wiki, board, groom, chats | spliced into collab and build at render — the advertisement lines are the routing |
-| resource-create / resource-update (arthack) | brain | resources are built from and refreshed against the agentbrain index |
-| story (arthack) | wiki | publishes the finished narrative through agentwiki |
+| resource-create / resource-update (agentguidance) | brain | resources are built from and refreshed against the agentbrain index |
+| story (agentguidance) | wiki | publishes the finished narrative through agentwiki |
 
 ## Checked and absent
 

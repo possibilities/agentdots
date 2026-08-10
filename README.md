@@ -16,8 +16,9 @@ in, stated plainly, rather than generalized away.
 
 What to expect if you are not that operator: everything resolves from
 `$HOME` (no account name is assumed), the platform is macOS, and the
-installers drive sibling checkouts under `~/code` — the agent* fleet,
-`arthack`, and `funk`, which calls in from the machine side. A checkout you
+installers drive sibling checkouts under `~/code` — the agent* fleet
+(including `agentguidance`, the general skills) and `funk`, which calls in
+from the machine side. A checkout you
 do not have is a skip, not a failure; a vendor CLI installs by its official
 installer, which reaches the network. Run
 `scripts/install.sh --check` to see the full plan before believing any of
@@ -27,9 +28,10 @@ this.
 
 - `scripts/` — the installers Funk invokes; the whole external interface.
 - `prompts/` — the operator guidance the installer links into the home:
-  `arthack/` (the extension prompts — `SYSTEM.md`, `GUIDELINES.md`,
-  `TOOLS.md` — that Art Hack renders into the collab/build skills, linked
-  into `~/.config/arthack/`), `agentvoice/` (the voice orchestrator's
+  `agentguidance/` (the extension prompts — `SYSTEM.md`, `GUIDELINES.md`,
+  `TOOLS.md` — that agentguidance renders into the collab/build skills,
+  linked into `~/.config/agentguidance/`), `agentvoice/` (the voice
+  orchestrator's
   doctrine and `server.json`, linked into `~/.config/agentvoice/` and read
   at server boot), and `AGENTS.md` (the deliberately empty shared home
   guidance at `~/AGENTS.md` — advice belongs in the extension prompts).
@@ -37,13 +39,13 @@ this.
   configuration, linked into llm's application-support directory) and
   `orca/` (the settings and keybindings overlay `scripts/configure-orca`
   merges — never links — into Orca's live state).
+- `skills/` — skills this checkout exports through the agent* scan, like any
+  other fleet repo. `fleet/` is the dependency map of the whole ecosystem.
+- `tests/validate.sh` — the assertions; run it before committing.
 
 Cross-project decisions and policy live in the wiki, not here: the
 `funk-boundary` and `tool-advertisement-policy` pages
 (`agentwiki get <slug>`).
-- `skills/` — skills this checkout exports through the agent* scan, like any
-  other fleet repo. `fleet/` is the dependency map of the whole ecosystem.
-- `tests/validate.sh` — the assertions; run it before committing.
 
 ## Contracts
 
@@ -55,8 +57,7 @@ skip-versus-fail semantics are load-bearing:
   Funk's Brewfile); the pinned `@native-sdk/cli@0.7` and `agent-browser`
   npm globals; the shadcn MCP registration for Codex and Claude Code; the
   `~/.claude/CLAUDE.md` / `~/.codex/AGENTS.md` guidance links; the extension
-  prompt links; the external skill packs; the Art Hack skills plus their
-  render; the AgentVoice CLI, the
+  prompt links; the external skill packs; the AgentVoice CLI, the
   agentwiki/agentboard/agentsearch/agentkeys/agentsurface CLIs, and cass —
   each by its own checkout's contract, skipping checkouts that are absent —
   and finally `sync-skills`. Funk's `./install` calls this and
@@ -90,6 +91,7 @@ tests/validate.sh
 A new fleet tool usually needs no edit at all: name the checkout `agent*`,
 export `skills/<name>/SKILL.md`, give it `scripts/install.sh --install` if it
 has a CLI, and the scan and `scripts/install-agent-clis` conventions pick it
-up. Whether to advertise it in `prompts/arthack/TOOLS.md` is a decision —
+up. Whether to advertise it in `prompts/agentguidance/TOOLS.md` is a
+decision —
 make it deliberately, per the `tool-advertisement-policy` wiki page
 (`agentwiki get tool-advertisement-policy`).
