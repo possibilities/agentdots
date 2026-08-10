@@ -16,8 +16,8 @@ die() {
 [ "$(id -u)" -ne 0 ] || die "run as the target user, not root"
 
 # Bare `claude`, `codex`, and `pi` become balanced launches: each shim execs
-# `agentsurface --x-harness <harness> "$@"` — the harness arrives as the
-# --x-harness value (agentsurface ADR 0011), and every non---x-* token
+# `agentsurface --x-harness <harness> "$@"` — --x-harness names the harness
+# and nothing else (agentsurface ADR 0018), and every non---x-* token
 # forwards verbatim — which resolves the catalog's model/effort defaults,
 # asks agentusage for the account, and wraps the real binary in the swap
 # tool (ADR 0003/0004). Managed launches carry AGENTSURFACE_LAUNCH=1 and
