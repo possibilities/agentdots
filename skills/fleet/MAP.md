@@ -26,6 +26,7 @@ flowchart LR
         surface[agentsurface]
         usage[agentusage]
         swap[codex-swap]
+        orca[Orca CLI / runtime]
     end
 
     subgraph research [Research pipeline]
@@ -43,6 +44,7 @@ flowchart LR
     surface -->|balance claude/codex --json| usage
     surface -->|run / resume / pi run --claim| swap
     surface -->|managed launch| claude
+    surface -->|surface backend: repo / worktree / terminal --json| orca
     swap --> codex
     swap --> pi
     usage -->|snapshot --json| swap
@@ -127,6 +129,7 @@ sentence around the match, never from the name alone.
 | agentsurface | agentusage | `agentusage balance claude\|codex --json` picks the account for a balanced launch | `agentsurface/src/balance.ts:64,124` |
 | agentsurface | codex-swap | wraps codex as `codex-swap run`/`resume <id>`, pi as `codex-swap pi run` | `agentsurface/src/balance.ts:167-180` |
 | agentsurface | claude / codex / pi | launches the real harness binary (shims make bare commands balanced; `AGENTSURFACE_LAUNCH=1` breaks recursion) | `agentsurface/src/launch.ts:27`; shims in `agentdots/scripts/install-agentsurface-shims` |
+| agentsurface | Orca | optional surface backend: checks runtime health, resolves or creates repos/worktrees, and creates a terminal containing the finished harness command; an Orca refusal fails closed instead of launching locally | `agentsurface/src/surface-orca.ts:43-51,109-119,164-170,181-202,336-350` |
 | agentusage | codex-swap | `codex-swap snapshot --json` observes codex accounts; paced polling | `agentusage/src/codex/observe.ts:221`, `daemon.ts:19` |
 | agentvoice | codex | spawns app-server children and `codex login --device-auth` | `agentvoice/src/main.ts:253`, `src/server/appserver.ts:89,160` |
 | agentvoice | agentusage → codex-swap | `agentusage balance codex`, falling back to `codex-swap select`, per spawn | `agentvoice/src/server/config-schema.ts:53`, `src/server/accounts.ts:289` |
@@ -185,4 +188,5 @@ does not re-suspect them:
 Last verified: 2026-08-09, twice — an initial first-hand sweep, then an
 independent second sweep that removed two false routing edges (own-`search`
 subcommands), added the conduit and TOOLS.md edges, and re-confirmed both
-absences above.
+absences above. The Orca surface-backend edge was then added from its landed
+adapter and contract tests.
