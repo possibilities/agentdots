@@ -1,0 +1,57 @@
+#!/bin/bash
+#
+# Install the agentbus per-harness receive adapters from the ~/code/agentbus
+# checkout: the pi extension into the globally installed pi, and the Claude
+# Code plugin (an always-on monitor holding the receive stream) as a
+# skills-directory plugin. The checkout ships the code; this script decides
+# that it is loaded on this machine — the same split as the statusline
+# extension and the launch agents. The /bus skill itself needs nothing here:
+# sync-skills already syncs every agent* checkout's skills/ directory.
+#
+# Rerunnable: symlinks converge with ln -sfn; a missing checkout is a skip,
+# not a failure, matching install-agent-clis.
+
+set -euo pipefail
+
+die() {
+    printf 'Agentdots agentbus adapters installer: %s\n' "$*" >&2
+    exit 1
+}
+
+note() {
+    printf 'Agentdots agentbus adapters installer: %s\n' "$*"
+}
+
+[ "$#" -eq 0 ] || {
+    printf 'Usage: install-agentbus-adapters\n' >&2
+    exit 64
+}
+
+checkout="$HOME/code/agentbus"
+if [ ! -d "$checkout" ]; then
+    note "no checkout at $checkout; skipping."
+    exit 0
+fi
+
+pi_extension_source="$checkout/extensions/pi/agentbus.ts"
+pi_extension_target="$HOME/.pi/agent/extensions/agentbus.ts"
+if [ -f "$pi_extension_source" ]; then
+    mkdir -p "$(dirname "$pi_extension_target")"
+    ln -sfn "$pi_extension_source" "$pi_extension_target"
+    note "linked pi extension: $pi_extension_target"
+else
+    die "checkout present but pi extension missing: $pi_extension_source"
+fi
+
+claude_plugin_source="$checkout/plugins/claude"
+claude_plugin_target="$HOME/.claude/skills/agentbus"
+if [ -f "$claude_plugin_source/.claude-plugin/plugin.json" ]; then
+    mkdir -p "$(dirname "$claude_plugin_target")"
+    if [ -e "$claude_plugin_target" ] && [ ! -L "$claude_plugin_target" ]; then
+        die "refusing to replace non-symlink $claude_plugin_target"
+    fi
+    ln -sfn "$claude_plugin_source" "$claude_plugin_target"
+    note "linked claude plugin: $claude_plugin_target"
+else
+    die "checkout present but claude plugin missing: $claude_plugin_source"
+fi

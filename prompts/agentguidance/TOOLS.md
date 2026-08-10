@@ -27,3 +27,7 @@ say when.
 - `chats` — every past coding-agent session on this machine: load when a
   bug, error, or decision feels familiar, or to reconstruct what an
   earlier session did.
+- `bus` — messaging other live agent sessions, across harnesses: an
+  inbound `<agentbus>` message, "tell/ask the other session", work that
+  spans live sessions. Your receive channel is already open — load
+  before sending or answering on the bus, and never poll.

@@ -458,6 +458,17 @@ if [ "$agent_clis_status" -ne 0 ]; then
     exit "$agent_clis_status"
 fi
 
+# The agentbus per-harness receive adapters (pi extension, claude plugin)
+# load from the checkout; the /bus skill flows through the skill scan and the
+# daemon through the launch agents, so this step is only the two links.
+agentbus_adapters_status=0
+"$script_dir/install-agentbus-adapters" || agentbus_adapters_status=$?
+if [ "$agentbus_adapters_status" -ne 0 ]; then
+    printf 'Agentdots installer: agentbus adapters install failed (exit %s). Fix the reported problem, then rerun scripts/install.sh --install or scripts/install-agentbus-adapters.\n' \
+        "$agentbus_adapters_status" >&2
+    exit "$agentbus_adapters_status"
+fi
+
 # cass — the coding-agent session search CLI — installs by the agentchats
 # checkout's own contract: the upstream checksummed release plus the index
 # over the local Claude Code, Codex, and Pi session stores. Its chats skill

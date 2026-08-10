@@ -521,7 +521,7 @@ grep -F 'exit "$agent_clis_status"' scripts/install.sh >/dev/null \
 # (whose worker spawns the agentscrape children that ask agentweb's conduit).
 agent_cli_order=$(tr '\n' ' ' <scripts/install-agent-clis | tr -s ' ')
 case "$agent_cli_order" in
-    *"for tool in agentwiki agentboard agentsearch agentkeys \\ agentweb agentscrape agentbrain agentusage agentsurface"*) ;;
+    *"for tool in agentwiki agentboard agentsearch agentkeys agentbus \\ agentweb agentscrape agentbrain agentusage agentsurface"*) ;;
     *) fail "agent CLI installer changed its tool list or ordering" ;;
 esac
 # Every checkout with an installer is in the loop; a name missing from it is a

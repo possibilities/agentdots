@@ -38,7 +38,7 @@ die() {
 # Funk's, on the reasoning that a resident service is machine integration; the
 # services moved here and the commands followed, so that no checkout is
 # installed from two places.
-for tool in agentwiki agentboard agentsearch agentkeys \
+for tool in agentwiki agentboard agentsearch agentkeys agentbus \
     agentweb agentscrape agentbrain agentusage agentsurface; do
     tool_root="$HOME/code/$tool"
     if [ ! -f "$tool_root/scripts/install.sh" ]; then
