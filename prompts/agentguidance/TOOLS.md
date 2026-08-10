@@ -31,3 +31,10 @@ say when.
   inbound `<agentbus>` message, "tell/ask the other session", work that
   spans live sessions. Your receive channel is already open — load
   before sending or answering on the bus, and never poll.
+
+Two bare commands, no skill behind them — `--help` is the runbook.
+
+- `terminal-notifier` — reach the human when they are away from the
+  terminal.
+- `gog` — the operator's Google account: mail first, the rest of Google
+  when it comes up.

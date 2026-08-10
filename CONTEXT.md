@@ -31,8 +31,9 @@ collab/build skills. Their three names are agentguidance's contract; an
 unrecognized file renders to nothing. _Avoid_:
 config files, dotfiles.
 
-**Advertisement** — a tool's one line in `TOOLS.md` saying when to load its
-skill. A line is attention spent in every session and has to earn it; the
+**Advertisement** — a tool's one line in `TOOLS.md` saying when to reach
+for it: load its skill, or run its `--help` where it has no skill. A line
+is attention spent in every session and has to earn it; the
 policy and its standing decisions live in the wiki
 (`agentwiki get tool-advertisement-policy`). _Avoid_: documentation,
 listing (an installed, unadvertised tool is still fully documented by its

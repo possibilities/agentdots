@@ -25,6 +25,7 @@
   and the docs that ship with the code.
 - Publish an artifact only when asked for one, and always through `wiki`,
   never a harness's own artifact publisher.
+- A clipboard copy leaves nothing on screen, so notify what landed there.
 - Finished work lands in main and is pushed — a worktree is where work
   happens, not where it stops. A pull request is a workflow to be asked for
   by name, not a default.
