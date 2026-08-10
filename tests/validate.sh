@@ -517,11 +517,14 @@ grep -F 'exit "$agent_clis_status"' scripts/install.sh >/dev/null \
     || fail "installer does not propagate an agent CLI installation failure"
 # The list spans two lines, so the order is checked on the joined text rather
 # than by matching one literal line. agentusage must precede agentsurface (the
-# launcher shells its balance contract), and agentweb must precede agentbrain
-# (whose worker spawns the agentscrape children that ask agentweb's conduit).
+# launcher shells its balance contract), agentweb must precede agentbrain
+# (whose worker spawns the agentscrape children that ask agentweb's conduit),
+# and codex-swap must precede agentusage so its own shim — the one carrying the
+# managed codex-multi-auth fork path — wins over the legacy shim agentusage
+# still writes.
 agent_cli_order=$(tr '\n' ' ' <scripts/install-agent-clis | tr -s ' ')
 case "$agent_cli_order" in
-    *"for tool in agentwiki agentboard agentsearch agentkeys agentbus \\ agentweb agentscrape agentbrain agentusage agentsurface"*) ;;
+    *"for tool in agentwiki agentboard agentsearch agentkeys agentbus \\ agentweb agentscrape agentbrain codex-swap agentusage agentsurface"*) ;;
     *) fail "agent CLI installer changed its tool list or ordering" ;;
 esac
 # Every checkout with an installer is in the loop; a name missing from it is a

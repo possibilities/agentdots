@@ -24,11 +24,21 @@ die() {
 # fix-forward and relinking repoints the same command.
 #
 # agentusage precedes agentsurface because the launcher shells its balance
-# contract and its installer provisions the public claude-swap fork plus the
-# codex-swap source shim. The shims installer refuses without `agentsurface`
-# on PATH, and Funk's .zshrc already prefixes the shim directory. Installing
-# the CLI does not install the shims — that stays a deliberate
-# `funk install-agentsurface-shims`.
+# contract and its installer provisions the public claude-swap fork. The shims
+# installer refuses without `agentsurface` on PATH, and Funk's .zshrc already
+# prefixes the shim directory. Installing the CLI does not install the shims —
+# that stays a deliberate `funk install-agentsurface-shims`.
+#
+# codex-swap precedes agentusage because it now owns its own command. Its
+# installer also provisions the managed codex-multi-auth fork under ~/src and
+# bakes that path into the shim, which is what lets the launchd-supervised
+# codex app-servers resolve a dependency that can host them at all — stock
+# codex-multi-auth routes `app-server` through a shadow home where a resident
+# server cannot run. agentusage still writes a codex-swap shim of its own if it
+# gets there first, but each installer refuses to overwrite the other's marker,
+# so the command converges on whichever ran last rather than flapping.
+# Retiring `install_codex_swap` from agentusage's install-providers.sh is the
+# tidy end state; until then this ordering makes codex-swap's version win.
 #
 # agentweb, agentscrape, and agentbrain are ordered along the conduit rather
 # than by any install-time requirement: agentweb serves the session conduit,
@@ -39,7 +49,7 @@ die() {
 # services moved here and the commands followed, so that no checkout is
 # installed from two places.
 for tool in agentwiki agentboard agentsearch agentkeys agentbus \
-    agentweb agentscrape agentbrain agentusage agentsurface; do
+    agentweb agentscrape agentbrain codex-swap agentusage agentsurface; do
     tool_root="$HOME/code/$tool"
     if [ ! -f "$tool_root/scripts/install.sh" ]; then
         printf 'Agentdots agent CLIs installer: no checkout at %s; skipping.\n' "$tool_root"
