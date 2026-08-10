@@ -13,7 +13,11 @@
   skills and their renderer — plus `~/code/funk` and `~/code/codex-swap`,
   the first-party account-swapping launcher for codex and pi. Each fleet
   repo owns its own hardened installer and exports its own skills; Agentdots
-  invokes contracts, it does not reach inside.
+  invokes contracts, it does not reach inside. The one exception is
+  services: every fleet launch agent is defined and installed here
+  (`config/launchd/`), because a service with two owners has them racing to
+  render it. A fleet checkout ships the code and this repository decides
+  when it runs.
 - `claude-swap` is the one fleet dependency that is not ours. Upstream is a
   third-party project, so the machine currently runs a patched fork
   (`possibilities/claude-swap`, `main`) cloned to `~/src/claude-swap` under
@@ -54,6 +58,12 @@ Where things go:
 - A new fleet tool: usually nothing — the `agent*` skills scan and the
   `install-agent-clis` loop are conventions. Add the checkout to the loop
   only if it has a CLI installer.
+- A new long-running fleet service: a template in `config/launchd/`, an
+  entry in the manifest at the top of `scripts/install-launchagents`, and
+  assertions in `tests/validate.sh`. `config/launchd/README.md` is the
+  contract — what every service shares and what is deliberately
+  per-service. Labels are bare `<tool>.<service>`; a reverse-DNS label is a
+  machine service and belongs to Funk.
 - A statusline change: `config/statusline/`, converged by
   `scripts/install-statusline`. One bar in three harness idioms, because
   that is all the harnesses offer — claude runs a render command per frame,

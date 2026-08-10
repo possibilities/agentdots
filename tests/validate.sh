@@ -16,6 +16,7 @@ scripts/sync-skills
 scripts/install-agent-clis
 scripts/install-agentvoice-cli
 scripts/install-agentsurface-shims
+scripts/install-launchagents
 scripts/configure-orca
 tests/validate.sh
 tests/fixtures/npx
@@ -31,6 +32,7 @@ if command -v shellcheck >/dev/null 2>&1; then
 fi
 
 for script in scripts/install.sh scripts/sync-skills scripts/install-agent-clis \
+    scripts/install-launchagents \
     scripts/install-agentvoice-cli scripts/install-agentsurface-shims \
     scripts/configure-orca; do
     [ -x "$script" ] || fail "installer script is not executable: $script"
@@ -531,10 +533,65 @@ fi
 if grep -F 'oauth_token' scripts/install.sh >/dev/null; then
     fail "an Agentdots script crossed the Funk boundary: gh migration is Funk's"
 fi
-# Operations, not prose: comments may name launchd context, but invoking
-# launchctl or writing a plist is machine integration and belongs to Funk.
-if grep -Eq 'launchctl|\.plist' scripts/install.sh scripts/sync-skills; then
-    fail "an Agentdots script crossed the Funk boundary: launchd is Funk's"
+# launchd is now split rather than wholly Funk's: a bare <tool>.<service> label
+# is a fleet service and this repository owns it; a reverse-DNS label is the
+# machine's and stays with Funk. The boundary that remains is the naming, so
+# what is tested is that nothing here installs a machine-shaped service.
+if grep -Eq '<string>(com|org|net)\.' config/launchd/*.plist; then
+    fail "an Agentdots launch agent used a reverse-DNS label: machine services are Funk's"
 fi
+# The updater path stays unattended-safe: sync-skills runs every six hours with
+# no sudo and no service restarts, so it must never reach launchd.
+if grep -Eq 'launchctl|\.plist' scripts/sync-skills; then
+    fail "sync-skills must stay unattended-safe: launchd restarts do not belong there"
+fi
+
+# --- the fleet launch agents -------------------------------------------------
+
+[ -x scripts/install-launchagents ] || fail "the launch agent installer is not executable"
+# shellcheck disable=SC2016 # Match the literal helper invocation in the script.
+grep -F '"$script_dir/install-launchagents" --install' scripts/install.sh >/dev/null \
+    || fail "installer does not converge the fleet launch agents"
+# shellcheck disable=SC2016 # Match the literal helper invocation in the script.
+grep -F '"$script_dir/install-launchagents" --check' scripts/install.sh >/dev/null \
+    || fail "installation plan omits the fleet launch agents"
+
+for template in config/launchd/*.plist; do
+    label=$(basename "$template" .plist)
+    # The marker is what lets the installer tell its own service from a
+    # stranger's, so a template whose marker does not match its own file name
+    # would either be refused forever or adopt something it should not.
+    grep -Fq "agentdots-installer-owned: $label.v1" "$template" \
+        || fail "template is missing or misnaming its ownership marker: $template"
+    grep -Fq "<string>$label</string>" "$template" \
+        || fail "template Label does not match its file name: $template"
+    # Every value is rendered from the manifest; a per-tool token is a leftover
+    # from the checkout this service was migrated out of.
+    if grep -Eq '__[A-Z]+_(PROGRAM|HOME|PATH|LOG)__' "$template"; then
+        fail "template still carries a per-tool token: $template"
+    fi
+    for required in '<key>RunAtLoad</key>' '<key>Umask</key>' \
+        '<key>StandardOutPath</key>' '<key>StandardErrorPath</key>'; do
+        grep -Fq "$required" "$template" \
+            || fail "template omits $required: $template"
+    done
+    grep -Fq '<string>__LOG__</string>' "$template" \
+        || fail "template does not log through the standard token: $template"
+    # A service is either resident or periodic; one of the two must say so.
+    if ! grep -Eq '<key>(KeepAlive|StartInterval)</key>' "$template"; then
+        fail "template declares neither KeepAlive nor StartInterval: $template"
+    fi
+    if command -v plutil >/dev/null 2>&1; then
+        plutil -lint "$template" >/dev/null || fail "template is not a valid plist: $template"
+    fi
+    grep -Fq "\"$label|" scripts/install-launchagents \
+        || fail "template has no manifest entry: $template"
+done
+
+# And the reverse, so a manifest entry can never name a template that is not here.
+while IFS= read -r label; do
+    [ -f "config/launchd/$label.plist" ] \
+        || fail "manifest names a service with no template: $label"
+done < <(sed -n 's/^ *"\([a-z]*\.[a-z]*\)|.*/\1/p' scripts/install-launchagents)
 
 printf 'ok\n'

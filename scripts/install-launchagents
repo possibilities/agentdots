@@ -1,0 +1,379 @@
+#!/bin/bash
+#
+# Install the fleet's launch agents.
+#
+# Every long-running service in the agent* fleet is defined by a template in
+# config/launchd/ and installed from here. The fleet checkouts ship the code;
+# this script decides when that code runs. Funk keeps its own machine services
+# under com.arthack.funk.* and its own launchd/ directory — the bare
+# <tool>.<service> label is what marks a service as the fleet's.
+#
+# config/launchd/README.md is the contract: what every service shares, what is
+# deliberately per-service, and why.
+#
+# Rerunnable: each service converges independently, a service whose tool is not
+# installed is skipped rather than failed, and a service carrying somebody
+# else's ownership marker is refused rather than replaced.
+
+set -euo pipefail
+
+check_only=0
+script_dir=$(cd -P -- "$(dirname -- "$0")" && pwd)
+repo_root=$(cd -P -- "$script_dir/.." && pwd)
+source_dir="$repo_root/config/launchd"
+
+launch_agents_dir="${AGENTDOTS_INSTALL_LAUNCH_AGENTS_DIR:-$HOME/Library/LaunchAgents}"
+bin_dir="${AGENTDOTS_INSTALL_BIN_DIR:-$HOME/.local/bin}"
+state_root="${XDG_STATE_HOME:-$HOME/.local/state}"
+launchctl_bin="${AGENTDOTS_INSTALL_LAUNCHCTL:-launchctl}"
+render_temp=""
+
+# Every service in the fleet, in install order:
+#   label | tool | program basename | log basename
+#
+# The program is a basename under bin_dir and often is not the tool's own name:
+# agentusage's daemon is agentusaged and agentweb's is agentwebd, because the
+# CLI a human runs and the process launchd supervises are different binaries.
+SERVICES=(
+    "agentbrain.worker|agentbrain|agentbrain|worker.log"
+    "agentbrain.share|agentbrain|agentbrain|share.log"
+    "agentbrain.doctor|agentbrain|agentbrain|doctor.log"
+    "agentusage.daemon|agentusage|agentusaged|daemon.log"
+    "agentweb.daemon|agentweb|agentwebd|daemon.log"
+    "agentwiki.serve|agentwiki|agentwiki|serve.log"
+)
+
+# agentwiki's two loopback origins. Named here rather than left to the CLI's
+# defaults so a resident service never moves a port because a default changed.
+AGENTWIKI_PORT="${AGENTDOTS_INSTALL_AGENTWIKI_PORT:-7777}"
+AGENTWIKI_ARTIFACT_PORT="${AGENTDOTS_INSTALL_AGENTWIKI_ARTIFACT_PORT:-7778}"
+
+usage() {
+    cat <<'EOF'
+Usage: scripts/install-launchagents [--install|--check]
+
+Install the fleet's launch agents from config/launchd/.
+
+Options:
+  --install  Install or converge every fleet service
+  --check    Print the plan without changing the system
+EOF
+}
+
+die() {
+    printf 'Agentdots launch agents: %s\n' "$*" >&2
+    exit 1
+}
+
+note() {
+    printf 'Agentdots launch agents: %s\n' "$*"
+}
+
+launchctl_available() {
+    [ "$launchctl_bin" != none ] && command -v "$launchctl_bin" >/dev/null 2>&1
+}
+
+field() {
+    printf '%s' "$1" | cut -d'|' -f"$2"
+}
+
+# launchd sources no shell rc file, so PATH has to name every directory the
+# services reach: bun's own, our bin directory, then the ordinary system set.
+service_path() {
+    local bun_dir=""
+    if command -v bun >/dev/null 2>&1; then
+        bun_dir="$(dirname -- "$(command -v bun)"):"
+    fi
+    printf '%s%s:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin' \
+        "$bun_dir" "$bin_dir"
+}
+
+# A value the operator supplied, or another installer discovered, once. Reading
+# it back out of the service we are about to replace is what keeps it from
+# being silently dropped on every reinstall — a tailnet bind address is not
+# recoverable from anything else on the machine.
+preserved_env() {
+    local label="$1" key="$2" plist="$launch_agents_dir/$1.plist"
+    [ -f "$plist" ] && [ ! -L "$plist" ] || return 0
+    command -v plutil >/dev/null 2>&1 || return 0
+    plutil -extract "EnvironmentVariables.$key" raw -o - "$plist" 2>/dev/null || true
+}
+
+# The same idea for a value that lives in ProgramArguments rather than the
+# environment: print the argument following the given flag.
+preserved_arg() {
+    local label="$1" flag="$2" plist="$launch_agents_dir/$1.plist"
+    [ -f "$plist" ] && [ ! -L "$plist" ] || return 0
+    command -v plutil >/dev/null 2>&1 || return 0
+    plutil -extract ProgramArguments json -o - "$plist" 2>/dev/null |
+        /usr/bin/python3 -c '
+import json, sys
+flag = sys.argv[1]
+try:
+    args = json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+if flag in args:
+    index = args.index(flag) + 1
+    if index < len(args):
+        sys.stdout.write(args[index])
+' "$flag" || true
+}
+
+# Extra tokens for one service, as KEY=VALUE lines. Exit 10 means "this service
+# is not installable right now" — a deliberate skip, not a failure.
+service_tokens() {
+    local label="$1"
+    case "$label" in
+        agentbrain.worker)
+            # Passed through to Agentscrape, which the worker spawns and which
+            # owns every fetch. Empty means unconfigured, and Agentscrape then
+            # extracts without an operator session rather than failing. Neither
+            # is a credential: the token is named by path and read from that
+            # 0600 file by the process that needs it. Unset preserves what is
+            # installed; set — including set to empty — is taken as given.
+            local socket token
+            if [ -n "${AGENTDOTS_INSTALL_CONDUIT_SOCKET+set}" ]; then
+                socket="$AGENTDOTS_INSTALL_CONDUIT_SOCKET"
+            else
+                socket="$(preserved_env "$label" AGENTSCRAPE_CONDUIT_SOCKET)"
+            fi
+            if [ -n "${AGENTDOTS_INSTALL_CONDUIT_TOKEN_FILE+set}" ]; then
+                token="$AGENTDOTS_INSTALL_CONDUIT_TOKEN_FILE"
+            else
+                token="$(preserved_env "$label" AGENTSCRAPE_CONDUIT_TOKEN_FILE)"
+            fi
+            printf 'CONDUIT_SOCKET=%s\n' "$socket"
+            printf 'CONDUIT_TOKEN_FILE=%s\n' "$token"
+            ;;
+        agentbrain.share)
+            # Agentbrain's ADR 0017: accepting device shares requires naming the
+            # tailnet address, and there is no default. With none supplied and
+            # none already installed, the ingress is simply not installed.
+            local host
+            if [ -n "${AGENTDOTS_INSTALL_SHARE_HOST+set}" ]; then
+                host="$AGENTDOTS_INSTALL_SHARE_HOST"
+            else
+                host="$(preserved_arg "$label" --host)"
+            fi
+            case "$host" in
+                "" | none) return 10 ;;
+                # A bind address is the operator's decision to expose a
+                # listener, so it is validated before anything is written
+                # rather than discovered by a service that starts, is refused
+                # by the CLI, and is restarted forever by KeepAlive.
+                0.0.0.0 | ::)
+                    die "refusing to supervise an any-interface share bind: $host"
+                    ;;
+                *[![:alnum:].:_-]* | -*)
+                    die "refusing unsafe share bind address: $host"
+                    ;;
+            esac
+            printf 'SHARE_HOST=%s\n' "$host"
+            ;;
+        agentusage.daemon)
+            # Pinned absolutely: the daemon shells both swap tools, and PATH
+            # alone cannot be trusted to reach uv- and nvm-managed binaries.
+            printf 'CSWAP_BIN=%s\n' "$(command -v cswap || printf '%s' "$bin_dir/cswap")"
+            printf 'CODEX_SWAP_BIN=%s\n' \
+                "$(command -v codex-swap || printf '%s' "$bin_dir/codex-swap")"
+            ;;
+        agentwiki.serve)
+            printf 'PORT=%s\n' "$AGENTWIKI_PORT"
+            printf 'ARTIFACT_PORT=%s\n' "$AGENTWIKI_ARTIFACT_PORT"
+            ;;
+    esac
+}
+
+owned_marker() {
+    printf 'agentdots-installer-owned: %s.v1' "$1"
+}
+
+# Ours, a predecessor's, somebody else's, or absent. Only a stranger is refused.
+plist_ownership() {
+    local label="$1" plist="$launch_agents_dir/$1.plist"
+    [ -e "$plist" ] || { printf 'absent'; return 0; }
+    if [ -L "$plist" ]; then printf 'foreign'; return 0; fi
+    if grep -Fq "$(owned_marker "$label")" "$plist" 2>/dev/null; then
+        printf 'ours'
+        return 0
+    fi
+    # Before this script existed, each fleet checkout installed its own service
+    # and stamped its own name. Adopting exactly that marker — same tool, same
+    # label, same version — is what centralizing here means; anything else
+    # sharing a label is still a stranger and is still refused.
+    if grep -Fq "${label%%.*}-installer-owned: $label.v1" "$plist" 2>/dev/null; then
+        printf 'adopt'
+        return 0
+    fi
+    printf 'foreign'
+}
+
+render_plist() {
+    local label="$1" program="$2" log="$3" destination="$4" tokens="$5"
+    local source="$source_dir/$label.plist"
+    [ -s "$source" ] || die "missing template: $source"
+
+    # The temporary file lives in the destination directory so the publishing
+    # rename stays on one filesystem. Cleanup hangs off EXIT rather than RETURN
+    # because every failure path here ends the script rather than returning.
+    render_temp="$(mktemp "$launch_agents_dir/.$label.plist.XXXXXX")"
+    trap 'rm -f -- "$render_temp"' EXIT
+    local temp="$render_temp"
+
+    AGENTDOTS_RENDER_TOKENS="$(
+        printf 'PROGRAM=%s\nHOME=%s\nPATH=%s\nLOG=%s\n' \
+            "$program" "$HOME" "$(service_path)" "$log"
+        printf '%s' "$tokens"
+    )" /usr/bin/python3 - "$source" "$temp" <<'PYTHON' ||
+import os
+import re
+import sys
+from xml.sax.saxutils import quoteattr
+
+source, destination = sys.argv[1], sys.argv[2]
+
+values = {}
+for line in os.environ["AGENTDOTS_RENDER_TOKENS"].split("\n"):
+    if not line:
+        continue
+    key, _, value = line.partition("=")
+    values[key] = value
+
+with open(source, encoding="utf-8") as handle:
+    rendered = handle.read()
+
+for key, value in values.items():
+    # quoteattr escapes for XML and wraps in quotes; the plist supplies its own
+    # element, so strip the wrapping and keep the escaping.
+    rendered = rendered.replace(f"__{key}__", quoteattr(value)[1:-1])
+
+leftover = re.search(r"__[A-Z0-9_]+__", rendered)
+if leftover is not None:
+    sys.exit(f"unrendered token {leftover.group(0)} in {source}")
+
+with open(destination, "w", encoding="utf-8") as handle:
+    handle.write(rendered)
+PYTHON
+        die "failed to render $label"
+
+    chmod 600 "$temp"
+    if command -v plutil >/dev/null 2>&1; then
+        plutil -lint "$temp" >/dev/null || die "rendered an invalid plist for $label"
+    fi
+    mv -f -- "$temp" "$destination"
+    render_temp=""
+    trap - EXIT
+}
+
+# Reload rather than restart-in-place: launchd caches the plist it bootstrapped,
+# so a rewritten file does nothing until the label is booted out and back in.
+reload_service() {
+    local label="$1" plist="$2"
+    launchctl_available || {
+        note "installed $label (launchctl unavailable; not loaded)"
+        return 0
+    }
+    local target
+    target="gui/$(id -u)/$label"
+    if "$launchctl_bin" print "$target" >/dev/null 2>&1; then
+        "$launchctl_bin" bootout "$target" >/dev/null 2>&1 || true
+        local waited=0
+        while "$launchctl_bin" print "$target" >/dev/null 2>&1 && [ "$waited" -lt 30 ]; do
+            sleep 0.2
+            waited=$((waited + 1))
+        done
+    fi
+    "$launchctl_bin" bootstrap "gui/$(id -u)" "$plist" >/dev/null 2>&1 ||
+        die "failed to load $label; inspect: launchctl print $target"
+    note "installed and loaded $label"
+}
+
+install_service() {
+    local entry="$1"
+    local label tool program_name log_name
+    label="$(field "$entry" 1)"
+    tool="$(field "$entry" 2)"
+    program_name="$(field "$entry" 3)"
+    log_name="$(field "$entry" 4)"
+
+    local program="$bin_dir/$program_name"
+    local log="$state_root/$tool/$log_name"
+    local destination="$launch_agents_dir/$label.plist"
+
+    # A tool that is not installed has no service. This mirrors the rest of the
+    # installer: a missing optional fleet checkout is a skip, never an error.
+    if [ ! -x "$program" ]; then
+        note "skipped $label (no $program)"
+        return 0
+    fi
+
+    local ownership
+    ownership="$(plist_ownership "$label")"
+
+    local tokens status=0
+    tokens="$(service_tokens "$label")" || status=$?
+    if [ "$status" -eq 10 ]; then
+        if [ "$check_only" -eq 1 ]; then
+            printf '  %-20s %s\n' "$label" "not configured; would skip"
+        else
+            note "skipped $label (not configured)"
+        fi
+        return 0
+    fi
+    [ "$status" -eq 0 ] || die "could not resolve values for $label"
+
+    if [ "$check_only" -eq 1 ]; then
+        local plan
+        case "$ownership" in
+            absent) plan="install" ;;
+            ours) plan="converge" ;;
+            adopt) plan="adopt from ${label%%.*}" ;;
+            foreign) plan="REFUSE — not ours to replace" ;;
+        esac
+        printf '  %-20s %-22s %s\n' "$label" "$plan" "$program"
+        return 0
+    fi
+
+    if [ "$ownership" = foreign ]; then
+        die "refusing to replace a service this installer does not own: $destination"
+    fi
+    if [ "$ownership" = adopt ]; then
+        note "adopting $label from ${label%%.*}"
+    fi
+
+    mkdir -p "$(dirname -- "$log")"
+    [ -e "$log" ] || : >"$log"
+    chmod 600 "$log"
+    render_plist "$label" "$program" "$log" "$destination" "$tokens"
+    reload_service "$label" "$destination"
+}
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --install) check_only=0 ;;
+        --check) check_only=1 ;;
+        -h | --help)
+            usage
+            exit 0
+            ;;
+        *)
+            usage >&2
+            exit 2
+            ;;
+    esac
+    shift
+done
+
+[ -d "$source_dir" ] || die "missing template directory: $source_dir"
+
+if [ "$check_only" -eq 1 ]; then
+    printf 'Fleet launch agents (%s):\n' "$launch_agents_dir"
+else
+    mkdir -p "$launch_agents_dir"
+    chmod 700 "$launch_agents_dir"
+fi
+
+for entry in "${SERVICES[@]}"; do
+    install_service "$entry"
+done

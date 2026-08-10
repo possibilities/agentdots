@@ -251,6 +251,7 @@ Agent skills:
   npx --yes skills add https://github.com/vercel-labs/native --agent codex claude-code pi --skill native-sdk --global --yes
 EOF
     "$script_dir/install-statusline" --check
+    "$script_dir/install-launchagents" --check
     "$script_dir/sync-skills" --check
     if [ -f "$HOME/code/agentchats/scripts/install.sh" ]; then
         "$HOME/code/agentchats/scripts/install.sh" --check
@@ -476,6 +477,14 @@ else
     printf 'Agentdots installer: no agentchats checkout at %s; skipping cass.\n' \
         "$agentchats_root"
 fi
+
+# The fleet's long-running services. This runs after every CLI above, because
+# a service is only installed once the binary it supervises exists — a tool
+# that is absent is skipped, exactly like its checkout was. The fleet
+# checkouts ship the code; this repository decides when it runs. Funk keeps
+# the machine's own services, which are the reverse-DNS labels.
+printf 'Installing the fleet launch agents.\n'
+"$script_dir/install-launchagents" --install
 
 # Every agent tool publishes its skills by convention — skills/<name>/
 # inside a checkout named agent* — so they are discovered rather than listed
