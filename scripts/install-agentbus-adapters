@@ -43,6 +43,27 @@ else
     die "checkout present but pi extension missing: $pi_extension_source"
 fi
 
+# Outbound sends from inside a codex session reach the daemon socket, which
+# the default workspace-write seatbelt denies. network_access is codex's own
+# switch for that. Converge only when the key is absent anywhere in the file:
+# an operator who set it (either value, any section) keeps their setting.
+codex_config="$HOME/.codex/config.toml"
+if [ -d "$HOME/.codex" ]; then
+    if [ -f "$codex_config" ] && grep -q '^[[:space:]]*network_access' "$codex_config"; then
+        note "codex network_access already set; leaving it alone"
+    elif [ -f "$codex_config" ] && grep -q '^\[sandbox_workspace_write\]' "$codex_config"; then
+        sed -i '' '/^\[sandbox_workspace_write\]/a\
+network_access = true
+' "$codex_config"
+        note "enabled network_access in codex sandbox_workspace_write"
+    else
+        printf '\n# agentbus: bus sends from inside the sandbox need the daemon socket\n[sandbox_workspace_write]\nnetwork_access = true\n' >>"$codex_config"
+        note "enabled network_access in codex sandbox_workspace_write"
+    fi
+else
+    note "no ~/.codex; skipping codex sandbox config."
+fi
+
 claude_plugin_source="$checkout/plugins/claude"
 claude_plugin_target="$HOME/.claude/skills/agentbus"
 if [ -f "$claude_plugin_source/.claude-plugin/plugin.json" ]; then

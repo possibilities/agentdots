@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- agentdots-installer-owned: agentbus.codex-appserver.v1 -->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>agentbus.codex-appserver</string>
+	<!-- The wrapper resolves the real codex binary and runs
+	     `codex app-server --listen unix://` on ~/.codex's control socket.
+	     Resident so it is already listening when a TUI launches — codex
+	     auto-attaches only to an existing socket, and an embedded server is
+	     unreachable to the bus. codex-swap swaps auth.json in place; the
+	     app-server reads it per request, so account changes need no reload. -->
+	<key>ProgramArguments</key>
+	<array>
+		<string>__PROGRAM__</string>
+		<string>codex-appserver</string>
+	</array>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>HOME</key>
+		<string>__HOME__</string>
+		<key>PATH</key>
+		<string>__PATH__</string>
+	</dict>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<true/>
+	<!-- Standard, not Background: interactive codex sessions ride this
+	     process — starving it starves every attached TUI. -->
+	<key>ProcessType</key>
+	<string>Standard</string>
+	<key>Umask</key>
+	<integer>63</integer>
+	<key>ThrottleInterval</key>
+	<integer>10</integer>
+	<key>StandardOutPath</key>
+	<string>__LOG__</string>
+	<key>StandardErrorPath</key>
+	<string>__LOG__</string>
+</dict>
+</plist>

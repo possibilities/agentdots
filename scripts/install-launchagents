@@ -39,6 +39,7 @@ SERVICES=(
     "agentbrain.share|agentbrain|agentbrain|share.log"
     "agentbrain.doctor|agentbrain|agentbrain|doctor.log"
     "agentbus.daemon|agentbus|agentbus|daemon.log"
+    "agentbus.codex-appserver|agentbus|agentbus|codex-appserver.log"
     "agentusage.daemon|agentusage|agentusaged|daemon.log"
     "agentweb.daemon|agentweb|agentwebd|daemon.log"
     "agentwiki.serve|agentwiki|agentwiki|serve.log"
