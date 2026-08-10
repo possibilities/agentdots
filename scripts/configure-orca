@@ -62,7 +62,9 @@ while [ "$#" -gt 0 ]; do
 done
 
 [ "$(id -u)" -ne 0 ] || die "run as the target user, not root"
-[ -n "${HOME:-}" ] && [ -d "$HOME" ] || die "HOME is not an existing directory"
+if [ -z "${HOME:-}" ] || [ ! -d "$HOME" ]; then
+    die "HOME is not an existing directory"
+fi
 
 jq_bin=$(find_jq) || die "jq is not installed; run funk's ./install or brew install jq"
 
