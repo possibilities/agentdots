@@ -7,8 +7,8 @@
 # extension API; codex has no custom renderer, so the installer picks the
 # closest ordered subset of its built-in status line items instead.
 #
-# Renders: directory + git, model, effort, context usage, cost, diff size,
-# subscription rate limits, and the balanced account.
+# Renders: directory + git, model, effort, context usage, diff size,
+# subscription rate limits, the harness version, and the balanced account.
 #
 # The payload arrives on stdin as JSON. Orca also consumes that payload to feed
 # its own session telemetry, so it is forwarded verbatim before anything is
@@ -31,7 +31,7 @@ US=$'\x1f'
 # false as absent. No # comments inside the jq program: bash misparses them in a
 # command substitution inside a heredoc.
 IFS="$US" read -r CUR_DIR PROJ_DIR MODEL EFFORT CTX_PCT CTX_IN CTX_MAX \
-  COST ADDED REMOVED RL5 RL5_AT RL7 RL7_AT FAST THINK STYLE VERSION <<EOF
+  ADDED REMOVED RL5 RL5_AT RL7 RL7_AT FAST THINK STYLE VERSION <<EOF
 $(printf '%s' "$payload" | jq -j '[
   (.workspace.current_dir // .cwd // ""),
   (.workspace.project_dir // ""),
@@ -40,7 +40,6 @@ $(printf '%s' "$payload" | jq -j '[
   (.context_window.used_percentage // -1),
   (.context_window.total_input_tokens // 0),
   (.context_window.context_window_size // 0),
-  (.cost.total_cost_usd // 0),
   (.cost.total_lines_added // 0),
   (.cost.total_lines_removed // 0),
   (.rate_limits.five_hour.used_percentage // -1),
@@ -107,7 +106,12 @@ if [ -n "$PROJ_DIR" ] && [ "$CUR_DIR" = "$PROJ_DIR" ]; then
 elif [ -n "$PROJ_DIR" ] && [ "${CUR_DIR#"$PROJ_DIR"/}" != "$CUR_DIR" ]; then
   dir="${PROJ_DIR##*/}/${CUR_DIR#"$PROJ_DIR"/}"
 else
-  dir="${CUR_DIR/#$HOME/\~}"
+  # The replacement comes from a variable because neither literal spelling
+  # survives: bash 3.2 — still /bin/bash on macOS — keeps the backslash of
+  # `\~` and the quotes of `"~"` in the output. An expansion result is not
+  # re-scanned for tilde expansion, so the bare variable is safe.
+  tilde="~"
+  dir="${CUR_DIR/#$HOME/$tilde}"
 fi
 out="${B}${CYN}${dir}${R}"
 
@@ -150,8 +154,7 @@ if [ "$CTX_PCT" -ge 0 ] 2>/dev/null; then
   out+="${R}"
 fi
 
-# --- cost and diff size ---
-out+="${SEP}${GRN}\$$(printf '%.2f' "$COST")${R}"
+# --- diff size ---
 if [ "$ADDED" -gt 0 ] || [ "$REMOVED" -gt 0 ]; then
   out+="${SEP}${GRN}+${ADDED}${R} ${RED}-${REMOVED}${R}"
 fi

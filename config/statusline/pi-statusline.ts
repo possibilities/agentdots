@@ -32,7 +32,6 @@ interface Ctx {
   model?: { id?: string; name?: string; contextWindow?: number }
   getContextUsage?(): { tokens: number | null; contextWindow: number; percent: number | null } | undefined
   getThinkingLevel?(): string
-  sessionManager?: { getBranch(): unknown[] }
   ui: {
     setFooter?(factory: unknown): void
   }
@@ -169,27 +168,6 @@ function heat(percent: number, warn: number, alert: number): string {
   return "success"
 }
 
-/**
- * Session cost, summed from the assistant turns pi has recorded. Pi bills
- * per-message rather than exposing a session total, so this is the sum of a
- * shape that is optional at every level: a pi that renames it costs the
- * segment, not the bar.
- */
-function sessionCost(ctx: Ctx): number {
-  try {
-    let total = 0
-    for (const entry of ctx.sessionManager?.getBranch() ?? []) {
-      const message = (entry as { type?: string; message?: { role?: string; usage?: { cost?: { total?: unknown } } } })
-      if (message.type !== "message" || message.message?.role !== "assistant") continue
-      const cost = message.message?.usage?.cost?.total
-      if (typeof cost === "number" && Number.isFinite(cost)) total += cost
-    }
-    return total
-  } catch {
-    return 0
-  }
-}
-
 export interface RenderInput {
   git: GitState
   model: string
@@ -197,7 +175,6 @@ export interface RenderInput {
   contextPercent: number | null
   contextTokens: number | null
   contextWindow: number
-  cost: number
   version: string
 }
 
@@ -231,8 +208,6 @@ export function renderStatusLine(input: RenderInput, theme: Theme): string {
     }
     parts.push(segment)
   }
-
-  if (input.cost > 0) parts.push(theme.fg("success", `$${input.cost.toFixed(2)}`))
 
   if (input.git.insertions !== 0 || input.git.deletions !== 0) {
     parts.push(theme.fg("success", `+${input.git.insertions}`) + " " + theme.fg("error", `-${input.git.deletions}`))
@@ -288,7 +263,6 @@ export default function (pi: Api): void {
                 contextPercent: usage?.percent ?? null,
                 contextTokens: usage?.tokens ?? null,
                 contextWindow: usage?.contextWindow ?? ctx.model?.contextWindow ?? 0,
-                cost: sessionCost(ctx),
                 version,
               },
               theme,
