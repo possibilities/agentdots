@@ -29,7 +29,22 @@ die() {
 # on PATH, and Funk's .zshrc already prefixes the shim directory. Installing
 # the CLI does not install the shims — that stays a deliberate
 # `funk install-agentsurface-shims`.
-for tool in agentwiki agentboard agentsearch agentkeys agentusage agentsurface; do
+#
+# agentweb precedes agentbrain along the conduit rather than by any
+# install-time requirement: agentweb serves the session conduit, and
+# agentbrain's worker spawns the agentscrape children that ask it whether an
+# origin has a signed-in session. Both used to be Funk's, on the reasoning that
+# a resident service is machine integration; the services moved here and the
+# commands followed, so that no checkout is installed from two places.
+#
+# agentscrape is deliberately absent. Its installer is not rerunnable on this
+# machine — it aborts at a launchctl evidence check for its own
+# agentscrape.process-queue service, which has never been installed here — and
+# this loop propagates a present checkout's failure. It joins the list when
+# that installer converges; until then it stays a manual install rather than a
+# step that fails every `scripts/install.sh --install`.
+for tool in agentwiki agentboard agentsearch agentkeys \
+    agentweb agentbrain agentusage agentsurface; do
     tool_root="$HOME/code/$tool"
     if [ ! -f "$tool_root/scripts/install.sh" ]; then
         printf 'Agentdots agent CLIs installer: no checkout at %s; skipping.\n' "$tool_root"

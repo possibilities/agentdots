@@ -75,7 +75,6 @@ flowchart LR
     dots ==>|npm pin| browser[agent-browser]
     dots ==>|checkout contracts| fleet[agentvoice / agentwiki / agentboard / agentsearch / agentkeys / agentusage / agentsurface / cass]
     dots ==>|skills scan + post-sync hooks| skills[all agent skills, agentguidance rendered]
-    funk ==>|install-local-services, then AGENTDOTS_INSTALL_* wiring| dots
     dots -.->|config/launchd + install-launchagents| services[agentbrain worker + share + doctor / agentusage daemon / agentweb daemon / agentwiki serve]
     funk -.->|transcript vault, restic| claudeData[Claude Code transcripts]
     funk ==>|casks| apps[Claude.app / ChatGPT.app / Orca.app]
@@ -151,9 +150,9 @@ sentence around the match, never from the name alone.
 
 | From | To | What | Evidence |
 | --- | --- | --- | --- |
-| agentdots | agentbrain, agentusage, agentweb, agentwiki | owns all six fleet launch agents outright — templates, manifest, rendering, and load — for code the checkouts ship but no longer install; a service with two owners would race to render it | `agentdots/config/launchd/*.plist`, `agentdots/scripts/install-launchagents`, asserted by `agentdots/tests/validate.sh` |
-| funk | agentdots | calls `install-launchagents --install` after the checkout installers, supplying the two facts only the machine knows: the tailnet bind address and agentweb's conduit paths | `funk/libexec/install-local-services:84-110`, verified by `funk verify-local-services` |
-| funk | agentscrape ↔ agentweb conduit | funk still brokers the session conduit — "neither project may assume the other is installed" — but now hands `AGENTDOTS_INSTALL_CONDUIT_SOCKET`/`_TOKEN_FILE` to agentdots, which renders them into the worker service; the worker passes them uninterpreted into the agentscrape children it spawns | `funk/libexec/install-local-services:80-110`, `agentdots/scripts/install-launchagents` (agentbrain.worker tokens), asserted by `funk/libexec/verify-local-services:92-105` |
+| agentdots | agentbrain, agentusage, agentweb, agentwiki | installs their commands too, and owns all six of their launch agents outright — templates, manifest, rendering, and load — for code the checkouts ship but no longer install; a service with two owners would race to render it | `agentdots/config/launchd/*.plist`, `agentdots/scripts/install-launchagents`, asserted by `agentdots/tests/validate.sh` |
+| funk | agentdots | `./install` calls `scripts/install.sh --install` and nothing else about the fleet: agentdots installs every fleet command and every fleet service, and discovers the tailnet bind address and agentweb's conduit paths itself | `funk/install:161`, `agentdots/scripts/install-agent-clis`, `agentdots/scripts/install-launchagents`; still verified by `funk verify-local-services` |
+| agentdots | agentscrape ↔ agentweb conduit | brokers the session conduit, because it is the only thing that installs both: it renders agentweb's socket and token paths into the agentbrain.worker service, and the worker passes them uninterpreted into the agentscrape children it spawns | `agentdots/scripts/install-launchagents` (agentbrain.worker tokens), asserted by `funk/libexec/verify-local-services:92-105` |
 | funk | Claude Code | hourly transcript vault snapshots the transcript archive with restic | `funk/libexec/install-transcript-vault-agent` |
 | agentboard | agentwiki | stored data, distinct from the publish call: board items hold agentwiki slugs (`link <ref> --wiki <slug>` / `unlink`), so changing wiki's slug scheme breaks stored links even where publishing never runs | `agentboard/skills/board/SKILL.md:228-232`, reciprocated `agentwiki/skills/wiki/SKILL.md:133-134` |
 | cass (agentchats) | Claude Code, Codex, Pi | builds and refreshes the search index over the local session stores; cass itself is upstream software — the official checksummed installer, gh-resolved — with only the `agentchats` state CLI linked editable from the checkout | `agentchats/scripts/install.sh:6,95,123-129,137` |

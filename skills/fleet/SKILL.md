@@ -42,7 +42,7 @@ grep -rn 'skill' ~/code/agent*/skills/*/SKILL.md \
 grep -rn 'CONDUIT\|unix:' ~/code/agent*/src ~/code/funk/libexec 2>/dev/null | grep -v node_modules
 
 # service edges: what funk's launchd points at
-grep -rn 'agent' ~/code/funk/libexec/install-local-services
+grep -rn 'agent' ~/code/agentdots/scripts/install-agent-clis
 ```
 
 If a verified edge is missing from `MAP.md`, add it — edge, kind, evidence,

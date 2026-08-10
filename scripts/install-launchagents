@@ -88,6 +88,11 @@ service_path() {
         "$bun_dir" "$bin_dir"
 }
 
+tailnet_address() {
+    command -v tailscale >/dev/null 2>&1 || return 0
+    tailscale ip -4 2>/dev/null | head -n 1 | grep -E '^[0-9.]+$' || true
+}
+
 # A value the operator supplied, or another installer discovered, once. Reading
 # it back out of the service we are about to replace is what keeps it from
 # being silently dropped on every reinstall — a tailnet bind address is not
@@ -132,16 +137,22 @@ service_tokens() {
             # is a credential: the token is named by path and read from that
             # 0600 file by the process that needs it. Unset preserves what is
             # installed; set — including set to empty — is taken as given.
-            local socket token
+            #
+            # Neither project may assume the other is installed, so the wiring
+            # belongs to whoever installs both. That is now this script: the
+            # paths are Agentweb's own state directory, derived the same way
+            # Agentweb derives them.
+            local agentweb_state socket token
+            agentweb_state="${XDG_STATE_HOME:-$HOME/.local/state}/agentweb"
             if [ -n "${AGENTDOTS_INSTALL_CONDUIT_SOCKET+set}" ]; then
                 socket="$AGENTDOTS_INSTALL_CONDUIT_SOCKET"
             else
-                socket="$(preserved_env "$label" AGENTSCRAPE_CONDUIT_SOCKET)"
+                socket="$agentweb_state/runtime/agentweb.sock"
             fi
             if [ -n "${AGENTDOTS_INSTALL_CONDUIT_TOKEN_FILE+set}" ]; then
                 token="$AGENTDOTS_INSTALL_CONDUIT_TOKEN_FILE"
             else
-                token="$(preserved_env "$label" AGENTSCRAPE_CONDUIT_TOKEN_FILE)"
+                token="$agentweb_state/worker-token"
             fi
             printf 'CONDUIT_SOCKET=%s\n' "$socket"
             printf 'CONDUIT_TOKEN_FILE=%s\n' "$token"
@@ -150,11 +161,17 @@ service_tokens() {
             # Agentbrain's ADR 0017: accepting device shares requires naming the
             # tailnet address, and there is no default. With none supplied and
             # none already installed, the ingress is simply not installed.
+            # The address this host answers on inside the tailnet is the one
+            # fact no project knows for itself, so it is read from tailscale
+            # here. A tailnet that is down at install time is not a reason to
+            # fail, and not a reason to withdraw an ingress either: the
+            # already-installed address is kept.
             local host
             if [ -n "${AGENTDOTS_INSTALL_SHARE_HOST+set}" ]; then
                 host="$AGENTDOTS_INSTALL_SHARE_HOST"
             else
-                host="$(preserved_arg "$label" --host)"
+                host="$(tailnet_address)"
+                [ -n "$host" ] || host="$(preserved_arg "$label" --host)"
             fi
             case "$host" in
                 "" | none) return 10 ;;

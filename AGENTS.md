@@ -13,11 +13,12 @@
   skills and their renderer — plus `~/code/funk` and `~/code/codex-swap`,
   the first-party account-swapping launcher for codex and pi. Each fleet
   repo owns its own hardened installer and exports its own skills; Agentdots
-  invokes contracts, it does not reach inside. The one exception is
-  services: every fleet launch agent is defined and installed here
-  (`config/launchd/`), because a service with two owners has them racing to
-  render it. A fleet checkout ships the code and this repository decides
-  when it runs.
+  invokes contracts, it does not reach inside — but it decides that every
+  one of them is installed. `install-agent-clis` runs each checkout's own
+  installer, and `config/launchd/` defines every fleet service, because a
+  service with two owners has them racing to render it. A fleet checkout
+  ships the code; this repository decides that it is present and when it
+  runs. Funk installs no fleet component at all.
 - `claude-swap` is the one fleet dependency that is not ours. Upstream is a
   third-party project, so the machine currently runs a patched fork
   (`possibilities/claude-swap`, `main`) cloned to `~/src/claude-swap` under
@@ -55,9 +56,12 @@ Where things go:
 - A new AI tool, harness configuration, npm global, or external skill pack:
   `scripts/install.sh`, with its plan line in the `--check` output and
   assertions in `tests/validate.sh`.
-- A new fleet tool: usually nothing — the `agent*` skills scan and the
-  `install-agent-clis` loop are conventions. Add the checkout to the loop
-  only if it has a CLI installer.
+- A new fleet tool: add the checkout to the `install-agent-clis` loop if it
+  has a CLI installer, and note the ordering constraint in the comment there
+  if it has one. The `agent*` skills scan needs nothing. A loop member's
+  installer must be rerunnable, because a present checkout that fails stops
+  the whole install — `agentscrape` is out of the loop for exactly that
+  reason.
 - A new long-running fleet service: a template in `config/launchd/`, an
   entry in the manifest at the top of `scripts/install-launchagents`, and
   assertions in `tests/validate.sh`. `config/launchd/README.md` is the

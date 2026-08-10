@@ -515,9 +515,20 @@ grep -F '"$script_dir/install-agent-clis"' scripts/install.sh >/dev/null \
 # shellcheck disable=SC2016 # Match the literal status variable in the script.
 grep -F 'exit "$agent_clis_status"' scripts/install.sh >/dev/null \
     || fail "installer does not propagate an agent CLI installation failure"
-grep -F 'for tool in agentwiki agentboard agentsearch agentkeys agentusage agentsurface' \
-    scripts/install-agent-clis >/dev/null \
-    || fail "agent CLI installer does not install agentusage before agentsurface"
+# The list spans two lines, so the order is checked on the joined text rather
+# than by matching one literal line. agentusage must precede agentsurface (the
+# launcher shells its balance contract), and agentweb must precede agentbrain
+# (whose worker spawns the agentscrape children that ask agentweb's conduit).
+agent_cli_order=$(tr '\n' ' ' <scripts/install-agent-clis | tr -s ' ')
+case "$agent_cli_order" in
+    *"for tool in agentwiki agentboard agentsearch agentkeys \\ agentweb agentbrain agentusage agentsurface"*) ;;
+    *) fail "agent CLI installer changed its tool list or ordering" ;;
+esac
+# agentscrape is deliberately absent: its installer aborts at a launchctl
+# evidence check, and this loop propagates a present checkout's failure.
+if grep -Eq '^ *agentscrape|for tool in.*agentscrape' scripts/install-agent-clis; then
+    fail "agentscrape is in the CLI loop; its installer is not yet rerunnable"
+fi
 # shellcheck disable=SC2016 # Match the literal checkout resolution in the script.
 grep -F 'agentchats_root="$HOME/code/agentchats"' scripts/install.sh >/dev/null \
     || fail "installer does not own the cass installation call"
