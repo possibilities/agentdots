@@ -107,22 +107,26 @@ flowchart LR
     subgraph guidanceSkills [agentguidance skills]
         resource[resource-create / resource-update] -.->|built on| brainCli[agentbrain CLI]
         story -.->|publishes via| wikiCli[agentwiki CLI]
+        notify -.->|posts via| notifierCli[terminal-notifier]
+        email -.->|reads via| gogCli[gog] & notify
     end
 
-    tools[TOOLS.md — agentdots prompts, spliced into collab and build at render] -.-> search & scrape & brain & browser & wiki & board & groom & chats & bus
+    tools[TOOLS.md — agentdots prompts, spliced into collab and build at render] -.-> search & scrape & brain & browser & wiki & board & groom & chats & bus & notify
 ```
 
 The TOOLS.md node is the widest fan-out in the fleet and this repository is
 its origin: `agentguidance/scripts/render` splices
 `prompts/agentguidance/TOOLS.md`
 into the collab and build skills at their `<!-- extension-prompt: TOOLS.md -->`
-markers, so those two skills route to all eight advertised tools without
+markers, so those two skills route to all nine advertised tools without
 their templates naming any of them. That is why the tool-advertisement
 policy (the `tool-advertisement-policy` wiki page) governs a real graph
 edge, not just prose.
 
 `keys` references no other skill and none reference it — the standalone
-shape behind the decision not to advertise it in TOOLS.md.
+shape behind the decision not to advertise it in TOOLS.md. `email` is
+unadvertised on the same policy but is not standalone: it routes to
+`notify`, so mail work that stalls still reaches the human.
 
 `bus` (agentbus) is likewise standalone among skills, but it is advertised:
 its guidance must fire before an inbound message arrives, which is exactly
@@ -193,9 +197,10 @@ sentence around the match, never from the name alone.
 | search | brain, chats, scrape | check brain first — the answer is often already local |
 | browser | scrape, search | fetching content is scrape; finding pages is search |
 | wiki | board, brain, chats | the durable home the others cite into. Wiki's `search` is its own subcommand, not the search skill |
-| TOOLS.md (this repo) | search, scrape, brain, browser, wiki, board, groom, chats, bus | spliced into collab and build at render — the advertisement lines are the routing |
+| TOOLS.md (this repo) | search, scrape, brain, browser, wiki, board, groom, chats, bus, notify | spliced into collab and build at render — the advertisement lines are the routing |
 | resource-create / resource-update (agentguidance) | brain | resources are built from and refreshed against the agentbrain index |
 | story (agentguidance) | wiki | publishes the finished narrative through agentwiki |
+| email (agentguidance) | notify | a lapsed credential or consent screen needs the human, who is not reading the transcript — the stall is announced, not waited in (`agentguidance/skills/email/SKILL.md`) |
 
 ## Checked and absent
 
