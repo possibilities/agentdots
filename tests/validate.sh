@@ -609,9 +609,12 @@ for template in config/launchd/*.plist; do
 done
 
 # And the reverse, so a manifest entry can never name a template that is not here.
+# The service half of a label may be hyphenated (codex-appserver, process-queue),
+# so both halves match hyphens too — a character class that stopped at [a-z] read
+# straight past those entries and checked nothing.
 while IFS= read -r label; do
     [ -f "config/launchd/$label.plist" ] \
         || fail "manifest names a service with no template: $label"
-done < <(sed -n 's/^ *"\([a-z]*\.[a-z]*\)|.*/\1/p' scripts/install-launchagents)
+done < <(sed -n 's/^ *"\([a-z-]*\.[a-z-]*\)|.*/\1/p' scripts/install-launchagents)
 
 printf 'ok\n'
