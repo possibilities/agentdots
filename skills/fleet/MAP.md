@@ -144,7 +144,8 @@ sentence around the match, never from the name alone.
 
 | Caller | Callee | What | Evidence |
 | --- | --- | --- | --- |
-| agentdots | agentusage | `install-agent-clis` invokes the checkout's `scripts/install.sh --install`, which provisions the public claude-swap fork and codex-swap shim before installing the observer | `agentdots/scripts/install-agent-clis`; `agentusage/scripts/install.sh:42-47` |
+| agentdots | agentusage | `install-agent-clis` invokes the checkout's `scripts/install.sh --install`, which provisions the public claude-swap fork before installing the observer. It no longer writes a `codex-swap` shim — that command has one owner now | `agentdots/scripts/install-agent-clis`; `agentusage/scripts/install-providers.sh` |
+| agentdots | codex-swap | `install-agent-clis` invokes `scripts/install.sh --install`, which provisions the managed codex-multi-auth fork under `~/src` and writes the `codex-swap` command with that path baked in as a default — the seam that lets launchd-supervised app-servers resolve a dependency able to host them | `agentdots/scripts/install-agent-clis`; `codex-swap/scripts/install.sh` |
 | agentsurface | agentusage | `agentusage balance claude\|codex --json` picks the account for a balanced launch | `agentsurface/src/balance.ts:64,124` |
 | agentsurface | claude-swap | wraps balanced Claude launches as `cswap run <slot> --share-history` | `agentsurface/src/balance.ts:57-90` |
 | agentsurface | codex-swap | wraps codex as `codex-swap run`/`resume <id>`, pi as `codex-swap pi run` | `agentsurface/src/balance.ts:167-180` |
@@ -152,6 +153,21 @@ sentence around the match, never from the name alone.
 | agentsurface | Orca | optional surface backend, three operations: **place** checks runtime health, resolves or creates repos/worktrees, and creates a terminal containing the finished harness command; **survey** reads a worktree, its repo's base ref, and its live terminals; **release** stops those terminals and removes the worktree (never with `--force` — Orca's force discards uncommitted work). An Orca refusal fails closed instead of launching locally | `agentsurface/src/surface-orca.ts:33-46` (place), `48-87` (survey), `89-120` (release), `122-139` (doctor) |
 | agentbus | codex-swap | the codex app-server supervisor gates on `codex-swap app-server check --json` (exit 0 = this ndy can host a pinned server; any nonzero idles the supervisor and logs codex-swap's reason verbatim), enumerates `snapshot --json` → `data.accounts[]` filtered to `enabled && present && auth.reloginRequired !== true`, and runs one `codex-swap app-server run --account <key> --listen unix://<sock>` per account under `<busHome>/codex/`. `app-server --help` exiting 0 still means the surface exists, but that is not the same question as "runs will work" | `agentbus/src/codex-appserver.ts` (computeDesired), `agentbus/docs/adr/0002-codex-appserver-supervisor-modes.md`; `codex-swap/docs/handoff.md` §39 |
 | codex-swap | codex-multi-auth fork | pins app-server launches to the `possibilities/codex-multi-auth` fork carrying `fix/app-server-canonical-home`: stock 2.8.3 routes `app-server` through an ephemeral shadow home, where Codex refuses the symlinked `app-server-control` and the thread index is a frozen copy. `app-server check` reads the resolved wrapper and refuses to host without the fix. Offered upstream; the pin retires when a release carries it | `codex-swap/src/appserver/capability.ts`; `~/src/codex-multi-auth` (`origin` upstream, `fork` ours, `main` tracks `fork/main`) |
+
+Both managed forks rebase their **install branch** onto upstream on every
+install, gated by that project's own CI steps and published with
+`--force-with-lease` only after the gate passes; a failed rebase or gate keeps
+the previously bound build bound and notifies. The two implementations are
+deliberately duplicated — each fleet repo owns its own hardened installer, and
+a shared helper would invert that ownership. A patch also offered upstream
+lives on its own branch and is **not** moved by this: refreshing an open PR is
+a separate operation against a different audience. See the
+`fork-rebase-policy` wiki page.
+
+| Fork | Install branch | Owner | Gate |
+| --- | --- | --- | --- |
+| `~/src/claude-swap` | `main` | `agentusage/scripts/install-providers.sh` | `uv sync --locked && uv run pytest` |
+| `~/src/codex-multi-auth` | `main` | `codex-swap/scripts/install.sh` | `npm ci`, typecheck, lint, test, build |
 | agentusage | claude-swap | `cswap list --json` observes Claude accounts; `cswap recover <slot> --json` repairs due expired tokens; its installer converges the public fork's `main` | `agentusage/src/claude/observe.ts:235`; `src/daemon.ts:78`; `scripts/install-providers.sh` |
 | agentusage | codex-swap | `codex-swap snapshot --json` observes codex accounts; paced polling | `agentusage/src/codex/observe.ts:221`, `daemon.ts:19` |
 | agentvoice | codex | spawns app-server children and `codex login --device-auth` | `agentvoice/src/main.ts:253`, `src/server/appserver.ts:89,160` |
