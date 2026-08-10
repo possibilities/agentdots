@@ -63,6 +63,7 @@ flowchart LR
     chats -.->|indexes session stores| harnesses
     bus[agentbus daemon] -->|agents --json name mirror| claude
     bus -->|WS-over-UDS JSON-RPC: discovery + turn/start·steer| codex
+    bus -->|app-server check / snapshot / app-server run --account| swap
     claude -->|plugin monitor: agentbus recv --follow| bus
     pi -->|agentbus extension: UDS join/recv/activity| bus
 ```
@@ -149,6 +150,8 @@ sentence around the match, never from the name alone.
 | agentsurface | codex-swap | wraps codex as `codex-swap run`/`resume <id>`, pi as `codex-swap pi run` | `agentsurface/src/balance.ts:167-180` |
 | agentsurface | claude / codex / pi | launches the real harness binary (shims make bare commands balanced; `AGENTSURFACE_LAUNCH=1` breaks recursion) | `agentsurface/src/launch.ts:27`; shims in `agentdots/scripts/install-agentsurface-shims` |
 | agentsurface | Orca | optional surface backend, three operations: **place** checks runtime health, resolves or creates repos/worktrees, and creates a terminal containing the finished harness command; **survey** reads a worktree, its repo's base ref, and its live terminals; **release** stops those terminals and removes the worktree (never with `--force` — Orca's force discards uncommitted work). An Orca refusal fails closed instead of launching locally | `agentsurface/src/surface-orca.ts:33-46` (place), `48-87` (survey), `89-120` (release), `122-139` (doctor) |
+| agentbus | codex-swap | the codex app-server supervisor gates on `codex-swap app-server check --json` (exit 0 = this ndy can host a pinned server; any nonzero idles the supervisor and logs codex-swap's reason verbatim), enumerates `snapshot --json` → `data.accounts[]` filtered to `enabled && present && auth.reloginRequired !== true`, and runs one `codex-swap app-server run --account <key> --listen unix://<sock>` per account under `<busHome>/codex/`. `app-server --help` exiting 0 still means the surface exists, but that is not the same question as "runs will work" | `agentbus/src/codex-appserver.ts` (computeDesired), `agentbus/docs/adr/0002-codex-appserver-supervisor-modes.md`; `codex-swap/docs/handoff.md` §39 |
+| codex-swap | codex-multi-auth fork | pins app-server launches to the `possibilities/codex-multi-auth` fork carrying `fix/app-server-canonical-home`: stock 2.8.3 routes `app-server` through an ephemeral shadow home, where Codex refuses the symlinked `app-server-control` and the thread index is a frozen copy. `app-server check` reads the resolved wrapper and refuses to host without the fix. Offered upstream; the pin retires when a release carries it | `codex-swap/src/appserver/capability.ts`; `~/src/codex-multi-auth` (`origin` upstream, `fork` ours, `main` tracks `fork/main`) |
 | agentusage | claude-swap | `cswap list --json` observes Claude accounts; `cswap recover <slot> --json` repairs due expired tokens; its installer converges the public fork's `main` | `agentusage/src/claude/observe.ts:235`; `src/daemon.ts:78`; `scripts/install-providers.sh` |
 | agentusage | codex-swap | `codex-swap snapshot --json` observes codex accounts; paced polling | `agentusage/src/codex/observe.ts:221`, `daemon.ts:19` |
 | agentvoice | codex | spawns app-server children and `codex login --device-auth` | `agentvoice/src/main.ts:253`, `src/server/appserver.ts:89,160` |
