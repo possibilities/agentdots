@@ -115,23 +115,19 @@ link_agent_guidance() {
     done
 }
 
-# llm's model configuration: one file linked into the application-support
-# directory llm itself writes into (keys, logs), so the link is per-file and
-# an independent non-symlink file with content is preserved and reported.
-link_llm_config() {
-    local source="$repo_root/config/llm/extra-openai-models.yaml"
-    local target_dir="$HOME/Library/Application Support/io.datasette.llm"
-    local target="$target_dir/extra-openai-models.yaml"
+# The extra model records are retired. Remove only the exact symlink this
+# checkout previously created; an independent file or differently-targeted
+# symlink belongs to its owner and is left alone.
+remove_retired_llm_config() {
+    local retired_source="$repo_root/config/llm/extra-openai-models.yaml"
+    local target="$HOME/Library/Application Support/io.datasette.llm/extra-openai-models.yaml"
 
-    [ -s "$source" ] \
-        || die "llm model configuration source is missing or empty: $source"
-    if [ ! -L "$target" ] && [ -s "$target" ]; then
-        die "refusing to replace independent llm configuration: $target"
+    if [ -L "$target" ] && [ "$(readlink "$target")" = "$retired_source" ]; then
+        rm -- "$target"
+        printf 'Removed retired Agentdots-owned llm model configuration: %s.\n' "$target"
+    elif [ -e "$target" ] || [ -L "$target" ]; then
+        printf 'Leaving independent llm model configuration untouched: %s.\n' "$target"
     fi
-    mkdir -p "$target_dir"
-    ln -sfn "$source" "$target"
-    cmp -s "$source" "$target" \
-        || die "linked llm configuration does not resolve to $source: $target"
 }
 
 # The voice orchestrator's doctrine and server configuration are fleet
@@ -239,7 +235,7 @@ Agent guidance:
   ln -sfn ~/AGENTS.md ~/.codex/AGENTS.md  # Codex skips empty guidance files
   ln -sfn prompts/agentguidance/{SYSTEM,GUIDELINES,TOOLS}.md into ~/.config/agentguidance  # the extension prompts agentguidance renders against
   ln -sfn prompts/agentvoice/{ORCHESTRATOR.md,ORCHESTRATOR_SESSION_START.md,server.json} into ~/.config/agentvoice  # the voice orchestrator's doctrine, read at server boot
-  ln -sfn config/llm/extra-openai-models.yaml into ~/Library/Application Support/io.datasette.llm  # llm's model configuration
+  remove Agentdots-owned ~/Library/Application Support/io.datasette.llm/extra-openai-models.yaml symlink  # its extra model records are obsolete
 
 Related, not run by --install:
   scripts/configure-orca  # apply the Orca settings overlay; Funk's ./install runs it via funk configure-orca
@@ -323,8 +319,7 @@ printf 'Installing or upgrading Zig for Native SDK packaging (intentional duplic
 install_or_upgrade_formula zig
 
 # llm is an AI CLI, so it is Agentdots' outright — moved out of Funk's
-# Brewfile rather than duplicated from it. Its model configuration is linked
-# from config/llm below.
+# Brewfile rather than duplicated from it.
 printf 'Installing or upgrading the llm CLI.\n'
 install_or_upgrade_formula llm
 
@@ -381,8 +376,8 @@ link_extension_prompts
 printf 'Linking the AgentVoice doctrine into ~/.config/agentvoice.\n'
 link_agentvoice_config
 
-printf 'Linking the llm model configuration.\n'
-link_llm_config
+printf 'Removing the retired llm model configuration if Agentdots owns it.\n'
+remove_retired_llm_config
 
 printf 'Installing the global skill discovery helper.\n'
 npx --yes skills add https://github.com/vercel-labs/skills \

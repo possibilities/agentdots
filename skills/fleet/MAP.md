@@ -25,6 +25,7 @@ flowchart LR
     subgraph balancing [Launch balancing]
         surface[agentsurface]
         usage[agentusage]
+        claudeSwap[claude-swap]
         swap[codex-swap]
         orca[Orca CLI / runtime]
     end
@@ -42,12 +43,14 @@ flowchart LR
     chats[cass / agentchats]
 
     surface -->|balance claude/codex --json| usage
+    surface -->|run --share-history| claudeSwap
     surface -->|run / resume / pi run --claim| swap
     surface -->|managed launch| claude
     surface -->|surface backend: repo / worktree / terminal --json| orca
     swap --> codex
     swap --> pi
     usage -->|snapshot --json| swap
+    usage -->|list --json / recover| claudeSwap
     voice -->|app-server children, login| codex
     voice -->|balance codex| usage
     voice -.->|fallback: select| swap
@@ -69,7 +72,7 @@ flowchart LR
     funk ==>|scripts/install.sh --install, sync-skills| dots
     dots ==>|official installers| harnesses[Claude Code / Codex / Pi]
     dots ==>|npm pin| browser[agent-browser]
-    dots ==>|checkout contracts| fleet[agentvoice / agentwiki / agentboard / agentsearch / agentkeys / agentsurface / cass]
+    dots ==>|checkout contracts| fleet[agentvoice / agentwiki / agentboard / agentsearch / agentkeys / agentusage / agentsurface / cass]
     dots ==>|skills scan + post-sync hooks| skills[all agent skills, agentguidance rendered]
     funk -.->|launchd services| services[agentbrain worker + share ingress / agentweb daemon / agentusage daemon]
     funk -.->|transcript vault, restic| claudeData[Claude Code transcripts]
@@ -126,10 +129,13 @@ sentence around the match, never from the name alone.
 
 | Caller | Callee | What | Evidence |
 | --- | --- | --- | --- |
+| agentdots | agentusage | `install-agent-clis` invokes the checkout's `scripts/install.sh --install`, which provisions the public claude-swap fork and codex-swap shim before installing the observer | `agentdots/scripts/install-agent-clis`; `agentusage/scripts/install.sh:42-47` |
 | agentsurface | agentusage | `agentusage balance claude\|codex --json` picks the account for a balanced launch | `agentsurface/src/balance.ts:64,124` |
+| agentsurface | claude-swap | wraps balanced Claude launches as `cswap run <slot> --share-history` | `agentsurface/src/balance.ts:57-90` |
 | agentsurface | codex-swap | wraps codex as `codex-swap run`/`resume <id>`, pi as `codex-swap pi run` | `agentsurface/src/balance.ts:167-180` |
 | agentsurface | claude / codex / pi | launches the real harness binary (shims make bare commands balanced; `AGENTSURFACE_LAUNCH=1` breaks recursion) | `agentsurface/src/launch.ts:27`; shims in `agentdots/scripts/install-agentsurface-shims` |
 | agentsurface | Orca | optional surface backend: checks runtime health, resolves or creates repos/worktrees, and creates a terminal containing the finished harness command; an Orca refusal fails closed instead of launching locally | `agentsurface/src/surface-orca.ts:43-51,109-119,164-170,181-202,336-350` |
+| agentusage | claude-swap | `cswap list --json` observes Claude accounts; `cswap recover <slot> --json` repairs due expired tokens; its installer converges the public fork's `main` | `agentusage/src/claude/observe.ts:235`; `src/daemon.ts:78`; `scripts/install-providers.sh` |
 | agentusage | codex-swap | `codex-swap snapshot --json` observes codex accounts; paced polling | `agentusage/src/codex/observe.ts:221`, `daemon.ts:19` |
 | agentvoice | codex | spawns app-server children and `codex login --device-auth` | `agentvoice/src/main.ts:253`, `src/server/appserver.ts:89,160` |
 | agentvoice | agentusage → codex-swap | `agentusage balance codex`, falling back to `codex-swap select`, per spawn | `agentvoice/src/server/config-schema.ts:53`, `src/server/accounts.ts:289` |

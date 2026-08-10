@@ -36,10 +36,10 @@ for script in scripts/install.sh scripts/sync-skills scripts/install-agent-clis 
     [ -x "$script" ] || fail "installer script is not executable: $script"
 done
 
-# The llm model configuration and the Orca overlay are linked or merged from
-# these sources; a missing or invalid one converges nothing, silently.
-[ -s config/llm/extra-openai-models.yaml ] \
-    || fail "llm model configuration is missing or empty: config/llm/extra-openai-models.yaml"
+# The obsolete llm model records stay gone; the Orca overlay remains the only
+# AI-tool configuration source this checkout carries.
+[ ! -e config/llm/extra-openai-models.yaml ] \
+    || fail "obsolete llm model records returned"
 for orca_overlay in settings.json keybindings.json; do
     /usr/bin/jq -e . "config/orca/$orca_overlay" >/dev/null \
         || fail "Orca overlay is missing or invalid JSON: config/orca/$orca_overlay"
@@ -348,7 +348,7 @@ for required_install in \
     'curl -fsSL https://pi.dev/install.sh | sh  # in its own session, no controlling terminal' \
     'brew install or upgrade zig  # AgentVoice'"'"'s native duplex audio path builds against it' \
     'brew install or upgrade llm  # an AI CLI, so Agentdots'"'"' outright — moved out of Funk'"'"'s Brewfile' \
-    'ln -sfn config/llm/extra-openai-models.yaml into ~/Library/Application Support/io.datasette.llm  # llm'"'"'s model configuration' \
+    'remove Agentdots-owned ~/Library/Application Support/io.datasette.llm/extra-openai-models.yaml symlink  # its extra model records are obsolete' \
     'scripts/configure-orca  # apply the Orca settings overlay; Funk'"'"'s ./install runs it via funk configure-orca' \
     'npm install --global @native-sdk/cli@0.7  # the line the native-sdk skill documents' \
     'npm install --global agent-browser@0.33.2  # Agentweb'"'"'s config.json digest-locks this exact build' \
@@ -444,10 +444,14 @@ grep -F 'source="$repo_root/prompts/AGENTS.md"' scripts/install.sh >/dev/null \
     || fail "installer does not own the shared home guidance"
 grep -F 'install_or_upgrade_formula llm' scripts/install.sh >/dev/null \
     || fail "installer does not converge the llm CLI"
-grep -F 'link_llm_config' scripts/install.sh >/dev/null \
-    || fail "installer does not link the llm model configuration"
-grep -F 'refusing to replace independent llm configuration' scripts/install.sh >/dev/null \
-    || fail "installer would replace independent llm configuration"
+grep -F 'remove_retired_llm_config' scripts/install.sh >/dev/null \
+    || fail "installer does not retire its obsolete llm model configuration"
+# shellcheck disable=SC2016 # Match the literal ownership check in the script.
+grep -F 'readlink "$target"' scripts/install.sh >/dev/null \
+    || fail "installer does not verify ownership before removing the retired llm configuration"
+if grep -F 'link_llm_config' scripts/install.sh >/dev/null; then
+    fail "installer still links the obsolete llm model configuration"
+fi
 
 # The native-sdk skill documents the 0.7 line and Zig builds both Native SDK
 # applications and AgentVoice's opt-in native duplex audio device, so both
@@ -485,6 +489,9 @@ grep -F '"$script_dir/install-agent-clis"' scripts/install.sh >/dev/null \
 # shellcheck disable=SC2016 # Match the literal status variable in the script.
 grep -F 'exit "$agent_clis_status"' scripts/install.sh >/dev/null \
     || fail "installer does not propagate an agent CLI installation failure"
+grep -F 'for tool in agentwiki agentboard agentsearch agentkeys agentusage agentsurface' \
+    scripts/install-agent-clis >/dev/null \
+    || fail "agent CLI installer does not install agentusage before agentsurface"
 # shellcheck disable=SC2016 # Match the literal checkout resolution in the script.
 grep -F 'agentchats_root="$HOME/code/agentchats"' scripts/install.sh >/dev/null \
     || fail "installer does not own the cass installation call"

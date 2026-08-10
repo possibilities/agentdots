@@ -23,11 +23,13 @@ die() {
 # is a real error and propagates. Rerunning is safe: the installers are
 # fix-forward and relinking repoints the same command.
 #
-# agentsurface is in this list because the balancing chain heads there: the
-# shims installer refuses without `agentsurface` on PATH, and Funk's .zshrc
-# already prefixes the shim directory. Installing the CLI does not install
-# the shims — that stays a deliberate `funk install-agentsurface-shims`.
-for tool in agentwiki agentboard agentsearch agentkeys agentsurface; do
+# agentusage precedes agentsurface because the launcher shells its balance
+# contract and its installer provisions the public claude-swap fork plus the
+# codex-swap source shim. The shims installer refuses without `agentsurface`
+# on PATH, and Funk's .zshrc already prefixes the shim directory. Installing
+# the CLI does not install the shims — that stays a deliberate
+# `funk install-agentsurface-shims`.
+for tool in agentwiki agentboard agentsearch agentkeys agentusage agentsurface; do
     tool_root="$HOME/code/$tool"
     if [ ! -f "$tool_root/scripts/install.sh" ]; then
         printf 'Agentdots agent CLIs installer: no checkout at %s; skipping.\n' "$tool_root"

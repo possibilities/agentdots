@@ -1,5 +1,7 @@
 # Agentdots
 
+[![CI](https://github.com/possibilities/agentdots/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/possibilities/agentdots/actions/workflows/ci.yml)
+
 Agentdots is the AI half of this machine: the installer and home for
 everything the agent fleet in `~/code` depends on. Funk owns the machine —
 Homebrew, Stow, launchd, macOS settings — and calls into this checkout for
@@ -35,9 +37,8 @@ this.
   doctrine and `server.json`, linked into `~/.config/agentvoice/` and read
   at server boot), and `AGENTS.md` (the deliberately empty shared home
   guidance at `~/AGENTS.md` — advice belongs in the extension prompts).
-- `config/` — AI-tool configuration the installer converges: `llm/` (model
-  configuration, linked into llm's application-support directory) and
-  `orca/` (the settings and keybindings overlay `scripts/configure-orca`
+- `config/` — AI-tool configuration the installer converges: `orca/` (the
+  settings and keybindings overlay `scripts/configure-orca`
   merges — never links — into Orca's live state).
 - `skills/` — skills this checkout exports through the agent* scan, like any
   other fleet repo. `fleet/` is the dependency map of the whole ecosystem.
@@ -58,7 +59,9 @@ skip-versus-fail semantics are load-bearing:
   npm globals; the shadcn MCP registration for Codex and Claude Code; the
   `~/.claude/CLAUDE.md` / `~/.codex/AGENTS.md` guidance links; the extension
   prompt links; the external skill packs; the AgentVoice CLI, the
-  agentwiki/agentboard/agentsearch/agentkeys/agentsurface CLIs, and cass —
+  agentwiki/agentboard/agentsearch/agentkeys/agentusage/agentsurface CLIs,
+  the public `possibilities/claude-swap` fork and codex-swap provider shim
+  through agentusage's installer, and cass —
   each by its own checkout's contract, skipping checkouts that are absent —
   and finally `sync-skills`. Funk's `./install` calls this and
   refuses to finish without it. `--check` prints the plan without changing
