@@ -5,12 +5,16 @@
 <dict>
 	<key>Label</key>
 	<string>agentbus.codex-appserver</string>
-	<!-- The wrapper resolves the real codex binary and runs
-	     `codex app-server --listen unix://` on ~/.codex's control socket.
-	     Resident so it is already listening when a TUI launches — codex
-	     auto-attaches only to an existing socket, and an embedded server is
-	     unreachable to the bus. codex-swap swaps auth.json in place; the
-	     app-server reads it per request, so account changes need no reload. -->
+	<!-- The supervisor keeps every codex app-server this machine needs
+	     alive (agentbus ADR 0002): without codex-swap, one default-socket
+	     server on the canonical home; with codex-swap, one account-pinned
+	     server per enabled account via codex-swap's app-server surface —
+	     and none at all while that surface is missing, because a shared
+	     unpinned server would bill every attached session to whatever
+	     account is current. The billing account is always the one bound
+	     to the app-server process, since that process makes the model
+	     calls; the TUI is only a client. -->
+
 	<key>ProgramArguments</key>
 	<array>
 		<string>__PROGRAM__</string>
