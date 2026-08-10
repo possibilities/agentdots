@@ -13,6 +13,11 @@
   and `~/code/funk`. Each fleet repo owns its own hardened
   installer and exports its own skills; Agentdots invokes contracts, it does
   not reach inside.
+- Every fleet repo's `AGENTS.md` ends with the same "The fleet" section
+  pointing back here: the skills scan and its cadence, the fleet-map rule,
+  and agentguidance as the home of general doctrine. Changing any of those
+  conventions updates that section in every fleet checkout in the same
+  change — the uniformity is what keeps twelve copies maintainable.
 
 ## Fix-forward installation
 
