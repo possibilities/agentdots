@@ -1,4 +1,4 @@
-# Agentdots
+# AgentDots
 
 [![CI](https://github.com/possibilities/agentdots/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/possibilities/agentdots/actions/workflows/ci.yml)
 
