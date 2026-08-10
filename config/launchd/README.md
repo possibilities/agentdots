@@ -1,18 +1,9 @@
 # Fleet launch agents
 
 Every long-running fleet service on this machine is defined here and installed
-by `scripts/install-launchagents`, with one exception noted below. A fleet
-checkout no longer installs its own service; it ships the code, and this
-repository decides when that code runs.
-
-The exception is `agentscrape.process-queue`, still published by Agentscrape's
-own installer. It is not a carve-out on principle: Agentscrape publishes its
-plist as one of four artifacts — command, plist, receipt, deployed-SHA — in a
-single atomic sequence with coordinated rollback, its receipt records the
-service path at a fixed position, and its pre-install state machine is keyed on
-the plist being present. Moving it needs a receipt schema version and a
-migration rather than a retrofit, so it is a deliberate piece of work rather
-than something to fold into a sweep.
+by `scripts/install-launchagents`, without exception. A fleet checkout no
+longer installs its own service; it ships the code, and this repository decides
+when that code runs.
 
 Funk keeps the machine's own services and its own `launchd/` directory. The
 split is the label: a bare `<tool>.<service>` label is a fleet service and
