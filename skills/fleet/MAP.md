@@ -61,6 +61,10 @@ flowchart LR
     web -->|digest-locked launch| browser
     board -->|publish --kind render| wiki
     chats -.->|indexes session stores| harnesses
+    bus[agentbus daemon] -->|agents --json name mirror| claude
+    bus -->|WS-over-UDS JSON-RPC: discovery + turn/start·steer| codex
+    claude -->|plugin monitor: agentbus recv --follow| bus
+    pi -->|agentbus extension: UDS join/recv/activity| bus
 ```
 
 ## Install and service layer
@@ -73,9 +77,9 @@ flowchart LR
     funk ==>|scripts/install.sh --install, sync-skills| dots
     dots ==>|official installers| harnesses[Claude Code / Codex / Pi]
     dots ==>|npm pin| browser[agent-browser]
-    dots ==>|checkout contracts| fleet[agentvoice / agentwiki / agentboard / agentsearch / agentkeys / agentusage / agentsurface / cass]
+    dots ==>|checkout contracts| fleet[agentvoice / agentwiki / agentboard / agentsearch / agentkeys / agentbus / agentusage / agentsurface / cass]
     dots ==>|skills scan + post-sync hooks| skills[all agent skills, agentguidance rendered]
-    dots -.->|config/launchd + install-launchagents| services[agentbrain worker + share + doctor / agentusage daemon / agentweb daemon / agentwiki serve]
+    dots -.->|config/launchd + install-launchagents| services[agentbrain worker + share + doctor / agentbus daemon / agentusage daemon / agentweb daemon / agentwiki serve]
     funk -.->|transcript vault, restic| claudeData[Claude Code transcripts]
     funk ==>|casks| apps[Claude.app / ChatGPT.app / Orca.app]
 ```
@@ -97,6 +101,7 @@ flowchart LR
         wiki -.-> board & brain & chats
         chats
         keys
+        bus
     end
 
     subgraph guidanceSkills [agentguidance skills]
@@ -104,7 +109,7 @@ flowchart LR
         story -.->|publishes via| wikiCli[agentwiki CLI]
     end
 
-    tools[TOOLS.md — agentdots prompts, spliced into collab and build at render] -.-> search & scrape & brain & browser & wiki & board & groom & chats
+    tools[TOOLS.md — agentdots prompts, spliced into collab and build at render] -.-> search & scrape & brain & browser & wiki & board & groom & chats & bus
 ```
 
 The TOOLS.md node is the widest fan-out in the fleet and this repository is
@@ -118,6 +123,10 @@ edge, not just prose.
 
 `keys` references no other skill and none reference it — the standalone
 shape behind the decision not to advertise it in TOOLS.md.
+
+`bus` (agentbus) is likewise standalone among skills, but it is advertised:
+its guidance must fire before an inbound message arrives, which is exactly
+the proactive test the advertisement policy sets.
 
 A trap this section has already caught twice: a project's *own* `search`
 subcommand (agentboard's and agentwiki's) reads exactly like a reference to
@@ -145,12 +154,16 @@ sentence around the match, never from the name alone.
 | agentscrape | agent-browser | resolves `~/.local/bin/agent-browser` first, then PATH | `agentscrape/src/browser.ts:386-391` |
 | agentweb | agent-browser | daemon-only launch of the configured absolute path (default `~/Library/pnpm/bin/agent-browser`, never resolved through PATH), refused unless SHA-256 digest and version lock verify | `agentweb/src/config-schema.ts:51,83`, `src/paths.ts:268` |
 | agentboard | agentwiki | `agentwiki publish <file> --name agentboard --kind render --json` | `agentboard/src/cli.ts:834-843` |
+| agentbus | claude | daemon mirrors `claude agents --json` every 15s for peer names and activity — claude names are harness-owned, the bus follows | `agentbus/src/claude-mirror.ts:29-48` |
+| agentbus | codex app-server | hand-rolled WebSocket-over-UDS JSON-RPC client on the control socket: `thread/loaded/list` discovery, `thread/resume` subscription, `turn/start`/`turn/steer` injection; pinned semantics verified on codex-cli 0.147.0 | `agentbus/src/codex.ts` (startCodexAdapter), wiki `steering-codex-programmatically` |
+| Claude Code | agentbus | the agentbus plugin's always-on monitor runs `agentbus recv --follow`, holding every interactive session's receive stream | `agentbus/plugins/claude/monitors/monitors.json`, installed by `agentdots/scripts/install-agentbus-adapters` |
+| pi | agentbus | the agentbus extension joins over the daemon socket, injects envelopes via `pi.sendMessage`, and exports `AGENTBUS_SESSION` so bash tools attribute sends | `agentbus/extensions/pi/agentbus.ts`, linked by `agentdots/scripts/install-agentbus-adapters` |
 
 ### serves / data
 
 | From | To | What | Evidence |
 | --- | --- | --- | --- |
-| agentdots | agentbrain, agentusage, agentweb, agentwiki | installs their commands too, and owns all six of their launch agents outright — templates, manifest, rendering, and load — for code the checkouts ship but no longer install; a service with two owners would race to render it | `agentdots/config/launchd/*.plist`, `agentdots/scripts/install-launchagents`, asserted by `agentdots/tests/validate.sh` |
+| agentdots | agentbrain, agentbus, agentusage, agentweb, agentwiki | installs their commands too, and owns all seven of their launch agents outright — templates, manifest, rendering, and load — for code the checkouts ship but no longer install; a service with two owners would race to render it | `agentdots/config/launchd/*.plist`, `agentdots/scripts/install-launchagents`, asserted by `agentdots/tests/validate.sh` |
 | funk | agentdots | `./install` calls `scripts/install.sh --install` and nothing else about the fleet: agentdots installs every fleet command and every fleet service, and discovers the tailnet bind address and agentweb's conduit paths itself | `funk/install:161`, `agentdots/scripts/install-agent-clis`, `agentdots/scripts/install-launchagents`; still verified by `funk verify-local-services` |
 | agentdots | agentscrape ↔ agentweb conduit | brokers the session conduit, because it is the only thing that installs both: it renders agentweb's socket and token paths into the agentbrain.worker service, and the worker passes them uninterpreted into the agentscrape children it spawns | `agentdots/scripts/install-launchagents` (agentbrain.worker tokens), asserted by `funk/libexec/verify-local-services:92-105` |
 | funk | Claude Code | hourly transcript vault snapshots the transcript archive with restic | `funk/libexec/install-transcript-vault-agent` |
@@ -180,7 +193,7 @@ sentence around the match, never from the name alone.
 | search | brain, chats, scrape | check brain first — the answer is often already local |
 | browser | scrape, search | fetching content is scrape; finding pages is search |
 | wiki | board, brain, chats | the durable home the others cite into. Wiki's `search` is its own subcommand, not the search skill |
-| TOOLS.md (this repo) | search, scrape, brain, browser, wiki, board, groom, chats | spliced into collab and build at render — the advertisement lines are the routing |
+| TOOLS.md (this repo) | search, scrape, brain, browser, wiki, board, groom, chats, bus | spliced into collab and build at render — the advertisement lines are the routing |
 | resource-create / resource-update (agentguidance) | brain | resources are built from and refreshed against the agentbrain index |
 | story (agentguidance) | wiki | publishes the finished narrative through agentwiki |
 
