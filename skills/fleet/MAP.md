@@ -63,7 +63,7 @@ flowchart LR
     chats -.->|indexes session stores| harnesses
     bus[agentbus daemon] -->|agents --json name mirror| claude
     bus -->|WS-over-UDS JSON-RPC: discovery + turn/start·steer| codex
-    bus -->|app-server check / snapshot / app-server run --account| swap
+    bus -->|codex-swap app-server list --json| swap
     claude -->|plugin monitor: agentbus recv --follow| bus
     pi -->|agentbus extension: UDS join/recv/activity| bus
 ```

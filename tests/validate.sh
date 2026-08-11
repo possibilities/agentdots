@@ -14,6 +14,7 @@ shell_files="
 scripts/install.sh
 scripts/sync-skills
 scripts/install-agent-clis
+scripts/install-agentbus-adapters
 scripts/install-agentvoice-cli
 scripts/install-agentsurface-shims
 scripts/install-launchagents
@@ -32,6 +33,7 @@ if command -v shellcheck >/dev/null 2>&1; then
 fi
 
 for script in scripts/install.sh scripts/sync-skills scripts/install-agent-clis \
+    scripts/install-agentbus-adapters \
     scripts/install-launchagents \
     scripts/install-agentvoice-cli scripts/install-agentsurface-shims \
     scripts/configure-orca; do

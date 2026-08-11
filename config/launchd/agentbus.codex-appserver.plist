@@ -6,14 +6,12 @@
 	<key>Label</key>
 	<string>agentbus.codex-appserver</string>
 	<!-- The supervisor keeps every codex app-server this machine needs
-	     alive (agentbus ADR 0002): without codex-swap, one default-socket
-	     server on the canonical home; with codex-swap, one account-pinned
-	     server per enabled account via codex-swap's app-server surface —
-	     and none at all while that surface is missing, because a shared
-	     unpinned server would bill every attached session to whatever
-	     account is current. The billing account is always the one bound
-	     to the app-server process, since that process makes the model
-	     calls; the TUI is only a client. -->
+	     alive (agentbus ADR 0003): without codex-swap, one default-socket
+	     server on the canonical home; with codex-swap present, spawns nothing,
+	     because every placed codex run brings its own dedicated account-pinned
+	     server via codex-swap. Each run's server is registered on sight and
+	     receives exclusively for that session — the bridge polls codex-swap
+	     app-server list --json to discover them. -->
 
 	<key>ProgramArguments</key>
 	<array>
