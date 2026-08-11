@@ -37,14 +37,11 @@ code_root="${AGENTSTART_CODE_ROOT:-$HOME/code}"
 # shims — that stays a deliberate `scripts/install-agentsurface-shims`.
 #
 # codex-swap owns its own command now, and agentusage has stopped writing a
-# competing shim for it, so the command has exactly one owner. Its installer
-# also provisions the managed codex-multi-auth fork under ~/src and bakes that
-# path into the shim, which is what lets the launchd-supervised codex
-# app-servers resolve a dependency that can host them at all — stock
-# codex-multi-auth routes `app-server` through a shadow home where a resident
-# server cannot run. It still runs before agentusage: the ordering no longer
-# decides a winner, but it keeps the provider layer installed before the
-# observer that reads it.
+# competing shim for it, so the command has exactly one owner. It runs before
+# agentusage to keep the provider layer installed before the observer that
+# reads it. It briefly also provisioned a patched codex-multi-auth fork, back
+# when stock codex-multi-auth could not host a resident app-server; 2.8.4
+# carries that fix, so the dependency is an ordinary pinned install again.
 #
 # agentweb, agentscrape, and agentbrain are ordered along the conduit rather
 # than by any install-time requirement: agentweb serves the session conduit,
