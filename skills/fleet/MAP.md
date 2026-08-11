@@ -108,7 +108,10 @@ flowchart LR
         story -.->|publishes via| wikiCli[agentwiki CLI]
         notify -.->|posts via| notifierCli[terminal-notifier]
         email -.->|reads via| gogCli[gog] & notify
+        watchRequests[watch-requests] -.-> notify
     end
+
+    watchRequests -.-> chats
 
     tools[TOOLS.md — agentstart prompts, spliced into collab and build at render] -.-> search & scrape & brain & browser & wiki & board & groom & chats & bus & notify
 ```
@@ -225,6 +228,7 @@ fix ships in an upstream release.)
 | TOOLS.md (this repo) | search, scrape, brain, browser, wiki, board, groom, chats, bus, notify | spliced into collab and build at render — the advertisement lines are the routing |
 | resource-create / resource-update (agentguidance) | brain | resources are built from and refreshed against the agentbrain index |
 | story (agentguidance) | wiki | publishes the finished narrative through agentwiki |
+| watch-requests (agentguidance) | chats, notify | the watch diagnoses but never authors: `cass resume <source_path> --shell` names the session that opened the request, and notify carries the resume command and steering prompt to the human (`agentguidance/skills/watch-requests/SKILL.md`) |
 | email (agentguidance) | notify | a lapsed credential or consent screen needs the human, who is not reading the transcript — the stall is announced, not waited in (`agentguidance/skills/email/SKILL.md`) |
 
 ## Checked and absent
