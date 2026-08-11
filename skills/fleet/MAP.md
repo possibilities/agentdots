@@ -188,21 +188,28 @@ sentence around the match, never from the name alone.
 | @native-sdk/cli | 0.7 line | the native-sdk skill documents 0.7 and its agent helpers are version-matched | `agentstart/scripts/install.sh` (`native_sdk_version`) |
 | zig | Brewfile-tracked, duplicated in the installer | AgentVoice's native duplex audio path and Native SDK packaging build against it | `agentstart/scripts/install.sh` |
 
-Both managed forks rebase their **install branch** onto upstream on every
-install — the integration branch each installer builds and binds — gated by
+The managed fork rebases its **install branch** onto upstream on every
+install — the integration branch the installer builds and binds — gated by
 that project's own CI steps and published with `--force-with-lease` only after
 the gate passes. A failed rebase or gate keeps the previously bound build bound,
-publishes nothing, and notifies. The two implementations are deliberately
-duplicated rather than shared: each fleet repo owns its own hardened installer,
-and a common helper would invert that ownership. A patch also offered upstream
-lives on its own branch and is **not** moved by this — refreshing an open PR is
-a separate operation against a different audience. The `fork-rebase-policy` wiki
-page is the contract.
+publishes nothing, and notifies. The fleet repo owns its own hardened installer
+rather than sharing a common helper, which would invert that ownership. A patch
+also offered upstream lives on its own branch and is **not** moved by this —
+refreshing an open PR is a separate operation against a different audience. The
+`fork-rebase-policy` wiki page is the contract. (`~/src/codex-multi-auth` was
+managed the same way, owned by `codex-swap/scripts/install.sh`, while codex-swap
+carried the app-server routing fix; codex-multi-auth 2.8.4 shipped that fix
+upstream (ndycode/codex-multi-auth#659) and the installer now provisions
+nothing under `~/src`. The fork is currently re-activated **manually** for the
+runtime-helper leak fix: branch `fix/runtime-helper-leak` (2.8.4-based), wired
+by an `export CODEX_SWAP_NDY_PACKAGE_DIR` line in the `~/.local/bin/codex-swap`
+shim rather than by the installer — running `codex-swap/scripts/install.sh
+--install` rewrites the shim and unwires it. Retire the wiring again once the
+fix ships in an upstream release.)
 
 | Fork | Install branch | Owner | Gate |
 | --- | --- | --- | --- |
 | `~/src/claude-swap` | `main` | `agentusage/scripts/install-providers.sh` | `uv sync --locked && uv run pytest` |
-| `~/src/codex-multi-auth` | `main` | `codex-swap/scripts/install.sh` | `npm ci`, typecheck, lint, test, build |
 
 ### routes (skill → skill)
 

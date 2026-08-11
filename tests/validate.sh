@@ -531,9 +531,10 @@ grep -F 'exit "$agent_clis_status"' scripts/install.sh >/dev/null \
 # than by matching one literal line. agentusage must precede agentsurface (the
 # launcher shells its balance contract), agentweb must precede agentbrain
 # (whose worker spawns the agentscrape children that ask agentweb's conduit),
-# and codex-swap must precede agentusage so its own shim — the one carrying the
-# managed codex-multi-auth fork path — wins over the legacy shim agentusage
-# still writes.
+# and codex-swap must precede agentusage so its own shim wins over the legacy
+# shim agentusage still writes. (The codex-swap shim briefly carried a managed
+# codex-multi-auth fork path; 2.8.4 shipped the fix upstream, but the ordering
+# still decides which shim survives.)
 agent_cli_order=$(tr '\n' ' ' <scripts/install-agent-clis | tr -s ' ')
 case "$agent_cli_order" in
     *"for tool in agentwiki agentboard agentsearch agentkeys agentbus \\ agentweb agentscrape agentbrain codex-swap agentusage agentsurface"*) ;;
