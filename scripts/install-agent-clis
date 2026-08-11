@@ -23,6 +23,13 @@ die() {
 # is a real error and propagates. Rerunning is safe: the installers are
 # fix-forward and relinking repoints the same command.
 #
+# The fleet root. AGENTSTART_CODE_ROOT relocates it as a unit — the tests point
+# it at a fixture tree — but it deliberately does not resolve relative to this
+# script: the installer converges the machine, not the checkout it was invoked
+# from, and a worktree run must still find the real fleet rather than silently
+# skipping every tool.
+code_root="${AGENTSTART_CODE_ROOT:-$HOME/code}"
+
 # agentusage precedes agentsurface because the launcher shells its balance
 # contract and its installer provisions the public claude-swap fork. The shims
 # installer refuses without `agentsurface` on PATH, and the machine's .zshrc
@@ -49,7 +56,7 @@ die() {
 # checkout is installed from two places.
 for tool in agentwiki agentboard agentsearch agentkeys agentbus \
     agentweb agentscrape agentbrain codex-swap agentusage agentsurface; do
-    tool_root="$HOME/code/$tool"
+    tool_root="$code_root/$tool"
     if [ ! -f "$tool_root/scripts/install.sh" ]; then
         printf 'AgentStart agent CLIs installer: no checkout at %s; skipping.\n' "$tool_root"
         continue

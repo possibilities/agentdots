@@ -97,10 +97,23 @@ fi
 [ ! -e guidance ] \
     || fail "cross-project guidance moved to the wiki (tool-advertisement-policy); do not grow guidance/ back"
 
-# Public-repo hygiene: everything resolves from $HOME, so a literal /Users/
-# path is an account-name assumption leaking back in.
-if grep -rn '/Users/' scripts prompts config skills README.md AGENTS.md CONTEXT.md 2>/dev/null; then
-    fail "a literal /Users/ path assumes an account name; resolve from \$HOME instead"
+# Public-repo hygiene: everything resolves from $HOME, so an absolute path into
+# a home directory is an account-name assumption leaking back in.
+# The sweep covers tests/ as well, so both patterns are assembled rather than
+# written out: a guard that spells what it hunts for matches its own source and
+# can only pass by exempting itself.
+hygiene_paths="scripts prompts config skills tests README.md AGENTS.md CONTEXT.md"
+home_literal="/$(printf 'Users')/"
+# shellcheck disable=SC2086 # $hygiene_paths is a deliberate list of targets.
+if grep -rn "$home_literal" $hygiene_paths 2>/dev/null; then
+    fail "a literal home-directory path assumes an account name; resolve from \$HOME instead"
+fi
+# The same rule for the operator's account name, which is knowable at runtime
+# and therefore never needs to be written down.
+operator_account=$(id -un)
+# shellcheck disable=SC2086 # $hygiene_paths is a deliberate list of targets.
+if grep -rn "$operator_account" $hygiene_paths 2>/dev/null; then
+    fail "the operator's account name is spelled in the repository; resolve it at runtime"
 fi
 [ -s LICENSE ] || fail "public repository is missing its LICENSE"
 
@@ -408,7 +421,7 @@ done
 # line for it here would be the second synchronization path its guidance
 # forbids, and the render belongs to its post-sync hook, not to this
 # installer.
-if grep -En 'arthack|agentguidance' scripts/install.sh \
+if grep -En "$operator_account|agentguidance" scripts/install.sh \
     | grep -vF 'prompts/agentguidance' \
     | grep -vF '.config/agentguidance' \
     | grep -vF 'agentguidance renders' \
@@ -534,8 +547,23 @@ for expected_tool in agentwiki agentboard agentsearch agentkeys agentweb \
     esac
 done
 # shellcheck disable=SC2016 # Match the literal checkout resolution in the script.
-grep -F 'agentchats_root="$HOME/code/agentchats"' scripts/install.sh >/dev/null \
+grep -F 'agentchats_root="$code_root/agentchats"' scripts/install.sh >/dev/null \
     || fail "installer does not own the cass installation call"
+# One fleet root, honoured by every script that walks it. A script resolving
+# $HOME/code directly cannot be pointed at a fixture tree, and one resolving it
+# relative to its own location would silently skip the whole fleet on a worktree
+# run — the checkouts are found where the machine keeps them, not beside $0.
+for fleet_walker in scripts/install.sh scripts/install-agent-clis \
+    scripts/install-agentbus-adapters scripts/install-agentvoice-cli \
+    scripts/sync-skills; do
+    # shellcheck disable=SC2016 # Match the literal knob in each script.
+    grep -F 'code_root="${AGENTSTART_CODE_ROOT:-$HOME/code}"' "$fleet_walker" >/dev/null \
+        || fail "$fleet_walker does not resolve the fleet root through AGENTSTART_CODE_ROOT"
+    # shellcheck disable=SC2016 # A bare $HOME/code path bypasses the knob.
+    if grep -n '\$HOME/code' "$fleet_walker" | grep -vF 'AGENTSTART_CODE_ROOT' >/dev/null; then
+        fail "$fleet_walker still resolves \$HOME/code directly instead of through code_root"
+    fi
+done
 # shellcheck disable=SC2016 # Match the literal invocation in the script.
 grep -F '"$agentchats_root/scripts/install.sh" --install' scripts/install.sh >/dev/null \
     || fail "installer does not invoke the agentchats contract"

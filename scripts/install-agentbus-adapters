@@ -27,7 +27,13 @@ note() {
     exit 64
 }
 
-checkout="$HOME/code/agentbus"
+# The fleet root. AGENTSTART_CODE_ROOT relocates it as a unit — the tests point
+# it at a fixture tree — but it deliberately does not resolve relative to this
+# script: the installer converges the machine, not the checkout it was invoked
+# from, and a worktree run must still find the real fleet rather than silently
+# skipping every tool.
+code_root="${AGENTSTART_CODE_ROOT:-$HOME/code}"
+checkout="$code_root/agentbus"
 if [ ! -d "$checkout" ]; then
     note "no checkout at $checkout; skipping."
     exit 0

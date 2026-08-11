@@ -6,6 +6,13 @@ check_only=0
 script_dir=$(cd -P -- "$(dirname -- "$0")" && pwd)
 repo_root=$(cd -P -- "$script_dir/.." && pwd)
 
+# The fleet root. AGENTSTART_CODE_ROOT relocates it as a unit — the tests point
+# it at a fixture tree — but it deliberately does not resolve relative to this
+# script: the installer converges the machine, not the checkout it was invoked
+# from, and a worktree run must still find the real fleet rather than silently
+# skipping every tool.
+code_root="${AGENTSTART_CODE_ROOT:-$HOME/code}"
+
 usage() {
     cat <<'EOF'
 Usage: scripts/install.sh [--install|--check]
@@ -253,8 +260,8 @@ EOF
     "$script_dir/install-statusline" --check
     "$script_dir/install-launchagents" --check
     "$script_dir/sync-skills" --check
-    if [ -f "$HOME/code/agentchats/scripts/install.sh" ]; then
-        "$HOME/code/agentchats/scripts/install.sh" --check
+    if [ -f "$code_root/agentchats/scripts/install.sh" ]; then
+        "$code_root/agentchats/scripts/install.sh" --check
     fi
     exit 0
 fi
@@ -475,7 +482,7 @@ fi
 # ships through the agent* checkout skill scan like every other tool's. A
 # machine without the checkout skips, like the agent CLIs above; a present
 # checkout that fails to install is a real error.
-agentchats_root="$HOME/code/agentchats"
+agentchats_root="$code_root/agentchats"
 if [ -f "$agentchats_root/scripts/install.sh" ]; then
     agentchats_status=0
     "$agentchats_root/scripts/install.sh" --install || agentchats_status=$?

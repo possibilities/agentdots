@@ -40,7 +40,13 @@ find_bun() {
 # failure; a present checkout that fails to install is a real error and
 # propagates. Rerunning is safe: every step is fix-forward and relinking
 # repoints the same global command.
-agentvoice_root="$HOME/code/agentvoice"
+# The fleet root. AGENTSTART_CODE_ROOT relocates it as a unit — the tests point
+# it at a fixture tree — but it deliberately does not resolve relative to this
+# script: the installer converges the machine, not the checkout it was invoked
+# from, and a worktree run must still find the real fleet rather than silently
+# skipping every tool.
+code_root="${AGENTSTART_CODE_ROOT:-$HOME/code}"
+agentvoice_root="$code_root/agentvoice"
 if [ ! -f "$agentvoice_root/package.json" ]; then
     printf 'AgentStart AgentVoice CLI installer: no checkout at %s; skipping.\n' \
         "$agentvoice_root"
