@@ -9,7 +9,7 @@ Four kinds of edge:
   Breaking the target skill strands the routing.
 - **serves** (dotted): a launchd service running fleet code, or a tool
   reading another's data on disk. Every fleet service is agentstart's; the
-  machine's own reverse-DNS services are funk's.
+  machine's own reverse-DNS services are outside the fleet.
 - **pins**: a binary installed at an exact version because a consumer locks
   or resolves it by contract.
 
@@ -72,17 +72,15 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    funk[funk ./install + updater]
+    machine[machine installer + updater]
     start[agentstart]
 
-    funk ==>|scripts/install.sh --install, sync-skills| start
+    machine ==>|scripts/install.sh --install, sync-skills| start
     start ==>|official installers| harnesses[Claude Code / Codex / Pi]
     start ==>|npm pin| browser[agent-browser]
     start ==>|checkout contracts| fleet[agentvoice / agentwiki / agentboard / agentsearch / agentkeys / agentbus / agentweb / agentscrape / agentbrain / agentusage / agentsurface / cass]
     start ==>|skills scan + post-sync hooks| skills[all agent skills, agentguidance rendered]
     start -.->|config/launchd + install-launchagents| services[agentbrain worker + share + doctor / agentbus daemon + codex app-server / agentusage daemon / agentweb daemon / agentscrape process-queue / agentwiki serve]
-    funk -.->|transcript vault, restic| claudeData[Claude Code transcripts]
-    funk ==>|casks| apps[Claude.app / ChatGPT.app / Orca.app]
 ```
 
 ## Skill routing
@@ -173,12 +171,11 @@ sentence around the match, never from the name alone.
 | From | To | What | Evidence |
 | --- | --- | --- | --- |
 | agentstart | agentbrain, agentbus, agentscrape, agentusage, agentweb, agentwiki | installs their commands too, and owns all nine of their launch agents outright — including agentbus.codex-appserver, the supervisor that keeps account-pinned app-servers alive (one default-socket server without codex-swap; one per enabled account through codex-swap's app-server surface; none while that surface is missing — agentbus ADR 0002) — templates, manifest, rendering, and load — for code the checkouts ship but no longer install; a service with two owners would race to render it | `agentstart/config/launchd/*.plist`, `agentstart/scripts/install-launchagents`, asserted by `agentstart/tests/validate.sh` |
-| funk | agentstart | `./install` calls `scripts/install.sh --install` and nothing else about the fleet: agentstart installs every fleet command and every fleet service, and discovers the tailnet bind address and agentweb's conduit paths itself | `funk/install:161`, `agentstart/scripts/install-agent-clis`, `agentstart/scripts/install-launchagents`; still verified by `funk verify-local-services` |
-| agentstart | agentscrape ↔ agentweb conduit | brokers the session conduit, because it is the only thing that installs both: it renders agentweb's socket and token paths into the agentbrain.worker service, and the worker passes them uninterpreted into the agentscrape children it spawns | `agentstart/scripts/install-launchagents` (agentbrain.worker tokens), asserted by `funk/libexec/verify-local-services:92-105` |
-| funk | Claude Code | hourly transcript vault snapshots the transcript archive with restic | `funk/libexec/install-transcript-vault-agent` |
+| machine installer | agentstart | the only inbound edge from outside the fleet: it calls `scripts/install.sh --install` and nothing else about the fleet, because agentstart installs every fleet command and every fleet service, and discovers the tailnet bind address and agentweb's conduit paths itself | `agentstart/scripts/install.sh` (the documented external interface), `agentstart/scripts/install-agent-clis`, `agentstart/scripts/install-launchagents` |
+| agentstart | agentscrape ↔ agentweb conduit | brokers the session conduit, because it is the only thing that installs both: it renders agentweb's socket and token paths into the agentbrain.worker service, and the worker passes them uninterpreted into the agentscrape children it spawns | `agentstart/scripts/install-launchagents` (agentbrain.worker tokens), asserted by the machine's local-service verification |
 | agentboard | agentwiki | stored data, distinct from the publish call: board items hold agentwiki slugs (`link <ref> --wiki <slug>` / `unlink`), so changing wiki's slug scheme breaks stored links even where publishing never runs | `agentboard/skills/board/SKILL.md:228-232`, reciprocated `agentwiki/skills/wiki/SKILL.md:133-134` |
 | cass (agentchats) | Claude Code, Codex, Pi | builds and refreshes the search index over the local session stores; cass itself is upstream software — the official checksummed installer, gh-resolved — with only the `agentchats` state CLI linked editable from the checkout | `agentchats/scripts/install.sh:6,95,123-129,137` |
-| agentkeys | funk configs | audits the interception chain across Karabiner/skhd/Ghostty/tmux/Neovim — files funk stows | `agentkeys` skill description; funk stow packages |
+| agentkeys | stowed machine configs | audits the interception chain across Karabiner/skhd/Ghostty/tmux/Neovim — files the machine layer stows | `agentkeys` skill description; the machine's stow packages |
 | agentboard, agentchats | each other's CLIs | the shared "agent* state dump" bearings convention: one cross-tool contract for state dumps, with a common ~4-chars-per-token budget | `agentboard/src/help.ts:367`, `agentchats/bin/agentchats:13`, `agentboard/src/brief.ts:140` |
 | agentstart statusline | claude-swap | the claude renderer names the balanced account by reading `CLAUDE_CONFIG_DIR`, whose basename claude-swap spells `<n>-<slugified-email>`; renaming that profile directory silently drops the account segment. No counterpart for codex or pi — codex-swap pins an account by swapping auth in place and exports nothing naming it | `agentstart/config/statusline/claude-statusline.sh` (balanced-account segment); `claude-swap/src/claude_swap/session.py:161-167` |
 | agentstart statusline | Orca | the claude renderer forwards its stdin payload to Orca's `~/.orca/agent-hooks/claude-statusline.sh` sink before drawing: taking over `statusLine` in `~/.claude/settings.json` otherwise blanks Orca's view of the session. An Orca update may reinstall its own entry; `scripts/install-statusline --install` restores ours | `agentstart/config/statusline/claude-statusline.sh` (Orca forward); `agentstart/scripts/install-statusline` |

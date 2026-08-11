@@ -23,7 +23,7 @@ die() {
 # tool (ADR 0003/0004). Managed launches carry AGENTSURFACE_LAUNCH=1 and
 # fall through to the real binary, found by scanning PATH past the shim
 # directory — that sentinel is what makes the composition non-recursive.
-# The shim dir is prepended to PATH by Funk's .zshrc, guarded on its
+# The shim dir is prepended to PATH by the machine's .zshrc, guarded on its
 # existence.
 shim_dir="$HOME/.local/share/agentsurface/shims"
 
@@ -39,7 +39,7 @@ for harness in claude codex pi; do
 # AgentStart-managed agentsurface shim: bare \`$harness\` balances across
 # accounts. AGENTSURFACE_LAUNCH=1 (managed launch) or AGENTSURFACE_SHIM_BYPASS=1
 # (manual escape) exec the real binary instead. Regenerate with
-# \`funk install-agentsurface-shims\`; do not edit in place.
+# \`agentstart/scripts/install-agentsurface-shims\`; do not edit in place.
 set -euo pipefail
 shim_dir=\$(cd -- "\$(dirname -- "\${BASH_SOURCE[0]}")" && pwd -P)
 find_real() {

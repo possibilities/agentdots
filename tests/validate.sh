@@ -95,7 +95,7 @@ fi
 # Cross-project guidance lives in the wiki, not in this repository; a
 # guidance/ directory reappearing here means the decision reversed silently.
 [ ! -e guidance ] \
-    || fail "cross-project guidance moved to the wiki (funk-boundary, tool-advertisement-policy); do not grow guidance/ back"
+    || fail "cross-project guidance moved to the wiki (tool-advertisement-policy); do not grow guidance/ back"
 
 # Public-repo hygiene: everything resolves from $HOME, so a literal /Users/
 # path is an account-name assumption leaking back in.
@@ -180,7 +180,7 @@ set -e
 [ "$orca_running_status" -ne 0 ] \
     || fail "Orca settings reconciliation raced a running divergent profile"
 # EX_TEMPFAIL distinguishes "repeat this after quitting Orca" from a broken
-# installation, so Funk's ./install can report it instead of failing the run.
+# installation, so the calling installer can report it instead of failing.
 [ "$orca_running_status" -eq 75 ] \
     || fail "running-Orca guard did not exit EX_TEMPFAIL: $orca_running_status"
 printf '%s\n' "$orca_running_output" | grep -F 'quit Orca' >/dev/null \
@@ -349,9 +349,9 @@ for required_install in \
     'curl -fsSL https://chatgpt.com/codex/install.sh | CODEX_NON_INTERACTIVE=1 sh' \
     'curl -fsSL https://pi.dev/install.sh | sh  # in its own session, no controlling terminal' \
     'brew install or upgrade zig  # AgentVoice'"'"'s native duplex audio path builds against it' \
-    'brew install or upgrade llm  # an AI CLI, so AgentStart'"'"'s outright — moved out of Funk'"'"'s Brewfile' \
+    'brew install or upgrade llm  # an AI CLI, so AgentStart'"'"'s outright — moved out of the machine'"'"'s Brewfile' \
     'remove AgentStart-owned ~/Library/Application Support/io.datasette.llm/extra-openai-models.yaml symlink  # its extra model records are obsolete' \
-    'scripts/configure-orca  # apply the Orca settings overlay; Funk'"'"'s ./install runs it via funk configure-orca' \
+    'scripts/configure-orca  # apply the Orca settings overlay; the machine'"'"'s installer runs it through its own wrapper' \
     'npm install --global @native-sdk/cli@0.7  # the line the native-sdk skill documents' \
     'npm install --global agent-browser@0.33.2  # Agentweb'"'"'s config.json digest-locks this exact build' \
     'ln -sfn "$(command -v agent-browser)" ~/.local/bin/agent-browser  # the candidate Agentscrape resolves before PATH' \
@@ -377,9 +377,6 @@ for required_install in \
     printf '%s\n' "$install_plan" | grep -F "$required_install" >/dev/null \
         || fail "installation plan is missing: $required_install"
 done
-if printf '%s\n' "$install_plan" | grep -Eq -- '--skill ([^[:space:]]+ )*funk([[:space:]]|$)'; then
-    fail "installation plan still installs the retired Funk priming skill"
-fi
 if printf '%s\n' "$install_plan" | grep -qi 'livekit'; then
     fail "installation plan still includes LiveKit setup"
 fi
@@ -394,10 +391,10 @@ if printf '%s\n' "$install_plan" \
     | grep -F '/code/agentchats"' >/dev/null; then
     fail "installation plan still synchronizes chats explicitly beside the scan"
 fi
-# The Funk boundary: desktop applications and the GitHub CLI are Funk's, so a
-# cask or gh line reappearing here means the seam is leaking back.
+# The ownership boundary: desktop applications and the GitHub CLI belong to the
+# machine layer, so a cask or gh line here means the seam is leaking back.
 if printf '%s\n' "$install_plan" | grep -Eq -- '--cask|brew install or upgrade gh'; then
-    fail "installation plan crossed the Funk boundary: desktop casks and gh are Funk's"
+    fail "installation plan crossed the boundary: desktop casks and gh are the machine's"
 fi
 
 # shellcheck disable=SC2016 # Match the literal helper invocations in the script.
@@ -543,20 +540,21 @@ grep -F 'agentchats_root="$HOME/code/agentchats"' scripts/install.sh >/dev/null 
 grep -F '"$agentchats_root/scripts/install.sh" --install' scripts/install.sh >/dev/null \
     || fail "installer does not invoke the agentchats contract"
 
-# The Funk boundary, from this side: nothing here may install a desktop cask,
-# migrate gh credentials, or grow launchd machinery — those are Funk's.
+# The ownership boundary, from this side: nothing here may install a desktop
+# cask, migrate gh credentials, or grow launchd machinery — those are the
+# machine's.
 if grep -Eq -- '--cask' scripts/install.sh scripts/sync-skills; then
-    fail "an AgentStart script crossed the Funk boundary: casks are Funk's"
+    fail "an AgentStart script crossed the boundary: casks are the machine's"
 fi
 if grep -F 'oauth_token' scripts/install.sh >/dev/null; then
-    fail "an AgentStart script crossed the Funk boundary: gh migration is Funk's"
+    fail "an AgentStart script crossed the boundary: gh migration is the machine's"
 fi
-# launchd is now split rather than wholly Funk's: a bare <tool>.<service> label
-# is a fleet service and this repository owns it; a reverse-DNS label is the
-# machine's and stays with Funk. The boundary that remains is the naming, so
+# launchd is split rather than wholly the machine's: a bare <tool>.<service>
+# label is a fleet service and this repository owns it; a reverse-DNS label is
+# the machine's. The boundary that remains is the naming, so
 # what is tested is that nothing here installs a machine-shaped service.
 if grep -Eq '<string>(com|org|net)\.' config/launchd/*.plist; then
-    fail "an AgentStart launch agent used a reverse-DNS label: machine services are Funk's"
+    fail "an AgentStart launch agent used a reverse-DNS label: machine services are not ours"
 fi
 # The updater path stays unattended-safe: sync-skills runs every six hours with
 # no sudo and no service restarts, so it must never reach launchd.

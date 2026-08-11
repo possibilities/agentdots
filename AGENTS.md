@@ -2,23 +2,25 @@
 
 ## Repository context
 
-- `~/code/agentstart` owns AI-toolchain installation for this machine. Funk
-  (`~/code/funk`) owns the machine itself and invokes this checkout; the
-  rubric and its case law live in the wiki (`agentwiki get funk-boundary`).
-  When a change straddles the boundary, decide with the rubric, then record
-  the call in that page if it sets precedent. Every path here resolves from
-  `$HOME` — nothing may assume a particular account name.
+- `~/code/agentstart` owns AI-toolchain installation for this machine. The
+  machine layer itself — Homebrew, Stow, launchd, macOS settings, account
+  migration — is owned elsewhere and is not this repository's concern; its
+  installer invokes this checkout, and that call is the whole relationship.
+  When a change straddles the two, the scope test decides: depended on by or
+  deeply related to the fleet → here; the machine itself → not here. Every
+  path here resolves from `$HOME` — nothing may assume a particular account
+  name.
 - The fleet lives beside this checkout: every `~/code/agent*` checkout
   without exception — including `~/code/agentguidance`, the general guidance
-  skills and their renderer — plus `~/code/funk` and `~/code/codex-swap`,
-  the first-party account-swapping launcher for codex and pi. Each fleet
-  repo owns its own hardened installer and exports its own skills; AgentStart
-  invokes contracts, it does not reach inside — but it decides that every
+  skills and their renderer — plus `~/code/codex-swap`, the first-party
+  account-swapping launcher for codex and pi. Each fleet repo owns its own
+  hardened installer and exports its own skills; AgentStart invokes
+  contracts, it does not reach inside — but it decides that every
   one of them is installed. `install-agent-clis` runs each checkout's own
   installer, and `config/launchd/` defines every fleet service, because a
   service with two owners has them racing to render it. A fleet checkout
   ships the code; this repository decides that it is present and when it
-  runs. Funk installs no fleet component at all.
+  runs. Nothing outside this repository installs a fleet component.
 - `claude-swap` is the one fleet dependency that is not ours. Upstream is a
   third-party project, so the machine currently runs a patched fork
   (`possibilities/claude-swap`, `main`) cloned to `~/src/claude-swap` under
@@ -39,17 +41,17 @@
 
 Every durable AI-stack change belongs in this repository and converges by
 rerunning `scripts/install.sh --install`. Do not hand-configure the live
-machine, and do not grow a second installer or synchronization path here,
-in Funk, or in `~/code/agentguidance`.
+machine, and do not grow a second installer or synchronization path here or
+in `~/code/agentguidance`.
 
 The external interface is exactly `scripts/install.sh` (`--install`,
 `--check`), `scripts/sync-skills` (`--check`), and
-`scripts/install-agentsurface-shims`. Funk's `./install` and scheduled
+`scripts/install-agentsurface-shims`. The machine's installer and scheduled
 updater call these by path with fixed semantics: a missing optional fleet
 checkout is a skip inside the script, a present-but-broken one fails, and
 the updater path (`sync-skills`) must stay unattended-safe — no sudo, no
-uninstalls, no application restarts. Funk's own test suite greps these
-scripts, so renaming or resemanticizing them is a two-repository change.
+uninstalls, no application restarts. That caller's own test suite greps
+these scripts, so renaming or resemanticizing them breaks it.
 
 Where things go:
 
@@ -66,7 +68,7 @@ Where things go:
   assertions in `tests/validate.sh`. `config/launchd/README.md` is the
   contract — what every service shares and what is deliberately
   per-service. Labels are bare `<tool>.<service>`; a reverse-DNS label is a
-  machine service and belongs to Funk.
+  machine service and does not belong here.
 - A statusline change: `config/statusline/`, converged by
   `scripts/install-statusline`. One bar in three harness idioms, because
   that is all the harnesses offer — claude runs a render command per frame,
@@ -79,8 +81,8 @@ Where things go:
   next render) so the rendered skills pick it up.
 - A cross-project decision that belongs to no single repo: the wiki
   (`agentwiki new`), one page per subject, wikilinked to its neighbours
-  and pointed at from wherever it constrains. `funk-boundary` and
-  `tool-advertisement-policy` are the standing examples.
+  and pointed at from wherever it constrains. `tool-advertisement-policy`
+  is the standing example.
 - A change in who calls what between fleet apps: update the map the
   `fleet` skill serves (`skills/fleet/MAP.md`) in the same change.
 
@@ -100,6 +102,6 @@ tests/validate.sh
 
 After changing installation behavior, also run
 `scripts/install.sh --install` and compare the installed `collab` manifest
-with its agentguidance source template — the same convergence check Funk's
-guidance prescribes. `AGENTS.md` is the canonical guidance file; `CLAUDE.md`
-is a symlink to it.
+with its agentguidance source template — the same convergence check the
+fleet's guidance prescribes. `AGENTS.md` is the canonical guidance file;
+`CLAUDE.md` is a symlink to it.

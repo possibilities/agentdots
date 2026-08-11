@@ -43,13 +43,14 @@ esac
 }
 
 # The cheap convergence path: refresh the globally managed skills without
-# touching any binary. scripts/install.sh ends with this, and Funk's scheduled
+# touching any binary. scripts/install.sh ends with this, and the scheduled
 # updater calls it directly every six hours, because a stale runbook misleads
 # a session as badly as a stale binary does. Two sources:
 #
 # - The Orca harness skills (orca-cli, orchestration, computer-use) from the
-#   app's repository. The Orca application itself is Funk's — a Homebrew cask
-#   left to its own updater — but its skills are harness configuration, which
+#   app's repository. The Orca application itself is the machine's — a
+#   Homebrew cask left to its own updater — but its skills are harness
+#   configuration, which
 #   is AgentStart's domain, so they are synchronized and verified here.
 # - Every agent* checkout under ~/code that exports skills/<name>/SKILL.md.
 #   That convention is the whole interface: AgentStart discovers participants
@@ -72,7 +73,7 @@ else
     elif command -v npx >/dev/null 2>&1; then
         npx_bin=$(command -v npx)
     else
-        # Funk's scheduled updater runs from a LaunchAgent whose PATH never
+        # The scheduled updater runs from a LaunchAgent whose PATH never
         # sourced nvm, so npx is missing there even on a machine that has
         # Node. Homebrew matters only as the place nvm.sh lives.
         brew_bin=$(find_brew) \

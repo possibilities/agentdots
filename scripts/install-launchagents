@@ -4,8 +4,8 @@
 #
 # Every long-running service in the agent* fleet is defined by a template in
 # config/launchd/ and installed from here. The fleet checkouts ship the code;
-# this script decides when that code runs. Funk keeps its own machine services
-# under com.arthack.funk.* and its own launchd/ directory — the bare
+# this script decides when that code runs. The machine layer keeps its own
+# services under reverse-DNS labels and its own launchd/ directory — the bare
 # <tool>.<service> label is what marks a service as the fleet's.
 #
 # config/launchd/README.md is the contract: what every service shares, what is

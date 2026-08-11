@@ -39,9 +39,9 @@ grep -rn 'skill' ~/code/agent*/skills/*/SKILL.md \
   | grep -iE 'scrape|search|brain|board|groom|wiki|browser|chats|keys'
 
 # IPC edges spawn-greps miss: unix-socket conduits and injected env
-grep -rn 'CONDUIT\|unix:' ~/code/agent*/src ~/code/funk/libexec 2>/dev/null | grep -v node_modules
+grep -rn 'CONDUIT\|unix:' ~/code/agent*/src 2>/dev/null | grep -v node_modules
 
-# service edges: what funk's launchd points at
+# service edges: what the fleet's launchd services point at
 grep -rn 'agent' ~/code/agentstart/scripts/install-agent-clis
 ```
 

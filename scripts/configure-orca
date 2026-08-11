@@ -16,7 +16,7 @@ Usage: scripts/configure-orca [--check]
 
 Apply the AgentStart-managed Orca settings overlay (config/orca/) without
 adopting Orca's generated state, credentials, projects, worktrees, or
-session data. `funk configure-orca` delegates here.
+session data. The machine's wrapper of the same name delegates here.
 
 Options:
   --check  Validate the overlay and report whether the active profile converges
@@ -66,7 +66,7 @@ if [ -z "${HOME:-}" ] || [ ! -d "$HOME" ]; then
     die "HOME is not an existing directory"
 fi
 
-jq_bin=$(find_jq) || die "jq is not installed; run funk's ./install or brew install jq"
+jq_bin=$(find_jq) || die "jq is not installed; run the machine's installer or brew install jq"
 
 # The overlay is read straight from this checkout — there is no staging copy
 # under ~/.config/orca anymore, and nothing should recreate one.
@@ -262,8 +262,9 @@ fi
 if orca_is_running; then
     # Writing now would race Orca's own writer and lose settings. This is a
     # deferrable condition, not a broken installation, so it exits EX_TEMPFAIL
-    # rather than a general error: Funk's ./install reports it and keeps going.
-    printf 'agentstart configure-orca: Orca is running and its settings differ; quit Orca, then rerun funk configure-orca\n' >&2
+    # rather than a general error: the calling installer reports it and keeps
+    # going.
+    printf 'agentstart configure-orca: Orca is running and its settings differ; quit Orca, then rerun scripts/configure-orca\n' >&2
     exit 75
 fi
 

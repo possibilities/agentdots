@@ -11,8 +11,8 @@ usage() {
 Usage: scripts/install.sh [--install|--check]
 
 Install the AI command-line tools, harness configuration, and agent skills
-owned by AgentStart. Funk's ./install invokes this after converging Homebrew
-and the AI desktop applications; it is also safe to run standalone.
+owned by AgentStart. The machine's installer invokes this after converging
+Homebrew and the AI desktop applications; it is also safe to run standalone.
 
 Options:
   --install  Install or upgrade everything
@@ -52,7 +52,7 @@ install_official() {
 # Pi's installer reads its prompts from /dev/tty instead of stdin, so redirecting
 # input does not make it unattended: run from a terminal it stops on its
 # install/reinstall menu and offers to append a PATH line to the shell profile
-# that Funk's zsh package owns. Running it in its own session leaves it with no
+# that the machine's zsh package owns. Running it in its own session leaves it with no
 # controlling terminal, which is exactly the condition its documented
 # "No terminal detected; continuing without confirmation" path tests for.
 run_without_controlling_terminal() {
@@ -219,7 +219,7 @@ Command-line tools:
   curl -fsSL https://chatgpt.com/codex/install.sh | CODEX_NON_INTERACTIVE=1 sh
   curl -fsSL https://pi.dev/install.sh | sh  # in its own session, no controlling terminal
   brew install or upgrade zig  # AgentVoice's native duplex audio path builds against it
-  brew install or upgrade llm  # an AI CLI, so AgentStart's outright — moved out of Funk's Brewfile
+  brew install or upgrade llm  # an AI CLI, so AgentStart's outright — moved out of the machine's Brewfile
   npm install --global @native-sdk/cli@0.7  # the line the native-sdk skill documents
   npm install --global agent-browser@0.33.2  # Agentweb's config.json digest-locks this exact build
   ln -sfn "$(command -v agent-browser)" ~/.local/bin/agent-browser  # the candidate Agentscrape resolves before PATH
@@ -238,7 +238,7 @@ Agent guidance:
   remove AgentStart-owned ~/Library/Application Support/io.datasette.llm/extra-openai-models.yaml symlink  # its extra model records are obsolete
 
 Related, not run by --install:
-  scripts/configure-orca  # apply the Orca settings overlay; Funk's ./install runs it via funk configure-orca
+  scripts/configure-orca  # apply the Orca settings overlay; the machine's installer runs it through its own wrapper
 
 Agent skills:
   npx --yes skills add https://github.com/vercel-labs/skills --agent codex claude-code pi --skill find-skills --global --yes
@@ -268,7 +268,7 @@ brew_owner=$(stat -f '%Su' "$brew_prefix")
 [ "$brew_owner" = "$(id -un)" ] \
     || die "Homebrew prefix $brew_prefix is owned by $brew_owner, not $(id -un)"
 
-# Funk already owns these PATH entries in its Stow-managed zsh configuration.
+# The machine already owns these PATH entries in its Stow-managed zsh config.
 # Supplying them here prevents vendor installers from appending equivalent lines
 # to shell startup files during this run.
 original_path=$PATH
@@ -296,8 +296,8 @@ printf 'Installing Codex CLI with its official installer.\n'
 /usr/bin/curl -fsSL https://chatgpt.com/codex/install.sh \
     | CODEX_NON_INTERACTIVE=1 /bin/sh
 
-# Pi requires Node.js 22.19 or newer. Funk initializes the pinned NVM default
-# before its Brewfile converges; load that default into this subprocess so
+# Pi requires Node.js 22.19 or newer. The machine initializes the pinned NVM
+# default before its Brewfile converges; load that default into this subprocess so
 # Pi's official installer can use it.
 nvm_script="$brew_prefix/opt/nvm/nvm.sh"
 if [ -s "$nvm_script" ]; then
@@ -314,14 +314,14 @@ printf 'Installing Pi with its official installer.\n'
     | run_without_controlling_terminal /bin/sh
 
 # Zig builds Native SDK applications and AgentVoice's opt-in native duplex
-# audio device, and Funk's Brewfile alone cannot guarantee the toolchain is
+# audio device, and the machine's Brewfile alone cannot guarantee it is
 # present in a session that only runs this script (intentional duplicate of
 # that Brewfile).
-printf 'Installing or upgrading Zig for Native SDK packaging (intentional duplicate of Funk'\''s Brewfile).\n'
+printf 'Installing or upgrading Zig for Native SDK packaging (intentional duplicate of the machine'\''s Brewfile).\n'
 install_or_upgrade_formula zig
 
-# llm is an AI CLI, so it is AgentStart's outright — moved out of Funk's
-# Brewfile rather than duplicated from it.
+# llm is an AI CLI, so it is AgentStart's outright — moved out of the
+# machine's Brewfile rather than duplicated from it.
 printf 'Installing or upgrading the llm CLI.\n'
 install_or_upgrade_formula llm
 
@@ -492,8 +492,8 @@ fi
 # The fleet's long-running services. This runs after every CLI above, because
 # a service is only installed once the binary it supervises exists — a tool
 # that is absent is skipped, exactly like its checkout was. The fleet
-# checkouts ship the code; this repository decides when it runs. Funk keeps
-# the machine's own services, which are the reverse-DNS labels.
+# checkouts ship the code; this repository decides when it runs. The machine
+# layer keeps its own services, which are the reverse-DNS labels.
 printf 'Installing the fleet launch agents.\n'
 "$script_dir/install-launchagents" --install
 
@@ -503,6 +503,6 @@ printf 'Installing the fleet launch agents.\n'
 # That includes this checkout's own skills and agentguidance's, whose
 # post-sync hook re-renders the templates the scan ships against the
 # operator extension prompts linked above. sync-skills also refreshes the
-# Orca harness skills; the Orca application itself is Funk's, installed as
-# a Homebrew cask beside the other AI desktop applications.
+# Orca harness skills; the Orca application itself is the machine's,
+# installed as a Homebrew cask beside the other AI desktop applications.
 "$script_dir/sync-skills"

@@ -5,9 +5,9 @@ by `scripts/install-launchagents`, without exception. A fleet checkout no
 longer installs its own service; it ships the code, and this repository decides
 when that code runs.
 
-Funk keeps the machine's own services and its own `launchd/` directory. The
-split is the label: a bare `<tool>.<service>` label is a fleet service and
-lives here; a reverse-DNS label is Funk's.
+The machine layer keeps its own services and its own `launchd/` directory.
+The split is the label: a bare `<tool>.<service>` label is a fleet service
+and lives here; a reverse-DNS label is the machine's.
 
 ## What is standardized
 
