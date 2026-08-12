@@ -36,7 +36,7 @@
   belongs in the owning fleet repo, not here. The `fork-rebase-policy` wiki
   page is the contract; `claude-swap` itself is not in the
   `install-agent-clis` loop, arriving through agentusage's installer, which
-  is why that loop runs agentusage before agentsurface.
+  is why that loop runs agentusage before agentlaunch.
 - Every fleet repo's `AGENTS.md` ends with the same "The fleet" section
   pointing back here: the skills scan and its cadence, the fleet-map rule,
   and agentguidance as the home of general doctrine. Changing any of those
@@ -52,11 +52,12 @@ in `~/code/agentguidance`.
 
 The external interface is exactly `scripts/install.sh` (`--install`,
 `--check`), `scripts/sync-skills` (`--check`), and
-`scripts/install-agentsurface-shims`. The machine's installer and scheduled
+`scripts/install-agentlaunch-shims`. The machine's installer and scheduled
 updater call these by path with fixed semantics: a missing optional fleet
 checkout is a skip inside the script, a present-but-broken one fails, and
 the updater path (`sync-skills`) must stay unattended-safe — no sudo, no
-uninstalls, no application restarts. That caller's own test suite greps
+uninstalls, no application restarts. Retired integration cleanup belongs in
+the full installer. That caller's own test suite greps
 these scripts, so renaming or resemanticizing them breaks it.
 
 Where things go:

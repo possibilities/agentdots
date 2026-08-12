@@ -21,7 +21,7 @@ applications* are not toolchain; they are Homebrew casks, and the machine's.
 _Avoid_: stack, setup.
 
 **Harness** — an agent CLI a session runs inside: Claude Code, Codex, Pi.
-Skills install into harnesses; agentsurface shims balance their bare
+Skills install into harnesses; AgentLaunch shims balance their bare
 launches. _Avoid_: agent (ambiguous with the fleet apps), IDE.
 
 **Extension prompts** — the operator's `SYSTEM.md`, `GUIDELINES.md`, and
@@ -39,9 +39,9 @@ listing (an installed, unadvertised tool is still fully documented by its
 skill).
 
 **The sync path** — `scripts/sync-skills`: the unattended-safe convergence
-the scheduled updater runs every six hours — Orca harness skills plus the
-participant scan, no downloads beyond the skills tool, no elevation, no
-restarts. _Avoid_: update, upgrade (binaries never move on this path).
+the scheduled updater runs every six hours — the participant scan, no
+downloads beyond the skills tool, no elevation, no uninstalls, no restarts.
+_Avoid_: update, upgrade (binaries never move on this path).
 
 **Participant** — an `agent*` checkout that exports
 `skills/<name>/SKILL.md` and is therefore discovered by the scan. A

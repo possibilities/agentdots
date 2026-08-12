@@ -137,6 +137,7 @@ remove_retired_llm_config() {
     fi
 }
 
+
 # The voice orchestrator's doctrine and server configuration are fleet
 # guidance, so AgentStart owns them: prompts/agentvoice/ is the source of
 # truth and ~/.config/agentvoice is per-file links into this checkout. The
@@ -243,9 +244,8 @@ Agent guidance:
   ln -sfn prompts/agentguidance/{SYSTEM,GUIDELINES,TOOLS}.md into ~/.config/agentguidance  # the extension prompts agentguidance renders against
   ln -sfn prompts/agentvoice/{ORCHESTRATOR.md,ORCHESTRATOR_SESSION_START.md,server.json} into ~/.config/agentvoice  # the voice orchestrator's doctrine, read at server boot
   remove AgentStart-owned ~/Library/Application Support/io.datasette.llm/extra-openai-models.yaml symlink  # its extra model records are obsolete
-
-Related, not run by --install:
-  scripts/configure-orca  # apply the Orca settings overlay; the machine's installer runs it through its own wrapper
+  remove ownership-verified AgentSurface, AgentBus, and Orca harness integrations
+  npx --yes skills remove --global --yes bus orca-cli orchestration computer-use  # retired skills; full install only
 
 Agent skills:
   npx --yes skills add https://github.com/vercel-labs/skills --agent codex claude-code pi --skill find-skills --global --yes
@@ -388,6 +388,22 @@ link_agentvoice_config
 printf 'Removing the retired llm model configuration if AgentStart owns it.\n'
 remove_retired_llm_config
 
+printf 'Removing retired AgentSurface, AgentBus, and Orca harness integrations.\n'
+retired_integrations_status=0
+"$script_dir/remove-retired-integrations" || retired_integrations_status=$?
+if [ "$retired_integrations_status" -ne 0 ]; then
+    printf 'AgentStart installer: retired integration cleanup failed (exit %s). Fix the reported problem, then rerun scripts/install.sh --install or scripts/remove-retired-integrations.\n' \
+        "$retired_integrations_status" >&2
+    exit "$retired_integrations_status"
+fi
+
+# This uninstall belongs only to the explicit full installer. sync-skills is
+# the six-hour unattended path and remains additive: it never uninstalls a
+# skill that may be in use by a live session.
+printf 'Removing the retired AgentBus and Orca skills.\n'
+npx --yes skills remove --global --yes \
+    bus orca-cli orchestration computer-use
+
 # The fleet statusline is harness configuration in each CLI's own idiom, so
 # it converges here rather than from a launcher. It runs after the three CLIs
 # are installed above: the codex step edits config.toml, which the Codex
@@ -453,7 +469,7 @@ if [ "$agentvoice_cli_status" -ne 0 ]; then
     exit "$agentvoice_cli_status"
 fi
 
-# The agentwiki, agentboard, and agentsearch CLIs install by their own hardened
+# The fleet CLIs install by their own hardened
 # contract (frozen deps, ~/.local/bin symlink, deployed-SHA receipt). AgentStart
 # only invokes it; a machine without a checkout skips inside the script, so
 # only a present-but-broken checkout fails here.
@@ -463,17 +479,6 @@ if [ "$agent_clis_status" -ne 0 ]; then
     printf 'AgentStart installer: agent CLIs install failed (exit %s). Fix the reported problem, then rerun scripts/install.sh --install or scripts/install-agent-clis.\n' \
         "$agent_clis_status" >&2
     exit "$agent_clis_status"
-fi
-
-# The agentbus per-harness receive adapters (pi extension, claude plugin)
-# load from the checkout; the /bus skill flows through the skill scan and the
-# daemon through the launch agents, so this step is only the two links.
-agentbus_adapters_status=0
-"$script_dir/install-agentbus-adapters" || agentbus_adapters_status=$?
-if [ "$agentbus_adapters_status" -ne 0 ]; then
-    printf 'AgentStart installer: agentbus adapters install failed (exit %s). Fix the reported problem, then rerun scripts/install.sh --install or scripts/install-agentbus-adapters.\n' \
-        "$agentbus_adapters_status" >&2
-    exit "$agentbus_adapters_status"
 fi
 
 # cass — the coding-agent session search CLI — installs by the agentchats
@@ -509,7 +514,5 @@ printf 'Installing the fleet launch agents.\n'
 # here, and a tool that adds or renames a skill needs no edit in this file.
 # That includes this checkout's own skills and agentguidance's, whose
 # post-sync hook re-renders the templates the scan ships against the
-# operator extension prompts linked above. sync-skills also refreshes the
-# Orca harness skills; the Orca application itself is the machine's,
-# installed as a Homebrew cask beside the other AI desktop applications.
+# operator extension prompts linked above.
 "$script_dir/sync-skills"

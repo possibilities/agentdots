@@ -38,12 +38,18 @@ SERVICES=(
     "agentbrain.worker|agentbrain|agentbrain|worker.log"
     "agentbrain.share|agentbrain|agentbrain|share.log"
     "agentbrain.doctor|agentbrain|agentbrain|doctor.log"
-    "agentbus.daemon|agentbus|agentbus|daemon.log"
-    "agentbus.codex-appserver|agentbus|agentbus|codex-appserver.log"
     "agentusage.daemon|agentusage|agentusaged|daemon.log"
     "agentweb.daemon|agentweb|agentwebd|daemon.log"
     "agentscrape.process-queue|agentscrape|agentscrape|process-queue.log"
     "agentwiki.serve|agentwiki|agentwiki|serve.log"
+)
+
+# Services this repository previously owned and now retires. They stay here,
+# rather than as templates, so every full install stops a still-loaded job and
+# removes an old owned plist even after the AgentBus checkout is gone.
+RETIRED_SERVICES=(
+    "agentbus.daemon"
+    "agentbus.codex-appserver"
 )
 
 # agentwiki's two loopback origins. Named here rather than left to the CLI's
@@ -237,6 +243,52 @@ plist_ownership() {
     printf 'foreign'
 }
 
+retire_service() {
+    local label="$1"
+    local plist="$launch_agents_dir/$label.plist"
+    local ownership
+    ownership="$(plist_ownership "$label")"
+
+    if [ "$check_only" -eq 1 ]; then
+        case "$ownership" in
+            ours | adopt)
+                printf '  %-20s %s\n' "$label" "retire owned obsolete service"
+                ;;
+            absent)
+                printf '  %-20s %s\n' "$label" "retire loaded job if present; plist already absent"
+                ;;
+            foreign)
+                printf '  %-20s %s\n' "$label" "REFUSE plist removal — not ours"
+                ;;
+        esac
+        return 0
+    fi
+
+    # The bare label is an obsolete AgentStart fleet-service contract. Stop a
+    # cached job even when its plist has already disappeared; launchd can keep
+    # it resident until logout otherwise.
+    if launchctl_available; then
+        local target
+        target="gui/$(id -u)/$label"
+        if "$launchctl_bin" print "$target" >/dev/null 2>&1; then
+            "$launchctl_bin" bootout "$target" >/dev/null 2>&1 ||
+                die "failed to stop obsolete service $label"
+            note "stopped obsolete service $label"
+        fi
+    fi
+
+    case "$ownership" in
+        ours | adopt)
+            rm -- "$plist"
+            note "removed obsolete owned plist $plist"
+            ;;
+        absent) ;;
+        foreign)
+            die "refusing to remove an obsolete service plist this installer does not own: $plist"
+            ;;
+    esac
+}
+
 render_plist() {
     local label="$1" program="$2" log="$3" destination="$4" tokens="$5"
     local source="$source_dir/$label.plist"
@@ -401,6 +453,10 @@ else
     mkdir -p "$launch_agents_dir"
     chmod 700 "$launch_agents_dir"
 fi
+
+for label in "${RETIRED_SERVICES[@]}"; do
+    retire_service "$label"
+done
 
 for entry in "${SERVICES[@]}"; do
     install_service "$entry"

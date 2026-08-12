@@ -11,8 +11,8 @@ if [ -n "${AGENTSTART_TEST_NPX_LOG:-}" ]; then
 fi
 
 # A local-path `skills add` is the per-checkout scan; a URL add is an external
-# pack. Failing only the local form lets a test reach the scan through a
-# healthy Orca step and assert that the failure names the project to fix.
+# pack. Failing only the local form lets a test assert that scan failures name
+# the project to fix without making external skill packs part of the fixture.
 if [ "${1:-}" = "--yes" ] && [ "${2:-}" = skills ] && [ "${3:-}" = add ]; then
     case "${4:-}" in
         /*)
@@ -21,33 +21,6 @@ if [ "${1:-}" = "--yes" ] && [ "${2:-}" = skills ] && [ "${3:-}" = add ]; then
     esac
 fi
 
-case "$*" in
-    "--yes skills list --global --json")
-        cat <<'EOF'
-[
-  {
-    "name": "orca-cli",
-    "scope": "global",
-    "source": "stablyai/orca",
-    "agents": ["Codex", "Claude Code", "Pi"]
-  },
-  {
-    "name": "orchestration",
-    "scope": "global",
-    "source": "stablyai/orca",
-    "agents": ["Codex", "Claude Code", "Pi"]
-  },
-  {
-    "name": "computer-use",
-    "scope": "global",
-    "source": "stablyai/orca",
-    "agents": ["Codex", "Claude Code", "Pi"]
-  }
-]
-EOF
-        ;;
-esac
-
 # Callers that need to see a failing skills tool set this; everything else gets
-# the successful path above regardless of which branch matched.
+# the successful path.
 exit "${AGENTSTART_TEST_NPX_EXIT:-0}"

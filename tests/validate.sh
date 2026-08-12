@@ -14,11 +14,10 @@ shell_files="
 scripts/install.sh
 scripts/sync-skills
 scripts/install-agent-clis
-scripts/install-agentbus-adapters
+scripts/install-agentlaunch-shims
 scripts/install-agentvoice-cli
-scripts/install-agentsurface-shims
+scripts/remove-retired-integrations
 scripts/install-launchagents
-scripts/configure-orca
 tests/validate.sh
 tests/fixtures/npx
 "
@@ -33,21 +32,23 @@ if command -v shellcheck >/dev/null 2>&1; then
 fi
 
 for script in scripts/install.sh scripts/sync-skills scripts/install-agent-clis \
-    scripts/install-agentbus-adapters \
-    scripts/install-launchagents \
-    scripts/install-agentvoice-cli scripts/install-agentsurface-shims \
-    scripts/configure-orca; do
+    scripts/install-agentlaunch-shims scripts/install-launchagents \
+    scripts/install-agentvoice-cli scripts/remove-retired-integrations; do
     [ -x "$script" ] || fail "installer script is not executable: $script"
 done
 
-# The obsolete llm model records stay gone; the Orca overlay remains the only
-# AI-tool configuration source this checkout carries.
+# The obsolete llm model records stay gone, and the retired Orca overlay must
+# not return as a second harness-configuration path.
 [ ! -e config/llm/extra-openai-models.yaml ] \
     || fail "obsolete llm model records returned"
-for orca_overlay in settings.json keybindings.json; do
-    /usr/bin/jq -e . "config/orca/$orca_overlay" >/dev/null \
-        || fail "Orca overlay is missing or invalid JSON: config/orca/$orca_overlay"
-done
+[ ! -e config/orca ] \
+    || fail "retired Orca overlay returned"
+[ ! -e scripts/configure-orca ] \
+    || fail "retired Orca overlay installer returned"
+[ ! -e scripts/install-agentbus-adapters ] \
+    || fail "retired AgentBus adapter installer returned"
+[ ! -e scripts/install-agentsurface-shims ] \
+    || fail "retired AgentSurface shim installer returned"
 
 # The installer links these into ~/.config/agentguidance and agentguidance
 # renders every skill against them, so an empty or missing prompt ships
@@ -151,72 +152,203 @@ printf '%s\n' "$agentvoice_missing_output" \
         >/dev/null \
     || fail "AgentVoice CLI installer did not report the skipped checkout clearly"
 
-# The Orca overlay must merge without adopting: unrelated state survives,
-# every overlay key converges, a running divergent Orca defers with
-# EX_TEMPFAIL instead of racing its writer, and a fresh profile is seeded.
-orca_home="$skip_test_dir/orca-home"
-orca_state="$orca_home/Library/Application Support/orca/orca-data.json"
-mkdir -p "$(dirname "$orca_state")"
-printf '%s\n' \
-    '{"repos":[{"id":"preserve-me"}],"settings":{"showMenuBarIcon":false,"notifications":{"enabled":false}}}' \
-    >"$orca_state"
-HOME="$orca_home" AGENTSTART_TEST_ORCA_RUNNING=0 "$root/scripts/configure-orca" >/dev/null
-jq -e '
-  .repos == [{"id":"preserve-me"}] and
-  .settings.showMenuBarIcon == false and
-  .settings.notifications.enabled == false and
-  .settings.defaultTuiAgent == "claude" and
-  .settings.mobilePairingConnectionMode == "local-only" and
-  .settings.openLinksInApp == true and
-  .settings.openLinksInAppPreferencePrompted == true and
-  .settings.refreshLocalBaseRefOnWorktreeCreate == true and
-  .settings.showMobileButton == false and
-  .settings.tabAutoGenerateTitle == true and
-  .settings.terminalFontFamily == "0xProto Nerd Font" and
-  .settings.terminalFontSize == 20 and
-  .settings.terminalMacOptionAsAlt == "true" and
-  .settings.terminalMacOptionAsAltMigrated == true and
-  .settings.notifications.terminalBell == true and
-  .settings.theme == "dark"
-' "$orca_state" >/dev/null || fail "Orca settings overlay did not preserve unrelated state"
-jq -e 'type == "object" and .version == 1' "$orca_home/.orca/keybindings.json" >/dev/null \
-    || fail "Orca keybindings overlay was not merged into the live file"
-HOME="$orca_home" AGENTSTART_TEST_ORCA_RUNNING=1 "$root/scripts/configure-orca" >/dev/null
-orca_state_tmp="$orca_state.tmp"
-jq '.settings.theme = "system"' "$orca_state" >"$orca_state_tmp"
-mv "$orca_state_tmp" "$orca_state"
-set +e
-orca_running_output=$(
-    HOME="$orca_home" AGENTSTART_TEST_ORCA_RUNNING=1 \
-        "$root/scripts/configure-orca" 2>&1
+# Bare harness shims route through AgentLaunch, and the recursion sentinel
+# keeps AgentLaunch-managed child processes from entering the shim again.
+shim_home="$skip_test_dir/shim-home"
+shim_bin="$skip_test_dir/shim-bin"
+shim_real_bin="$skip_test_dir/shim-real-bin"
+mkdir -p "$shim_home" "$shim_bin" "$shim_real_bin"
+cat >"$shim_bin/agentlaunch" <<'EOF'
+#!/bin/bash
+printf 'agentlaunch'
+printf ' <%s>' "$@"
+printf '\n'
+EOF
+chmod +x "$shim_bin/agentlaunch"
+for shim_harness in claude codex pi; do
+    cat >"$shim_real_bin/$shim_harness" <<'EOF'
+#!/bin/bash
+printf 'real %s' "$(basename "$0")"
+printf ' <%s>' "$@"
+printf '\n'
+EOF
+    chmod +x "$shim_real_bin/$shim_harness"
+done
+HOME="$shim_home" \
+    PATH="$shim_bin:/usr/bin:/bin:/usr/sbin:/sbin" \
+    "$root/scripts/install-agentlaunch-shims" >/dev/null
+for shim_harness in claude codex pi; do
+    shim="$shim_home/.local/share/agentlaunch/shims/$shim_harness"
+    [ -x "$shim" ] || fail "AgentLaunch shim is missing or not executable: $shim"
+    grep -F "AgentStart-managed AgentLaunch shim" "$shim" >/dev/null \
+        || fail "AgentLaunch shim is missing its ownership marker: $shim"
+    grep -F "exec agentlaunch --x-harness $shim_harness" "$shim" >/dev/null \
+        || fail "AgentLaunch shim does not route $shim_harness through agentlaunch"
+done
+shim_output=$(
+    PATH="$shim_home/.local/share/agentlaunch/shims:$shim_bin:/usr/bin:/bin:/usr/sbin:/sbin" \
+        "$shim_home/.local/share/agentlaunch/shims/claude" --version
 )
-orca_running_status=$?
+[ "$shim_output" = 'agentlaunch <--x-harness> <claude> <--version>' ] \
+    || fail "AgentLaunch shim did not route a bare harness launch: $shim_output"
+shim_bypass_output=$(
+    AGENTLAUNCH_LAUNCH=1 \
+        PATH="$shim_home/.local/share/agentlaunch/shims:$shim_real_bin:$shim_bin:/usr/bin:/bin:/usr/sbin:/sbin" \
+        "$shim_home/.local/share/agentlaunch/shims/claude" --version
+)
+[ "$shim_bypass_output" = 'real claude <--version>' ] \
+    || fail "AgentLaunch shim did not bypass itself under the recursion sentinel: $shim_bypass_output"
+
+# Retired integrations are removed only when they carry exact AgentStart or
+# predecessor-owned markers. Independent files that merely live at old paths
+# must survive.
+cleanup_home="$skip_test_dir/cleanup-home"
+cleanup_code_root="$skip_test_dir/cleanup-code"
+mkdir -p \
+    "$cleanup_home/.local/bin" \
+    "$cleanup_home/.local/share/agentsurface/shims" \
+    "$cleanup_home/.pi/agent/extensions" \
+    "$cleanup_home/.claude/skills" \
+    "$cleanup_home/.claude" \
+    "$cleanup_home/.codex" \
+    "$cleanup_home/.config/amp/plugins" \
+    "$cleanup_code_root/agentbus/src" \
+    "$cleanup_code_root/agentbus/extensions/pi" \
+    "$cleanup_code_root/agentbus/plugins/claude" \
+    "$cleanup_code_root/agentsurface/src"
+touch \
+    "$cleanup_code_root/agentbus/src/main.ts" \
+    "$cleanup_code_root/agentbus/extensions/pi/agentbus.ts" \
+    "$cleanup_code_root/agentbus/plugins/claude/.keep" \
+    "$cleanup_code_root/agentsurface/src/main.ts"
+ln -s "$cleanup_code_root/agentbus/src/main.ts" "$cleanup_home/.local/bin/agentbus"
+ln -s "$cleanup_code_root/agentsurface/src/main.ts" "$cleanup_home/.local/bin/agentsurface"
+ln -s "$cleanup_code_root/agentbus/extensions/pi/agentbus.ts" "$cleanup_home/.pi/agent/extensions/agentbus.ts"
+ln -s "$cleanup_code_root/agentbus/plugins/claude" "$cleanup_home/.claude/skills/agentbus"
+printf '# AgentStart-managed agentsurface shim: old\n' \
+    >"$cleanup_home/.local/share/agentsurface/shims/claude"
+printf '# independent shim\n' \
+    >"$cleanup_home/.local/share/agentsurface/shims/codex"
+printf '// @orca-managed-pi-extension\n' \
+    >"$cleanup_home/.pi/agent/extensions/orca-agent-status.ts"
+printf '// independent extension\n' \
+    >"$cleanup_home/.pi/agent/extensions/orca-prefill.ts"
+printf '// Managed by Orca. Do not edit\n' \
+    >"$cleanup_home/.config/amp/plugins/orca-agent-status.ts"
+cat >"$cleanup_home/.claude/settings.json" <<EOF
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$cleanup_home/.orca/agent-hooks/claude-hook.sh"
+          },
+          {
+            "type": "command",
+            "command": "keep-claude"
+          }
+        ]
+      },
+      {
+        "matcher": "remove-empty",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$cleanup_home/.orca/agent-hooks/claude-hook.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
+EOF
+cat >"$cleanup_home/.codex/hooks.json" <<EOF
+{
+  "hooks": {
+    "pre-command": [
+      {
+        "hooks": [
+          {
+            "command": "$cleanup_home/.orca/agent-hooks/codex-hook.sh"
+          },
+          {
+            "command": "keep-codex"
+          }
+        ]
+      }
+    ]
+  }
+}
+EOF
+cat >"$cleanup_home/.codex/config.toml" <<'EOF'
+model = "gpt"
+
+# agentbus: bus sends from inside the sandbox need the daemon socket
+[sandbox_workspace_write]
+network_access = true
+
+[profiles.default]
+model = "gpt"
+EOF
+HOME="$cleanup_home" AGENTSTART_CODE_ROOT="$cleanup_code_root" \
+    "$root/scripts/remove-retired-integrations" >/dev/null
+[ ! -e "$cleanup_home/.local/bin/agentbus" ] \
+    || fail "retired AgentBus CLI symlink was not removed"
+[ ! -e "$cleanup_home/.local/bin/agentsurface" ] \
+    || fail "retired AgentSurface CLI symlink was not removed"
+[ ! -e "$cleanup_home/.pi/agent/extensions/agentbus.ts" ] \
+    || fail "retired AgentBus Pi extension was not removed"
+[ ! -e "$cleanup_home/.claude/skills/agentbus" ] \
+    || fail "retired AgentBus Claude plugin was not removed"
+[ ! -e "$cleanup_home/.local/share/agentsurface/shims/claude" ] \
+    || fail "retired AgentSurface shim was not removed"
+[ -e "$cleanup_home/.local/share/agentsurface/shims/codex" ] \
+    || fail "independent shim at old AgentSurface path was removed"
+[ ! -e "$cleanup_home/.pi/agent/extensions/orca-agent-status.ts" ] \
+    || fail "retired Orca Pi extension was not removed"
+[ -e "$cleanup_home/.pi/agent/extensions/orca-prefill.ts" ] \
+    || fail "independent Pi extension was removed"
+[ ! -e "$cleanup_home/.config/amp/plugins/orca-agent-status.ts" ] \
+    || fail "retired Orca Amp plugin was not removed"
+grep -F "$cleanup_home/.orca/agent-hooks/claude-hook.sh" "$cleanup_home/.claude/settings.json" >/dev/null \
+    && fail "retired Orca Claude hook was not removed"
+grep -F "$cleanup_home/.orca/agent-hooks/codex-hook.sh" "$cleanup_home/.codex/hooks.json" >/dev/null \
+    && fail "retired Orca Codex hook was not removed"
+grep -F 'keep-claude' "$cleanup_home/.claude/settings.json" >/dev/null \
+    || fail "retired cleanup removed unrelated Claude hook"
+grep -F 'keep-codex' "$cleanup_home/.codex/hooks.json" >/dev/null \
+    || fail "retired cleanup removed unrelated Codex hook"
+grep -F 'agentbus: bus sends' "$cleanup_home/.codex/config.toml" >/dev/null \
+    && fail "retired AgentBus Codex sandbox marker was not removed"
+grep -F 'network_access = true' "$cleanup_home/.codex/config.toml" >/dev/null \
+    && fail "retired AgentBus Codex sandbox override was not removed"
+grep -F '[profiles.default]' "$cleanup_home/.codex/config.toml" >/dev/null \
+    || fail "retired cleanup damaged unrelated Codex config"
+
+bad_cleanup_home="$skip_test_dir/bad-cleanup-home"
+mkdir -p "$bad_cleanup_home/.codex"
+cat >"$bad_cleanup_home/.codex/config.toml" <<'EOF'
+# agentbus: bus sends from inside the sandbox need the daemon socket
+[sandbox_workspace_write]
+network_access = false
+EOF
+set +e
+bad_cleanup_output=$(
+    HOME="$bad_cleanup_home" AGENTSTART_CODE_ROOT="$cleanup_code_root" \
+        "$root/scripts/remove-retired-integrations" 2>&1
+)
+bad_cleanup_status=$?
 set -e
-[ "$orca_running_status" -ne 0 ] \
-    || fail "Orca settings reconciliation raced a running divergent profile"
-# EX_TEMPFAIL distinguishes "repeat this after quitting Orca" from a broken
-# installation, so the calling installer can report it instead of failing.
-[ "$orca_running_status" -eq 75 ] \
-    || fail "running-Orca guard did not exit EX_TEMPFAIL: $orca_running_status"
-printf '%s\n' "$orca_running_output" | grep -F 'quit Orca' >/dev/null \
-    || fail "Orca running-profile guard did not explain how to reconcile"
-HOME="$orca_home" AGENTSTART_TEST_ORCA_RUNNING=0 "$root/scripts/configure-orca" >/dev/null
-jq -e '.settings.theme == "dark"' "$orca_state" >/dev/null \
-    || fail "Orca settings did not reconcile after the running-profile guard cleared"
-mv "$orca_state" "$orca_state.merged-test"
-HOME="$orca_home" AGENTSTART_TEST_ORCA_RUNNING=0 "$root/scripts/configure-orca" >/dev/null
-jq -e '
-  .settings.defaultTuiAgent == "claude" and
-  .settings.mobilePairingConnectionMode == "local-only" and
-  .settings.openLinksInApp == true and
-  .settings.openLinksInAppPreferencePrompted == true and
-  .settings.refreshLocalBaseRefOnWorktreeCreate == true and
-  .settings.showMobileButton == false and
-  .settings.tabAutoGenerateTitle == true and
-  .settings.terminalMacOptionAsAltMigrated == true and
-  .settings.notifications == {"terminalBell":true}
-' "$orca_state" >/dev/null || fail "Orca settings did not seed a fresh profile"
-HOME="$orca_home" "$root/scripts/configure-orca" --check >/dev/null
+[ "$bad_cleanup_status" -ne 0 ] \
+    || fail "retired cleanup removed a changed AgentBus sandbox block"
+printf '%s\n' "$bad_cleanup_output" \
+    | grep -F 'changed AgentBus sandbox block' >/dev/null \
+    || fail "retired cleanup did not explain changed sandbox-block refusal"
+grep -F 'network_access = false' "$bad_cleanup_home/.codex/config.toml" >/dev/null \
+    || fail "retired cleanup changed a refused sandbox block"
 
 # The agent* skill scan finds participants by convention instead of by list:
 # an agent* checkout that exports skills/<name>/SKILL.md is a participant, and
@@ -225,12 +357,14 @@ HOME="$orca_home" "$root/scripts/configure-orca" --check >/dev/null
 code_skills_root="$skip_test_dir/code-root"
 code_skills_log="$skip_test_dir/npx.log"
 mkdir -p \
+    "$code_skills_root/agentbus/skills/bus" \
     "$code_skills_root/agentdemo/skills/demo" \
     "$code_skills_root/agentdemo/skills/second" \
     "$code_skills_root/agentquiet/src" \
     "$code_skills_root/agentvoice/skills/story" \
     "$code_skills_root/notagent/skills/x"
 for code_skills_fixture in \
+    agentbus/skills/bus \
     agentdemo/skills/demo \
     agentdemo/skills/second \
     agentvoice/skills/story \
@@ -258,10 +392,6 @@ sync_plan=$(
 [ ! -s "$code_skills_log" ] \
     || fail "skill sync plan invoked the skills tool instead of only printing"
 printf '%s\n' "$sync_plan" \
-    | grep -F 'npx --yes skills add https://github.com/stablyai/orca --agent codex claude-code pi --skill orca-cli orchestration computer-use --global --yes' \
-        >/dev/null \
-    || fail "skill sync plan omits the Orca harness skills"
-printf '%s\n' "$sync_plan" \
     | grep -F "npx --yes skills add \"$code_skills_root/agentdemo\" --agent codex claude-code pi --skill demo second --global --yes" \
         >/dev/null \
     || fail "skill sync plan omits the skills discovered in a participating checkout"
@@ -271,6 +401,9 @@ printf '%s\n' "$sync_plan" \
     || fail "skill sync plan exempts AgentVoice instead of scanning it like any other participant"
 if printf '%s\n' "$sync_plan" | grep -Eq 'agentquiet|notagent'; then
     fail "skill sync plan includes a checkout that is not a participant"
+fi
+if printf '%s\n' "$sync_plan" | grep -F 'agentbus' >/dev/null; then
+    fail "skill sync plan re-adds the retired bus skill"
 fi
 printf '%s\n' "$sync_plan" \
     | grep -F "\"$code_skills_root/agentdemo/scripts/post-sync\"" >/dev/null \
@@ -282,12 +415,6 @@ AGENTSTART_CODE_ROOT="$code_skills_root" \
     AGENTSTART_NPX_BIN="$root/tests/fixtures/npx" \
     AGENTSTART_TEST_NPX_LOG="$code_skills_log" \
     "$root/scripts/sync-skills" >/dev/null
-grep -F 'npx-stub <--yes> <skills> <add> <https://github.com/stablyai/orca> <--agent> <codex> <claude-code> <pi> <--skill> <orca-cli> <orchestration> <computer-use> <--global> <--yes>' \
-    "$code_skills_log" >/dev/null \
-    || fail "skill sync did not synchronize the Orca harness skills"
-grep -F 'npx-stub <--yes> <skills> <list> <--global> <--json>' \
-    "$code_skills_log" >/dev/null \
-    || fail "skill sync did not verify the Orca skill records"
 grep -F "npx-stub <--yes> <skills> <add> <$code_skills_root/agentdemo> <--agent> <codex> <claude-code> <pi> <--skill> <demo> <second> <--global> <--yes>" \
     "$code_skills_log" >/dev/null \
     || fail "skill sync did not ship both discovered skills in one invocation"
@@ -297,7 +424,10 @@ grep -F "npx-stub <--yes> <skills> <add> <$code_skills_root/agentvoice> <--agent
 if grep -E 'agentquiet|notagent' "$code_skills_log" >/dev/null; then
     fail "skill sync synchronized a checkout that is not a participant"
 fi
-[ "$(grep -c 'skills> <add>' "$code_skills_log")" -eq 3 ] \
+if grep -F 'agentbus' "$code_skills_log" >/dev/null; then
+    fail "skill sync re-added the retired bus skill"
+fi
+[ "$(grep -c 'skills> <add>' "$code_skills_log")" -eq 2 ] \
     || fail "skill sync did not invoke the skills tool exactly once per source"
 [ -e "$code_skills_root/agentdemo/post-sync-ran" ] \
     || fail "skill sync did not run a participant's post-sync hook after its skills landed"
@@ -319,9 +449,7 @@ printf '%s\n' "$hook_failure" | grep -F 'agentdemo post-sync hook failed' >/dev/
 
 # A checkout without skills is silently not a participant, but a participant
 # whose synchronization fails is a real error, and the message has to name the
-# project: the operator is being asked to go fix that repository. The stub
-# fails only local-path adds so the run reaches the scan through a healthy
-# Orca step.
+# project: the operator is being asked to go fix that repository.
 set +e
 scan_failure=$(
     AGENTSTART_CODE_ROOT="$code_skills_root" \
@@ -335,20 +463,6 @@ set -e
     || fail "skill sync ignored a failing skills tool"
 printf '%s\n' "$scan_failure" | grep -F 'agentdemo' >/dev/null \
     || fail "skill sync failure does not name the project to fix"
-
-# A failure on the Orca step itself must also propagate, before any scanning.
-set +e
-orca_failure_output=$(
-    AGENTSTART_CODE_ROOT="$code_skills_root" \
-        AGENTSTART_NPX_BIN="$root/tests/fixtures/npx" \
-        AGENTSTART_TEST_NPX_EXIT=7 \
-        "$root/scripts/sync-skills" 2>&1
-)
-orca_failure_status=$?
-set -e
-[ "$orca_failure_status" -ne 0 ] \
-    || fail "skill sync ignored a failing Orca synchronization"
-: "$orca_failure_output"
 
 # shellcheck disable=SC2016 # Match the exclusion guard the scan must not have.
 if grep -F '[ "$project_name" != agentvoice ] || continue' scripts/sync-skills >/dev/null; then
@@ -366,7 +480,8 @@ for required_install in \
     'brew install or upgrade zig  # AgentVoice'"'"'s native duplex audio path builds against it' \
     'brew install or upgrade llm  # an AI CLI, so AgentStart'"'"'s outright — moved out of the machine'"'"'s Brewfile' \
     'remove AgentStart-owned ~/Library/Application Support/io.datasette.llm/extra-openai-models.yaml symlink  # its extra model records are obsolete' \
-    'scripts/configure-orca  # apply the Orca settings overlay; the machine'"'"'s installer runs it through its own wrapper' \
+    'remove ownership-verified AgentSurface, AgentBus, and Orca harness integrations' \
+    'npx --yes skills remove --global --yes bus orca-cli orchestration computer-use  # retired skills; full install only' \
     'npm install --global @native-sdk/cli@0.7  # the line the native-sdk skill documents' \
     'npm install --global agent-browser@0.33.2  # Agentweb'"'"'s config.json digest-locks this exact build' \
     'ln -sfn "$(command -v agent-browser)" ~/.local/bin/agent-browser  # the candidate Agentscrape resolves before PATH' \
@@ -378,7 +493,6 @@ for required_install in \
     'ln -sfn ~/AGENTS.md ~/.codex/AGENTS.md  # Codex skips empty guidance files' \
     'ln -sfn prompts/agentvoice/{ORCHESTRATOR.md,ORCHESTRATOR_SESSION_START.md,server.json} into ~/.config/agentvoice  # the voice orchestrator'"'"'s doctrine, read at server boot' \
     'ln -sfn prompts/agentguidance/{SYSTEM,GUIDELINES,TOOLS}.md into ~/.config/agentguidance  # the extension prompts agentguidance renders against' \
-    'npx --yes skills add https://github.com/stablyai/orca --agent codex claude-code pi --skill orca-cli orchestration computer-use --global --yes' \
     'npx --yes skills add https://github.com/vercel-labs/skills --agent codex claude-code pi --skill find-skills --global --yes' \
     'npx --yes skills add https://github.com/anthropics/skills --agent codex claude-code pi --skill frontend-design --global --yes' \
     'npx --yes skills add https://github.com/vercel-labs/agent-skills --agent codex claude-code pi --skill web-design-guidelines --global --yes' \
@@ -510,11 +624,9 @@ done
 # guidance links follow.
 [ "$(grep -c 'refusing to replace an independent' scripts/install-statusline)" -eq 2 ] \
     || fail "the statusline installer would replace an independent claude or pi file"
-# Orca writes its own statusLine entry pointing at its telemetry sink;
-# replacing that entry is only safe because the renderer forwards the payload
-# to it first. Losing the forward blanks Orca's view of every claude session.
-grep -F 'agent-hooks/claude-statusline.sh' config/statusline/claude-statusline.sh >/dev/null \
-    || fail "the claude renderer does not forward its payload to Orca's telemetry sink"
+if grep -F 'agent-hooks/claude-statusline.sh' config/statusline/claude-statusline.sh >/dev/null; then
+    fail "the claude renderer still forwards statusline payloads to the retired Orca sink"
+fi
 # shellcheck disable=SC2016 # Match the literal helper invocation in the script.
 grep -F '"$script_dir/install-agentvoice-cli"' scripts/install.sh >/dev/null \
     || fail "installer does not install the AgentVoice voice CLI"
@@ -527,28 +639,41 @@ grep -F '"$script_dir/install-agent-clis"' scripts/install.sh >/dev/null \
 # shellcheck disable=SC2016 # Match the literal status variable in the script.
 grep -F 'exit "$agent_clis_status"' scripts/install.sh >/dev/null \
     || fail "installer does not propagate an agent CLI installation failure"
+# shellcheck disable=SC2016 # Match the literal helper invocation in the script.
+grep -F '"$script_dir/remove-retired-integrations"' scripts/install.sh >/dev/null \
+    || fail "installer does not run retired integration cleanup"
+# shellcheck disable=SC2016 # Match the literal status variable in the script.
+grep -F 'exit "$retired_integrations_status"' scripts/install.sh >/dev/null \
+    || fail "installer does not propagate retired integration cleanup failures"
+grep -F 'skills remove --global --yes' scripts/install.sh >/dev/null \
+    || fail "full installer does not remove retired global skills"
+if grep -F 'skills remove' scripts/sync-skills >/dev/null; then
+    fail "sync-skills removes skills on the unattended path"
+fi
 # The list spans two lines, so the order is checked on the joined text rather
-# than by matching one literal line. agentusage must precede agentsurface (the
+# than by matching one literal line. agentusage must precede agentlaunch (the
 # launcher shells its balance contract), agentweb must precede agentbrain
 # (whose worker spawns the agentscrape children that ask agentweb's conduit),
-# and codex-swap must precede agentusage so its own shim wins over the legacy
-# shim agentusage still writes. (The codex-swap shim names the managed
-# codex-multi-auth fork while codex-swap declares it active, so the ordering
-# also decides whether the surviving shim carries that binding at all.)
+# and codex-swap must precede agentusage so balance observes the command owner
+# codex-swap itself installed.
 agent_cli_order=$(tr '\n' ' ' <scripts/install-agent-clis | tr -s ' ')
 case "$agent_cli_order" in
-    *"for tool in agentwiki agentboard agentsearch agentkeys agentbus \\ agentweb agentscrape agentbrain codex-swap agentusage agentsurface"*) ;;
+    *"for tool in agentwiki agentboard agentsearch agentkeys agentweb agentscrape \\ agentbrain codex-swap agentusage agentlaunch"*) ;;
     *) fail "agent CLI installer changed its tool list or ordering" ;;
 esac
 # Every checkout with an installer is in the loop; a name missing from it is a
 # tool nothing installs.
 for expected_tool in agentwiki agentboard agentsearch agentkeys agentweb \
-    agentscrape agentbrain agentusage agentsurface; do
+    agentscrape agentbrain codex-swap agentusage agentlaunch; do
     case "$agent_cli_order" in
         *" $expected_tool "*) ;;
         *) fail "agent CLI loop no longer installs $expected_tool" ;;
     esac
 done
+case "$agent_cli_order" in
+    *" agentbus "*) fail "agent CLI loop still installs retired agentbus" ;;
+    *" agentsurface "*) fail "agent CLI loop still installs retired agentsurface" ;;
+esac
 # shellcheck disable=SC2016 # Match the literal checkout resolution in the script.
 grep -F 'agentchats_root="$code_root/agentchats"' scripts/install.sh >/dev/null \
     || fail "installer does not own the cass installation call"
@@ -557,7 +682,7 @@ grep -F 'agentchats_root="$code_root/agentchats"' scripts/install.sh >/dev/null 
 # relative to its own location would silently skip the whole fleet on a worktree
 # run — the checkouts are found where the machine keeps them, not beside $0.
 for fleet_walker in scripts/install.sh scripts/install-agent-clis \
-    scripts/install-agentbus-adapters scripts/install-agentvoice-cli \
+    scripts/install-agentvoice-cli scripts/remove-retired-integrations \
     scripts/sync-skills; do
     # shellcheck disable=SC2016 # Match the literal knob in each script.
     grep -F 'code_root="${AGENTSTART_CODE_ROOT:-$HOME/code}"' "$fleet_walker" >/dev/null \
@@ -602,6 +727,12 @@ grep -F '"$script_dir/install-launchagents" --install' scripts/install.sh >/dev/
 # shellcheck disable=SC2016 # Match the literal helper invocation in the script.
 grep -F '"$script_dir/install-launchagents" --check' scripts/install.sh >/dev/null \
     || fail "installation plan omits the fleet launch agents"
+for retired_label in agentbus.daemon agentbus.codex-appserver; do
+    [ ! -e "config/launchd/$retired_label.plist" ] \
+        || fail "retired AgentBus launch agent template returned: $retired_label"
+    grep -F "\"$retired_label\"" scripts/install-launchagents >/dev/null \
+        || fail "launch agent installer does not retire old AgentBus service: $retired_label"
+done
 
 for template in config/launchd/*.plist; do
     label=$(basename "$template" .plist)

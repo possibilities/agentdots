@@ -10,17 +10,8 @@
 # Renders: directory + git, model, effort, context usage, diff size,
 # subscription rate limits, the harness version, and the balanced account.
 #
-# The payload arrives on stdin as JSON. Orca also consumes that payload to feed
-# its own session telemetry, so it is forwarded verbatim before anything is
-# rendered. Dropping that forward blanks out Orca's view of this session.
-
 payload=$(cat)
 [ -z "$payload" ] && exit 0
-
-orca_statusline="$HOME/.orca/agent-hooks/claude-statusline.sh"
-if [ -r "$orca_statusline" ] && [ -x "$orca_statusline" ]; then
-  printf '%s' "$payload" | /bin/sh "$orca_statusline" >/dev/null 2>&1 || :
-fi
 
 # Fields are joined on US (0x1f), not tab: tab counts as IFS whitespace, so bash
 # would collapse runs of them and shift every field after an empty one.

@@ -7,11 +7,9 @@
 // pi's account by swapping auth in place, so nothing in the environment
 // names it — claude-swap's CLAUDE_CONFIG_DIR has no counterpart here).
 //
-// Why: no type import from the pi package. Pi and Orca's OMP runtime expose
-// the same extension API under different package names, so an extension that
-// names either one only loads under that one. The structural interfaces below
-// are the subset this file actually touches, all of it optional so a pi whose
-// API has moved renders a shorter bar instead of throwing.
+// Why: no type import from the pi package. The structural interfaces below are
+// the subset this file actually touches, all of it optional so a pi whose API
+// has moved renders a shorter bar instead of throwing.
 
 import { execFile } from "node:child_process"
 import { readFileSync, realpathSync } from "node:fs"
@@ -139,8 +137,8 @@ function resolveVersion(entryPath: string = process.argv[1] ?? ""): string {
         name?: unknown
         version?: unknown
       }
-      // Pi and Orca's OMP runtime publish the same agent under different
-      // names, so match the shared suffix rather than either exact name.
+      // The package name has changed before, so match the stable suffix rather
+      // than one exact release spelling.
       if (typeof pkg.name === "string" && pkg.name.includes("coding-agent") && typeof pkg.version === "string") {
         return pkg.version
       }

@@ -31,7 +31,7 @@ source_dir="$repo_root/config/statusline"
 # documented list, and an unrecognized id is dropped silently.
 #
 # `permissions` has no counterpart in the other two renderers and is kept
-# anyway: yolo is on by default for launches through agentsurface, so the
+# anyway: yolo is on by default for launches through AgentLaunch, so the
 # sandbox summary is the one place the bar says the gates are down.
 #
 # The two limit items render nothing on a *balanced* launch, which is the
@@ -62,12 +62,9 @@ die() {
     exit 1
 }
 
-# Claude reads one command from settings.json per render. Orca writes its own
-# statusLine entry there pointing at its telemetry sink, so a naive overwrite
-# silently blanks Orca's view of the session; the renderer forwards the
-# payload to that sink before drawing, which is what makes replacing the entry
-# safe. An Orca update may re-install and clobber this, so the whole step is
-# convergent: rerun to restore it.
+# Claude reads one command from settings.json per render. This step is
+# convergent: rerun it whenever another harness configuration change replaces
+# the statusLine entry.
 install_claude_statusline() {
     local source="$source_dir/claude-statusline.sh"
     local target="$HOME/.claude/statusline.sh"
@@ -93,9 +90,8 @@ install_claude_statusline() {
     printf 'Installed the claude statusline: %s.\n' "$target"
 }
 
-# Pi loads every .ts in its extensions directory at startup. The name is
-# ours and carries the owner, so it cannot collide with Orca's extensions
-# sitting beside it.
+# Pi loads every .ts in its extensions directory at startup. The name is ours
+# and carries the owner, so it cannot collide with another extension.
 install_pi_statusline() {
     local source="$source_dir/pi-statusline.ts"
     local target="$HOME/.pi/agent/extensions/agentstart-statusline.ts"
@@ -191,8 +187,8 @@ esac
 if [ "$check_only" -eq 1 ]; then
     cat <<EOF
 Fleet statusline:
-  ln -sfn config/statusline/claude-statusline.sh ~/.claude/statusline.sh  # forwards the payload to Orca's sink before drawing
-  set .statusLine in ~/.claude/settings.json  # Orca reinstalls its own entry on update; rerun to restore
+  ln -sfn config/statusline/claude-statusline.sh ~/.claude/statusline.sh
+  set .statusLine in ~/.claude/settings.json
   ln -sfn config/statusline/pi-statusline.ts ~/.pi/agent/extensions/agentstart-statusline.ts  # pi has a footer, not a status line
   set [tui] status_line in ~/.codex/config.toml  # codex renders its own bar; only the item list is ours
     $CODEX_STATUS_LINE_ITEMS

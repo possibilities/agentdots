@@ -36,9 +36,8 @@ believing any of this.
     linked into `~/.config/agentvoice/` and read at server boot.
   - `AGENTS.md` — the deliberately empty shared home guidance at
     `~/AGENTS.md`. Advice belongs in the extension prompts.
-- `config/` — AI-tool configuration the installer converges: `orca/` (the
-  settings and keybindings overlay `scripts/configure-orca`
-  merges — never links — into Orca's live state).
+- `config/` — harness configuration and the launchd templates for fleet
+  services AgentStart owns.
 - `skills/` — skills this checkout exports through the agent* scan, like any
   other fleet repo. `fleet/` is the dependency map of the whole ecosystem.
 - `tests/validate.sh` — the assertions; run it before committing.
@@ -62,28 +61,23 @@ flags, and skip-versus-fail semantics are load-bearing:
     the extension prompt links;
   - the external skill packs;
   - the AgentVoice CLI, and the agentwiki, agentboard, agentsearch,
-    agentkeys, agentusage, and agentsurface CLIs;
+    agentkeys, codex-swap, agentusage, and agentlaunch CLIs;
   - the public `possibilities/claude-swap` fork and the codex-swap provider
     shim, through agentusage's installer;
-  - cass, and finally `sync-skills`.
+  - ownership-verified cleanup of the retired AgentSurface, AgentBus, and Orca
+    harness integrations and skills;
+  - cass, the fleet launch agents, and finally `sync-skills`.
 
   The machine's installer calls this and refuses to finish without it.
   `--check` prints the plan without changing anything.
-- `scripts/sync-skills` — the cheap convergence path: the Orca harness
-  skills (synchronized and verified) plus the agent* checkout skill scan.
-  The scheduled updater calls this every six hours. `--check` prints the
-  plan.
-- `scripts/install-agentsurface-shims` — the balanced-launch shims for bare
+- `scripts/sync-skills` — the cheap convergence path: the agent* checkout
+  skill scan. The scheduled updater calls this every six hours. It never
+  uninstalls skills or restarts services. `--check` prints the plan.
+- `scripts/install-agentlaunch-shims` — the balanced-launch shims for bare
   `claude`/`codex`/`pi`; the machine's wrapper of the same name delegates
   here.
-- `scripts/configure-orca [--check]` — merges the `config/orca/` overlay
-  into Orca's live keybindings and active-profile settings, deferring with
-  EX_TEMPFAIL while a divergent Orca runs; the machine's wrapper of the same
-  name delegates here, and its installer invokes it through that delegation.
-
-The AI desktop applications are not here by design: the claude and chatgpt
-casks and the Orca cask are Homebrew, so they belong to the machine layer,
-as does the `gh` credential migration.
+AI desktop applications are not here by design: the claude and chatgpt casks
+belong to the machine layer, as does the `gh` credential migration.
 
 ## Working on it
 

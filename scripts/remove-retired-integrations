@@ -1,0 +1,140 @@
+#!/bin/bash
+# Remove harness integrations owned by AgentSurface, AgentBus, and Orca.
+# Retired products' data and native session stores are intentionally untouched.
+
+set -euo pipefail
+
+[ "$#" -eq 0 ] || {
+    printf 'Usage: remove-retired-integrations\n' >&2
+    exit 64
+}
+
+code_root="${AGENTSTART_CODE_ROOT:-$HOME/code}"
+
+die() {
+    printf 'AgentStart retired integrations: %s\n' "$*" >&2
+    exit 1
+}
+
+remove_orca_hooks() {
+    local settings="$1" hook="$2" temp
+    [ -e "$settings" ] || return 0
+    [ -f "$settings" ] && [ ! -L "$settings" ] ||
+        die "refusing to edit unsafe harness hook configuration: $settings"
+    grep -Fq "$hook" "$settings" || return 0
+
+    temp="$settings.agentstart-tmp"
+    HOOK_PATH="$hook" /usr/bin/jq '
+      def owned: ((.command? // "") | contains(env.HOOK_PATH));
+      if (.hooks? | type) == "object" then
+        .hooks |= (
+          with_entries(
+            .value |= map(
+              .hooks |= map(select(owned | not))
+              | select((.hooks | length) > 0)
+            )
+          )
+          | with_entries(select((.value | length) > 0))
+        )
+      else . end
+    ' "$settings" >"$temp" || {
+        rm -f -- "$temp"
+        die "harness hook configuration is not valid JSON: $settings"
+    }
+    chmod 600 "$temp"
+    mv -- "$temp" "$settings"
+    printf 'Removed retired Orca hooks from %s.\n' "$settings"
+}
+
+remove_agentbus_codex_sandbox_override() {
+    local config="$HOME/.codex/config.toml"
+    [ -f "$config" ] && [ ! -L "$config" ] || return 0
+    grep -Fq '# agentbus: bus sends from inside the sandbox need the daemon socket' "$config" || return 0
+
+    /usr/bin/python3 - "$config" <<'PYTHON' ||
+import sys
+
+path = sys.argv[1]
+with open(path, encoding="utf-8") as handle:
+    text = handle.read()
+marker = "# agentbus: bus sends from inside the sandbox need the daemon socket"
+lines = text.splitlines(keepends=True)
+for index, line in enumerate(lines):
+    if line.rstrip("\r\n") != marker:
+        continue
+    following = [part.rstrip("\r\n") for part in lines[index + 1:index + 3]]
+    if following != ["[sandbox_workspace_write]", "network_access = true"]:
+        raise SystemExit("refusing to remove a changed AgentBus sandbox block")
+    end = index + 3
+    probe = end
+    while probe < len(lines) and lines[probe].strip() == "":
+        probe += 1
+    if probe == len(lines) or lines[probe].lstrip().startswith("["):
+        del lines[index:end]
+    else:
+        del lines[index:index + 1]
+        del lines[index + 1:index + 2]
+    break
+with open(path, "w", encoding="utf-8") as handle:
+    handle.write("".join(lines))
+PYTHON
+        die "could not remove the retired AgentBus Codex sandbox override"
+    printf 'Removed the retired AgentBus Codex sandbox override: %s.\n' "$config"
+}
+
+for item in \
+    "$HOME/.local/bin/agentbus:$code_root/agentbus/src/main.ts" \
+    "$HOME/.local/bin/agentsurface:$code_root/agentsurface/src/main.ts" \
+    "$HOME/.pi/agent/extensions/agentbus.ts:$code_root/agentbus/extensions/pi/agentbus.ts" \
+    "$HOME/.claude/skills/agentbus:$code_root/agentbus/plugins/claude"; do
+    expected=${item#*:}
+    target=${item%%:*}
+    if [ -L "$target" ] && [ "$(readlink "$target")" = "$expected" ]; then
+        rm -- "$target"
+        printf 'Removed retired fleet integration: %s.\n' "$target"
+    elif [ -e "$target" ] || [ -L "$target" ]; then
+        printf 'Leaving independently owned path untouched: %s.\n' "$target"
+    fi
+done
+
+old_shim_dir="$HOME/.local/share/agentsurface/shims"
+for harness in claude codex pi; do
+    shim="$old_shim_dir/$harness"
+    if [ -f "$shim" ] && [ ! -L "$shim" ] &&
+        grep -Eq '^(# AgentStart-managed agentsurface shim:|# Agentdots-managed agentsurface shim:)' "$shim"; then
+        rm -- "$shim"
+        printf 'Removed retired AgentSurface shim: %s.\n' "$shim"
+    elif [ -e "$shim" ] || [ -L "$shim" ]; then
+        printf 'Leaving independently owned shim untouched: %s.\n' "$shim"
+    fi
+done
+rmdir "$old_shim_dir" 2>/dev/null || true
+rmdir "${old_shim_dir%/shims}" 2>/dev/null || true
+
+for target in \
+    "$HOME/.pi/agent/extensions/orca-agent-status.ts" \
+    "$HOME/.pi/agent/extensions/orca-prefill.ts" \
+    "$HOME/.pi/agent/extensions/orca-titlebar-spinner.ts"; do
+    if [ -f "$target" ] && [ ! -L "$target" ] &&
+        grep -Fq '@orca-managed-pi-extension' "$target"; then
+        rm -- "$target"
+        printf 'Removed retired Orca Pi extension: %s.\n' "$target"
+    elif [ -e "$target" ] || [ -L "$target" ]; then
+        printf 'Leaving independently owned Pi extension untouched: %s.\n' "$target"
+    fi
+done
+
+target="$HOME/.config/amp/plugins/orca-agent-status.ts"
+if [ -f "$target" ] && [ ! -L "$target" ] &&
+    grep -Fq 'Managed by Orca. Do not edit' "$target"; then
+    rm -- "$target"
+    printf 'Removed retired Orca Amp status plugin: %s.\n' "$target"
+elif [ -e "$target" ] || [ -L "$target" ]; then
+    printf 'Leaving independently owned Amp plugin untouched: %s.\n' "$target"
+fi
+
+remove_orca_hooks "$HOME/.claude/settings.json" \
+    "$HOME/.orca/agent-hooks/claude-hook.sh"
+remove_orca_hooks "$HOME/.codex/hooks.json" \
+    "$HOME/.orca/agent-hooks/codex-hook.sh"
+remove_agentbus_codex_sandbox_override

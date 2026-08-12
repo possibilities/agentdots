@@ -30,12 +30,12 @@ die() {
 # skipping every tool.
 code_root="${AGENTSTART_CODE_ROOT:-$HOME/code}"
 
-# agentusage precedes agentsurface because the launcher shells its balance
+# agentusage precedes agentlaunch because the launcher shells its balance
 # contract and its installer provisions the public claude-swap fork at its
-# `integration` branch — the fleet's fork convention. The shims
-# installer refuses without `agentsurface` on PATH, and the machine's .zshrc
-# already prefixes the shim directory. Installing the CLI does not install the
-# shims — that stays a deliberate `scripts/install-agentsurface-shims`.
+# `integration` branch — the fleet's fork convention. The shims installer
+# refuses without `agentlaunch` on PATH, and the machine's shell configuration
+# prefixes the shim directory. Installing the CLI does not install the shims —
+# that stays a deliberate `scripts/install-agentlaunch-shims`.
 #
 # codex-swap owns its own command now, and agentusage has stopped writing a
 # competing shim for it, so the command has exactly one owner. It runs before
@@ -53,8 +53,8 @@ code_root="${AGENTSTART_CODE_ROOT:-$HOME/code}"
 # to the machine layer, on the reasoning that a resident service is machine
 # integration; the services moved here and the commands followed, so that no
 # checkout is installed from two places.
-for tool in agentwiki agentboard agentsearch agentkeys agentbus \
-    agentweb agentscrape agentbrain codex-swap agentusage agentsurface; do
+for tool in agentwiki agentboard agentsearch agentkeys agentweb agentscrape \
+    agentbrain codex-swap agentusage agentlaunch; do
     tool_root="$code_root/$tool"
     if [ ! -f "$tool_root/scripts/install.sh" ]; then
         printf 'AgentStart agent CLIs installer: no checkout at %s; skipping.\n' "$tool_root"

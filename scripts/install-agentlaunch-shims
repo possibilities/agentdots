@@ -1,0 +1,65 @@
+#!/bin/bash
+
+set -euo pipefail
+
+die() {
+    printf 'AgentStart AgentLaunch shims installer: %s\n' "$*" >&2
+    exit 1
+}
+
+[ "$#" -eq 0 ] || {
+    printf 'Usage: install-agentlaunch-shims\n' >&2
+    exit 64
+}
+
+[ "$(uname -s)" = Darwin ] || die "macOS is required"
+[ "$(id -u)" -ne 0 ] || die "run as the target user, not root"
+
+# Bare `claude`, `codex`, and `pi` become balanced launches. Each shim names
+# only the harness; every other token remains native harness input and reaches
+# AgentLaunch unchanged. A managed launch carries AGENTLAUNCH_LAUNCH=1 so a
+# descendant that resolves the same PATH falls through to the real binary.
+# AGENTLAUNCH_SHIM_BYPASS=1 is the explicit operator escape hatch.
+shim_dir="$HOME/.local/share/agentlaunch/shims"
+
+command -v agentlaunch >/dev/null 2>&1 ||
+    die "agentlaunch is not on PATH; run ~/code/agentlaunch/scripts/install.sh first"
+
+mkdir -p "$shim_dir"
+
+for harness in claude codex pi; do
+    shim="$shim_dir/$harness"
+    # apply_patch owns this source file; this heredoc deliberately generates
+    # the three installed wrappers from one reviewed template.
+    cat >"$shim" <<EOF
+#!/usr/bin/env bash
+# AgentStart-managed AgentLaunch shim: bare \`$harness\` uses the fleet launch
+# policy. AGENTLAUNCH_LAUNCH=1 (managed launch) or AGENTLAUNCH_SHIM_BYPASS=1
+# (manual escape) exec the real binary instead. Regenerate with
+# \`agentstart/scripts/install-agentlaunch-shims\`; do not edit in place.
+set -euo pipefail
+shim_dir=\$(cd -- "\$(dirname -- "\${BASH_SOURCE[0]}")" && pwd -P)
+find_real() {
+    local IFS=':' dir
+    for dir in \$PATH; do
+        [ -n "\$dir" ] || continue
+        [ -e "\$dir" ] && [ "\$dir" -ef "\$shim_dir" ] && continue
+        if [ -x "\$dir/$harness" ]; then
+            printf '%s/$harness\n' "\$dir"
+            return 0
+        fi
+    done
+    return 1
+}
+if [ -n "\${AGENTLAUNCH_LAUNCH:-}" ] || [ -n "\${AGENTLAUNCH_SHIM_BYPASS:-}" ]; then
+    real=\$(find_real) || { printf 'AgentLaunch shim: no real $harness on PATH\n' >&2; exit 127; }
+    exec "\$real" "\$@"
+fi
+exec agentlaunch --x-harness $harness "\$@"
+EOF
+    chmod 0755 "$shim"
+    printf 'Installed shim: %s\n' "$shim"
+done
+
+# shellcheck disable=SC2016 # The backticks are display text, not an expansion.
+printf 'Shims ready. New shells pick them up through the fleet PATH; current shells need `exec zsh`.\n'
