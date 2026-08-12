@@ -76,7 +76,7 @@ flowchart LR
     start ==>|checkout contracts| fleet[agentvoice / agentwiki / agentboard / agentsearch / agentkeys / agentweb / agentscrape / agentbrain / codex-swap / agentusage / agentlaunch / cass]
     start ==>|skills scan + post-sync hooks| skills[all agent skills, agentguidance rendered]
     start ==>|per-file links, after the scan| voiceDoctrine[agentvoice doctrine: server.json from start, orchestrator prompts agentguidance-rendered]
-    start -.->|config/launchd + install-launchagents| services[agentbrain worker + share + doctor / agentusage daemon / agentweb daemon / agentscrape process-queue / agentwiki serve]
+    start -.->|config/launchd + install-launchagents| services[agentbrain worker + share + doctor / agentusage observer / agentweb broker / agentscrape queue-processor / agentwiki server]
 ```
 
 ## Skill routing
@@ -159,7 +159,7 @@ sentence around the match, never from the name alone.
 
 | From | To | What | Evidence |
 | --- | --- | --- | --- |
-| agentstart | agentbrain, agentscrape, agentusage, agentweb, agentwiki | installs their commands too, and owns these fleet launch agents outright: agentbrain worker/share/doctor, agentusage daemon, agentweb daemon, agentscrape queue processor, and agentwiki serve. It also retires the old AgentBus launch-agent labels with ownership checks during full install. Templates, manifest, rendering, load, and retirement live here so a service never has two owners racing to render it | `agentstart/config/launchd/*.plist`, `agentstart/scripts/install-launchagents`, asserted by `agentstart/tests/validate.sh` |
+| agentstart | agentbrain, agentscrape, agentusage, agentweb, agentwiki | installs their commands too, and owns these fleet launch agents outright: agentbrain worker/share/doctor, agentusage observer, agentweb broker, agentscrape queue processor, and agentwiki server. Labels name noun roles while the manifest records resident, periodic, or queue-triggered lifecycle; every plist enters through the tool's one public binary. Templates, manifest, rendering, label replacement, and load live here so a service never has two owners racing to render it | `agentstart/config/launchd/*.plist`, `agentstart/scripts/install-launchagents`, asserted by `agentstart/tests/validate.sh` |
 | machine installer | agentstart | the only inbound edge from outside the fleet: it calls `scripts/install.sh --install` and nothing else about the fleet, because agentstart installs every fleet command and every fleet service, and discovers the tailnet bind address and agentweb's conduit paths itself | `agentstart/scripts/install.sh` (the documented external interface), `agentstart/scripts/install-agent-clis`, `agentstart/scripts/install-launchagents` |
 | agentstart | agentscrape ↔ agentweb conduit | brokers the session conduit, because it is the only thing that installs both: it renders agentweb's socket and token paths into the agentbrain.worker service, and the worker passes them uninterpreted into the agentscrape children it spawns | `agentstart/scripts/install-launchagents` (agentbrain.worker tokens), asserted by the machine's local-service verification |
 | agentboard | agentwiki | stored data, distinct from the publish call: board items hold agentwiki slugs (`link <ref> --wiki <slug>` / `unlink`), so changing wiki's slug scheme breaks stored links even where publishing never runs | `agentboard/skills/board/SKILL.md:228-232`, reciprocated `agentwiki/skills/wiki/SKILL.md:133-134` |
@@ -238,4 +238,6 @@ adapters, and TOOLS.md no longer advertises the retired bus skill. Updated
 again 2026-08-12 for the orchestrator doctrine unification: agentguidance
 renders the voice orchestrator prompts from shared fragments, the new
 orchestrate skill wields collab and build, and AgentStart links rendered
-doctrine instead of owning it.
+doctrine instead of owning it. Updated again 2026-08-12 for the fleet service
+taxonomy: noun-role labels, explicit lifecycle metadata, and one public binary
+per tool replace daemon/command-shaped labels and separate `*d` executables.

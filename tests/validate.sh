@@ -920,11 +920,26 @@ grep -F '"$script_dir/install-launchagents" --install' scripts/install.sh >/dev/
 # shellcheck disable=SC2016 # Match the literal helper invocation in the script.
 grep -F '"$script_dir/install-launchagents" --check' scripts/install.sh >/dev/null \
     || fail "installation plan omits the fleet launch agents"
-for retired_label in agentbus.daemon agentbus.codex-appserver; do
-    [ ! -e "config/launchd/$retired_label.plist" ] \
-        || fail "retired AgentBus launch agent template returned: $retired_label"
-    grep -F "\"$retired_label\"" scripts/install-launchagents >/dev/null \
-        || fail "launch agent installer does not retire old AgentBus service: $retired_label"
+if rg -n 'agentbus\.(daemon|codex-appserver)' scripts/install-launchagents \
+    config/launchd tests/validate.sh >/dev/null; then
+    fail "retired AgentBus launch agents remain in the fleet service contract"
+fi
+
+expected_services='agentbrain.worker|agentbrain|worker.log|resident
+agentbrain.share|agentbrain|share.log|resident
+agentbrain.doctor|agentbrain|doctor.log|periodic
+agentusage.observer|agentusage|observer.log|resident
+agentweb.broker|agentweb|broker.log|resident
+agentscrape.queue-processor|agentscrape|queue-processor.log|queue-triggered
+agentwiki.server|agentwiki|server.log|resident'
+for entry in $expected_services; do
+    grep -Fq "\"$entry\"" scripts/install-launchagents \
+        || fail "launch agent manifest omits canonical entry: $entry"
+done
+for legacy_binary in agentusaged agentwebd; do
+    if sed -n '/^SERVICES=(/,/^)/p' scripts/install-launchagents | grep -Fq "$legacy_binary"; then
+        fail "launch agent manifest still runs legacy daemon binary: $legacy_binary"
+    fi
 done
 
 for template in config/launchd/*.plist; do
@@ -965,7 +980,7 @@ for template in config/launchd/*.plist; do
 done
 
 # And the reverse, so a manifest entry can never name a template that is not here.
-# The service half of a label may be hyphenated (codex-appserver, process-queue),
+# The service half of a label may be hyphenated (queue-processor),
 # so both halves match hyphens too — a character class that stopped at [a-z] read
 # straight past those entries and checked nothing.
 while IFS= read -r label; do

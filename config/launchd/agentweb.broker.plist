@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- agentstart-installer-owned: agentweb.broker.v1 -->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>agentweb.broker</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>__PROGRAM__</string>
+		<string>daemon</string>
+		<string>serve</string>
+	</array>
+	<!-- The daemon creates its own mode-0600 tokens and keys on first start.
+	     HOME locates them; PATH is forwarded to the browser subprocess, whose
+	     launcher needs it even though the agent-browser binary itself is
+	     resolved from config.json by absolute, digest-locked path. -->
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>HOME</key>
+		<string>__HOME__</string>
+		<key>PATH</key>
+		<string>__PATH__</string>
+	</dict>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<true/>
+	<!-- Standard rather than Background: the daemon drives a headed browser for
+	     human takeover, and Background's I/O and CPU throttling is felt by the
+	     person waiting at that window. -->
+	<key>ProcessType</key>
+	<string>Standard</string>
+	<key>Umask</key>
+	<integer>63</integer>
+	<!-- A second daemon exits immediately on the already-running conflict, so
+	     KeepAlive without throttling would spin. -->
+	<key>ThrottleInterval</key>
+	<integer>10</integer>
+	<key>StandardOutPath</key>
+	<string>__LOG__</string>
+	<key>StandardErrorPath</key>
+	<string>__LOG__</string>
+</dict>
+</plist>

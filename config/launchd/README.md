@@ -14,6 +14,10 @@ and lives here; a reverse-DNS label is the machine's.
 The frame is identical for every service, and deviating from it is a bug:
 
 - **Label** — `<tool>.<service>`, matching the file name exactly.
+- **Service names are noun roles** — `worker`, `share`, `doctor`, `observer`,
+  `broker`, `queue-processor`, and `server`. A label says what responsibility
+  the process owns; `daemon`, `serve`, and command spellings do not leak into
+  the label.
 - **Ownership marker** — the second line is
   `<!-- agentstart-installer-owned: <label>.v1 -->`. The installer refuses to
   unload or replace a service carrying anything else, so a hand-written or
@@ -36,6 +40,9 @@ The frame is identical for every service, and deviating from it is a bug:
 - **`RunAtLoad`** — every service is expected to be correct at login.
 - **Missing tool, no service.** A service whose checkout or program is absent
   is skipped, never failed, matching the rest of the AgentStart installer.
+- **One executable per tool.** Every plist invokes `~/.local/bin/<tool>` and an
+  explicit subcommand. Parallel `<tool>d` executables are not a fleet service
+  interface.
 
 ## What is deliberately per-service
 
@@ -46,9 +53,11 @@ comment beside the key:
   human is blocked on the result. Background QoS is starved first under
   contention, which is correct for ingestion and wrong for a browser a person
   is looking at.
-- **Resident vs periodic** — `KeepAlive` with `ThrottleInterval` for a service
-  that should always be up, `StartInterval` for one that should run on a
-  cadence. `agentbrain.doctor` is the only periodic member.
+- **Lifecycle** — the manifest names each service as `resident`, `periodic`, or
+  `queue-triggered`; templates express that through `KeepAlive`,
+  `StartInterval`, and `QueueDirectories`. `agentbrain.doctor` is the only
+  periodic member and `agentscrape.queue-processor` the only queue-triggered
+  member.
 - **Arguments and extra environment**, including values that must be
   discovered from another service at install time.
 - **Conditional installation.** `agentbrain.share` installs only when an

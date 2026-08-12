@@ -71,9 +71,11 @@ Where things go:
   if it has one. The `agent*` skills scan needs nothing. A loop member's
   installer must be rerunnable, because a present checkout that fails stops
   the whole install.
-- A new long-running fleet service: a template in `config/launchd/`, an
-  entry in the manifest at the top of `scripts/install-launchagents`, and
-  assertions in `tests/validate.sh`. `config/launchd/README.md` is the
+- A new long-running fleet service: a noun-role template in `config/launchd/`,
+  an entry with its explicit lifecycle (`resident`, `periodic`, or
+  `queue-triggered`) in the manifest at the top of
+  `scripts/install-launchagents`, and assertions in `tests/validate.sh`.
+  `config/launchd/README.md` is the
   contract — what every service shares and what is deliberately
   per-service. Labels are bare `<tool>.<service>`; a reverse-DNS label is a
   machine service and does not belong here.

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- agentstart-installer-owned: agentscrape.queue-processor.v1 -->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>agentscrape.queue-processor</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>__PROGRAM__</string>
+		<string>process-queue</string>
+	</array>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>PATH</key>
+		<string>__PATH__</string>
+	</dict>
+	<!-- The third shape in the fleet, and the only one that is neither
+	     resident nor purely periodic: launchd starts the job when the queue
+	     directory stops being empty. The interval is the floor under that —
+	     a job enqueued while the watcher missed an event still drains within
+	     the minute, so nothing waits on a filesystem notification that may
+	     never arrive. -->
+	<key>QueueDirectories</key>
+	<array>
+		<string>__QUEUE__</string>
+	</array>
+	<key>StartInterval</key>
+	<integer>60</integer>
+	<!-- Background: fetching is work nobody is waiting on, and the queue is
+	     drained on its own schedule rather than a caller's. -->
+	<key>ProcessType</key>
+	<string>Background</string>
+	<key>Umask</key>
+	<integer>63</integer>
+	<key>StandardOutPath</key>
+	<string>__LOG__</string>
+	<key>StandardErrorPath</key>
+	<string>__LOG__</string>
+</dict>
+</plist>
