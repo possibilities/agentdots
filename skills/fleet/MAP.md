@@ -75,6 +75,7 @@ flowchart LR
     start ==>|npm pin| browser[agent-browser]
     start ==>|checkout contracts| fleet[agentvoice / agentwiki / agentboard / agentsearch / agentkeys / agentweb / agentscrape / agentbrain / codex-swap / agentusage / agentlaunch / cass]
     start ==>|skills scan + post-sync hooks| skills[all agent skills, agentguidance rendered]
+    start ==>|per-file links, after the scan| voiceDoctrine[agentvoice doctrine: server.json from start, orchestrator prompts agentguidance-rendered]
     start -.->|config/launchd + install-launchagents| services[agentbrain worker + share + doctor / agentusage daemon / agentweb daemon / agentscrape process-queue / agentwiki serve]
 ```
 
@@ -107,14 +108,15 @@ flowchart LR
 
     watchRequests -.-> chats
 
-    tools[TOOLS.md — agentstart prompts, spliced into collab and build at render] -.-> search & scrape & brain & browser & wiki & board & groom & chats & notify
+    tools[TOOLS.md — agentstart prompts, spliced into collab, build, and orchestrate at render] -.-> search & scrape & brain & browser & wiki & board & groom & chats & notify
 ```
 
 The TOOLS.md node is the widest fan-out in the fleet and this repository is
 its origin: `agentguidance/scripts/render` splices
 `prompts/agentguidance/TOOLS.md`
-into the collab and build skills at their `<!-- extension-prompt: TOOLS.md -->`
-markers, so those two skills route to all advertised tools without
+into the collab, build, and orchestrate skills at their
+`<!-- extension-prompt: TOOLS.md -->`
+markers, so those skills route to all advertised tools without
 their templates naming any of them. That is why the tool-advertisement
 policy (the `tool-advertisement-policy` wiki page) governs a real graph
 edge, not just prose.
@@ -165,6 +167,7 @@ sentence around the match, never from the name alone.
 | agentkeys | stowed machine configs | audits the interception chain across Karabiner/skhd/Ghostty/tmux/Neovim — files the machine layer stows | `agentkeys` skill description; the machine's stow packages |
 | agentboard, agentchats | each other's CLIs | the shared "agent* state dump" bearings convention: one cross-tool contract for state dumps, with a common ~4-chars-per-token budget | `agentboard/src/help.ts:367`, `agentchats/bin/agentchats:13`, `agentboard/src/brief.ts:140` |
 | agentstart statusline | claude-swap | the claude renderer names the balanced account by reading `CLAUDE_CONFIG_DIR`, whose basename claude-swap spells `<n>-<slugified-email>`; renaming that profile directory silently drops the account segment. No counterpart for codex or pi — codex-swap pins an account by swapping auth in place and exports nothing naming it | `agentstart/config/statusline/claude-statusline.sh` (balanced-account segment); `claude-swap/src/claude_swap/session.py:161-167` |
+| agentguidance | agentvoice (via agentstart) | the voice orchestrator doctrine is rendered doctrine: `agentguidance/prompts/agentvoice/` templates splice the shared orchestrator fragments to `~/.agents/prompts/agentvoice/`, agentstart links the result into `~/.config/agentvoice` after sync-skills (keeping only `server.json` as its own source), and agentvoice discovers the files by name at server boot | `agentguidance/scripts/render`; `agentstart/scripts/install.sh` (`link_agentvoice_config`); `agentvoice/src/server/config.ts` (`PROMPT_FILES`) |
 
 ### pins
 
@@ -208,7 +211,8 @@ independent app-server children do not use codex-swap's removed sidecars.
 | search | brain, chats, scrape | check brain first — the answer is often already local |
 | browser | scrape, search | fetching content is scrape; finding pages is search |
 | wiki | board, brain, chats | the durable home the others cite into. Wiki's `search` is its own subcommand, not the search skill |
-| TOOLS.md (this repo) | search, scrape, brain, browser, wiki, board, groom, chats, notify | spliced into collab and build at render — the advertisement lines are the routing |
+| TOOLS.md (this repo) | search, scrape, brain, browser, wiki, board, groom, chats, notify | spliced into collab, build, and orchestrate at render — the advertisement lines are the routing |
+| orchestrate (agentguidance) | collab, build | the wielder: collab's contract holds on the conversation thread, and execution leaves as standalone briefs run under build's contract by dispatched workers (`agentguidance/skills/orchestrate/SKILL.md`, `fragments/orchestrator-conduct.md`) |
 | resource-create / resource-update (agentguidance) | brain | resources are built from and refreshed against the agentbrain index |
 | story (agentguidance) | wiki | publishes the finished narrative through agentwiki |
 | watch-requests (agentguidance) | chats, notify | the watch diagnoses but never authors: `cass resume <source_path> --shell` names the session that opened the request, and notify carries the resume command and steering prompt to the human (`agentguidance/skills/watch-requests/SKILL.md`) |
@@ -230,4 +234,8 @@ independent second sweep that removed two false routing edges (own-`search`
 subcommands), added the conduit and TOOLS.md edges, and re-confirmed both
 absences above. Updated 2026-08-12 for the de-Orca topology: AgentLaunch owns
 bare harness launch balancing, AgentStart retires AgentBus launch agents and
-adapters, and TOOLS.md no longer advertises the retired bus skill.
+adapters, and TOOLS.md no longer advertises the retired bus skill. Updated
+again 2026-08-12 for the orchestrator doctrine unification: agentguidance
+renders the voice orchestrator prompts from shared fragments, the new
+orchestrate skill wields collab and build, and AgentStart links rendered
+doctrine instead of owning it.

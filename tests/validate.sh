@@ -58,14 +58,28 @@ for prompt in SYSTEM.md GUIDELINES.md TOOLS.md; do
         || fail "extension prompt is missing or empty: prompts/agentguidance/$prompt"
 done
 
-# The AgentVoice doctrine is linked into ~/.config/agentvoice and read once
-# at server boot; a missing or empty file primes nothing, silently.
-for doctrine in ORCHESTRATOR.md ORCHESTRATOR_SESSION_START.md server.json; do
-    [ -s "prompts/agentvoice/$doctrine" ] \
-        || fail "AgentVoice doctrine is missing or empty: prompts/agentvoice/$doctrine"
-done
+# The voice server configuration is linked into ~/.config/agentvoice and
+# read once at server boot; a missing or empty file primes nothing, silently.
+# The orchestrator doctrine no longer lives here: agentguidance renders it
+# to ~/.agents/prompts/agentvoice, and the installer links that — after
+# sync-skills, so the rendered source exists before the link is checked.
+[ -s prompts/agentvoice/server.json ] \
+    || fail "AgentVoice server configuration is missing or empty: prompts/agentvoice/server.json"
 /usr/bin/jq -e . prompts/agentvoice/server.json >/dev/null \
     || fail "AgentVoice server.json is not valid JSON"
+for doctrine in ORCHESTRATOR.md ORCHESTRATOR_SESSION_START.md; do
+    [ ! -e "prompts/agentvoice/$doctrine" ] \
+        || fail "AgentVoice orchestrator doctrine belongs to agentguidance now: prompts/agentvoice/$doctrine"
+done
+# shellcheck disable=SC2016 # Match the literal rendered-doctrine path in the script.
+grep -F 'rendered_dir="$HOME/.agents/prompts/agentvoice"' scripts/install.sh >/dev/null \
+    || fail "install.sh does not link the rendered AgentVoice doctrine"
+voice_link_line=$(grep -n '^link_agentvoice_config$' scripts/install.sh | cut -d: -f1)
+# shellcheck disable=SC2016 # Match the literal sync-skills call, $-sign and all.
+sync_skills_line=$(grep -n '^"$script_dir/sync-skills"$' scripts/install.sh | cut -d: -f1)
+[ -n "$voice_link_line" ] && [ -n "$sync_skills_line" ] \
+    && [ "$voice_link_line" -gt "$sync_skills_line" ] \
+    || fail "link_agentvoice_config must run after sync-skills renders the doctrine"
 
 # Global advice belongs in the operator extension prompts, so the shared home
 # guidance stays deliberately empty; the tripwire keeps advice from accreting
@@ -492,7 +506,8 @@ for required_install in \
     'ln -sfn ~/AGENTS.md ~/.claude/CLAUDE.md  # Claude Code reads CLAUDE.md, not AGENTS.md' \
     'ln -sfn ~/AGENTS.md ~/.codex/AGENTS.md  # Codex skips empty guidance files' \
     'ln -sfn ~/AGENTS.md ~/.pi/agent/AGENTS.md  # pi'"'"'s global slot; its cwd walk reaches ~/AGENTS.md only under $HOME' \
-    'ln -sfn prompts/agentvoice/{ORCHESTRATOR.md,ORCHESTRATOR_SESSION_START.md,server.json} into ~/.config/agentvoice  # the voice orchestrator'"'"'s doctrine, read at server boot' \
+    'ln -sfn prompts/agentvoice/server.json into ~/.config/agentvoice  # the voice server configuration, read at server boot' \
+    'ln -sfn ~/.agents/prompts/agentvoice/{ORCHESTRATOR.md,ORCHESTRATOR_SESSION_START.md} into ~/.config/agentvoice  # the voice orchestrator'"'"'s doctrine; agentguidance renders it, so this links after sync-skills' \
     'ln -sfn prompts/agentguidance/{SYSTEM,GUIDELINES,TOOLS}.md into ~/.config/agentguidance  # the extension prompts agentguidance renders against' \
     'npx --yes skills add https://github.com/vercel-labs/skills --agent codex claude-code pi --skill find-skills --global --yes' \
     'npx --yes skills add https://github.com/anthropics/skills --agent codex claude-code pi --skill frontend-design --global --yes' \

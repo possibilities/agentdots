@@ -140,23 +140,33 @@ remove_retired_llm_config() {
 }
 
 
-# The voice orchestrator's doctrine and server configuration are fleet
-# guidance, so AgentStart owns them: prompts/agentvoice/ is the source of
-# truth and ~/.config/agentvoice is per-file links into this checkout. The
-# filenames — ORCHESTRATOR.md, ORCHESTRATOR_SESSION_START.md, server.json —
-# are AgentVoice's discovery contract (~/code/agentvoice/docs/field-guide.md
-# documents every lever); a file it does not recognize primes nothing. The
-# AgentVoice server reads them once at boot, so changes apply on its next
-# start. Per-file links, never the directory: the target also holds files
-# this checkout does not own.
+# The voice server configuration is fleet wiring, so AgentStart owns it:
+# prompts/agentvoice/server.json is the source of truth. The orchestrator
+# doctrine is general agent doctrine: agentguidance renders it into
+# ~/.agents/prompts/agentvoice/ — shared orchestrator fragments spliced by
+# its post-sync hook — and this installer decides only that AgentVoice
+# discovers the result, which is why link_agentvoice_config runs after
+# sync-skills has rendered.
+# The filenames — ORCHESTRATOR.md, ORCHESTRATOR_SESSION_START.md,
+# server.json — are AgentVoice's discovery contract
+# (~/code/agentvoice/docs/field-guide.md documents every lever); a file it
+# does not recognize primes nothing. The AgentVoice server reads them once
+# at boot, so changes apply on its next start — the six-hourly sync may
+# re-render doctrine content unattended, and no restart is needed. Per-file
+# links, never the directory: the target also holds files this checkout
+# does not own.
 link_agentvoice_config() {
     local config_dir="$HOME/.config/agentvoice"
+    local rendered_dir="$HOME/.agents/prompts/agentvoice"
     local name
     local source
     local target
 
     for name in ORCHESTRATOR.md ORCHESTRATOR_SESSION_START.md server.json; do
-        source="$repo_root/prompts/agentvoice/$name"
+        case "$name" in
+        server.json) source="$repo_root/prompts/agentvoice/$name" ;;
+        *) source="$rendered_dir/$name" ;;
+        esac
         target="$config_dir/$name"
         [ -s "$source" ] \
             || die "AgentVoice doctrine source is missing or empty: $source"
@@ -245,7 +255,8 @@ Agent guidance:
   ln -sfn ~/AGENTS.md ~/.codex/AGENTS.md  # Codex skips empty guidance files
   ln -sfn ~/AGENTS.md ~/.pi/agent/AGENTS.md  # pi's global slot; its cwd walk reaches ~/AGENTS.md only under $HOME
   ln -sfn prompts/agentguidance/{SYSTEM,GUIDELINES,TOOLS}.md into ~/.config/agentguidance  # the extension prompts agentguidance renders against
-  ln -sfn prompts/agentvoice/{ORCHESTRATOR.md,ORCHESTRATOR_SESSION_START.md,server.json} into ~/.config/agentvoice  # the voice orchestrator's doctrine, read at server boot
+  ln -sfn prompts/agentvoice/server.json into ~/.config/agentvoice  # the voice server configuration, read at server boot
+  ln -sfn ~/.agents/prompts/agentvoice/{ORCHESTRATOR.md,ORCHESTRATOR_SESSION_START.md} into ~/.config/agentvoice  # the voice orchestrator's doctrine; agentguidance renders it, so this links after sync-skills
   remove AgentStart-owned ~/Library/Application Support/io.datasette.llm/extra-openai-models.yaml symlink  # its extra model records are obsolete
   remove ownership-verified AgentSurface, AgentBus, and Orca harness integrations
   npx --yes skills remove --global --yes bus orca-cli orchestration computer-use  # retired skills; full install only
@@ -385,9 +396,6 @@ link_agent_guidance
 printf 'Linking the operator extension prompts into ~/.config/agentguidance.\n'
 link_extension_prompts
 
-printf 'Linking the AgentVoice doctrine into ~/.config/agentvoice.\n'
-link_agentvoice_config
-
 printf 'Removing the retired llm model configuration if AgentStart owns it.\n'
 remove_retired_llm_config
 
@@ -519,3 +527,8 @@ printf 'Installing the fleet launch agents.\n'
 # post-sync hook re-renders the templates the scan ships against the
 # operator extension prompts linked above.
 "$script_dir/sync-skills"
+
+# The sync above is where agentguidance renders the orchestrator doctrine,
+# so only now can it be linked where the server discovers it.
+printf 'Linking the AgentVoice doctrine into ~/.config/agentvoice.\n'
+link_agentvoice_config

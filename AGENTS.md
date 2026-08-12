@@ -87,6 +87,12 @@ Where things go:
 - An operator extension prompt edit: `prompts/agentguidance/`, then
   `scripts/install.sh --install` (or wait for the six-hour sync plus the
   next render) so the rendered skills pick it up.
+- A voice orchestrator doctrine edit: `~/code/agentguidance`
+  (`prompts/agentvoice/`, spliced from the shared orchestrator fragments),
+  then the same render path. This repository keeps only
+  `prompts/agentvoice/server.json` and links the rendered doctrine from
+  `~/.agents/prompts/agentvoice/` into `~/.config/agentvoice` — after
+  sync-skills, so the rendered source exists.
 - A cross-project decision that belongs to no single repo: the wiki
   (`agentwiki new`), one page per subject, wikilinked to its neighbours
   and pointed at from wherever it constrains. `tool-advertisement-policy`
