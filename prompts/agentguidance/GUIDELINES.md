@@ -6,6 +6,16 @@
   Then pull and fast-forward from the remote. A branch that has genuinely
   diverged is its own procedure; report it rather than resolving it in
   passing.
+- A fork we carry patches on has exactly two kinds of branch, and confusing
+  them is the recurring mistake. `integration` is every patch we carry,
+  merged, and the only ref an installer builds and binds; a patch also
+  offered upstream lives on its own branch, cut from upstream's head, and is
+  never moved by an install — refreshing an open PR force-pushes a head a
+  maintainer is mid-review on. A fleet app depending on a fork binds the
+  local checkout at `integration` from its own installer, never by hand:
+  the binding survives a reinstall or it is not a binding. Whether the fork
+  is wired at all is a declared line in that installer, so retiring it is an
+  edit and a rerun. The `fork-rebase-policy` wiki page is the contract.
 - Sessions usually start in a worktree. Work in the one you were given, not
   the canonical checkout, and branch a throwaway worktree off the current
   HEAD rather than main.

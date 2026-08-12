@@ -146,7 +146,7 @@ sentence around the match, never from the name alone.
 | Caller | Callee | What | Evidence |
 | --- | --- | --- | --- |
 | agentstart | agentusage | `install-agent-clis` invokes the checkout's `scripts/install.sh --install`, which provisions the public claude-swap fork before installing the observer. It no longer writes a `codex-swap` shim — that command has one owner now | `agentstart/scripts/install-agent-clis`; `agentusage/scripts/install-providers.sh` |
-| agentstart | codex-swap | `install-agent-clis` invokes `scripts/install.sh --install`, which writes the `codex-swap` command as a source shim into the checkout. It briefly also provisioned a patched codex-multi-auth fork under `~/src`; 2.8.4 carries that fix upstream, so the dependency is the exact npm pin again and there is nothing to provision | `agentstart/scripts/install-agent-clis`; `codex-swap/scripts/install.sh` |
+| agentstart | codex-swap | `install-agent-clis` invokes `scripts/install.sh --install`, which writes the `codex-swap` command as a source shim into the checkout and, while `NDY_FORK_ACTIVE=1`, provisions the patched codex-multi-auth fork at `~/src/codex-multi-auth@integration` and names it in the shim. Flipping that constant to 0 collapses the dependency back to the exact npm pin | `agentstart/scripts/install-agent-clis`; `codex-swap/scripts/install.sh` |
 | agentsurface | agentusage | `agentusage balance claude\|codex --json` picks the account for a balanced launch | `agentsurface/src/balance.ts:64,124` |
 | agentsurface | claude-swap | wraps balanced Claude launches as `cswap run <slot> --share-history` | `agentsurface/src/balance.ts:57-90` |
 | agentsurface | codex-swap | wraps codex as `codex-swap run`/`resume <id>` (a codex Placement adds `--server unix://<socket>`, the Run server codex-swap starts and reaps per session — agentsurface ADR 0026, codex-swap ADR 0006), pi as `codex-swap pi run`; session discovery shells `codex-swap app-server threads --listen <url> --json` to read a run's own socket before its first turn | `agentsurface/src/balance.ts` (composeCodexFamily), `agentsurface/src/runs.ts` (sessionIdFromRunServer) |
@@ -191,28 +191,24 @@ sentence around the match, never from the name alone.
 | @native-sdk/cli | 0.7 line | the native-sdk skill documents 0.7 and its agent helpers are version-matched | `agentstart/scripts/install.sh` (`native_sdk_version`) |
 | zig | Brewfile-tracked, duplicated in the installer | AgentVoice's native duplex audio path and Native SDK packaging build against it | `agentstart/scripts/install.sh` |
 
-The managed fork rebases its **install branch** onto upstream on every
-install — the integration branch the installer builds and binds — gated by
-that project's own CI steps and published with `--force-with-lease` only after
-the gate passes. A failed rebase or gate keeps the previously bound build bound,
-publishes nothing, and notifies. The fleet repo owns its own hardened installer
-rather than sharing a common helper, which would invert that ownership. A patch
-also offered upstream lives on its own branch and is **not** moved by this —
-refreshing an open PR is a separate operation against a different audience. The
-`fork-rebase-policy` wiki page is the contract. (`~/src/codex-multi-auth` was
-managed the same way, owned by `codex-swap/scripts/install.sh`, while codex-swap
-carried the app-server routing fix; codex-multi-auth 2.8.4 shipped that fix
-upstream (ndycode/codex-multi-auth#659) and the installer now provisions
-nothing under `~/src`. The fork is currently re-activated **manually** for the
-runtime-helper leak fix: branch `fix/runtime-helper-leak` (2.8.4-based), wired
-by an `export CODEX_SWAP_NDY_PACKAGE_DIR` line in the `~/.local/bin/codex-swap`
-shim rather than by the installer — running `codex-swap/scripts/install.sh
---install` rewrites the shim and unwires it. Retire the wiring again once the
-fix ships in an upstream release.)
+Each managed fork rebases its **`integration` branch** onto upstream on every
+install — every patch we carry, merged, and the only ref the installer builds
+and binds — gated by that project's own CI steps and published with
+`--force-with-lease` only after the gate passes. A failed rebase or gate keeps
+the previously bound build bound, publishes nothing, and notifies. The fleet
+repo owns its own hardened installer rather than sharing a common helper, which
+would invert that ownership. A patch also offered upstream lives on its own
+branch and is **not** moved by this — refreshing an open PR is a separate
+operation against a different audience. Whether a fork is wired at all is a
+declared constant in the owning installer, so retiring it is an edit and a
+rerun; a binding hand-written into the installed shim is unwired by the next
+install, which is how the codex-multi-auth one was lost once. The
+`fork-rebase-policy` wiki page is the contract.
 
-| Fork | Install branch | Owner | Gate |
+| Fork | Integration branch | Owner | Gate |
 | --- | --- | --- | --- |
-| `~/src/claude-swap` | `main` | `agentusage/scripts/install-providers.sh` | `uv sync --locked && uv run pytest` |
+| `~/src/claude-swap` | `integration` | `agentusage/scripts/install-providers.sh` | `uv sync --locked && uv run pytest` |
+| `~/src/codex-multi-auth` | `integration` | `codex-swap/scripts/install.sh` (`NDY_FORK_ACTIVE`) | `npm ci`, typecheck, lint, test, build |
 
 ### routes (skill → skill)
 

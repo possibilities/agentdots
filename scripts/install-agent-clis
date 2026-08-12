@@ -31,7 +31,8 @@ die() {
 code_root="${AGENTSTART_CODE_ROOT:-$HOME/code}"
 
 # agentusage precedes agentsurface because the launcher shells its balance
-# contract and its installer provisions the public claude-swap fork. The shims
+# contract and its installer provisions the public claude-swap fork at its
+# `integration` branch — the fleet's fork convention. The shims
 # installer refuses without `agentsurface` on PATH, and the machine's .zshrc
 # already prefixes the shim directory. Installing the CLI does not install the
 # shims — that stays a deliberate `scripts/install-agentsurface-shims`.
@@ -39,9 +40,10 @@ code_root="${AGENTSTART_CODE_ROOT:-$HOME/code}"
 # codex-swap owns its own command now, and agentusage has stopped writing a
 # competing shim for it, so the command has exactly one owner. It runs before
 # agentusage to keep the provider layer installed before the observer that
-# reads it. It briefly also provisioned a patched codex-multi-auth fork, back
-# when stock codex-multi-auth could not host a resident app-server; 2.8.4
-# carries that fix, so the dependency is an ordinary pinned install again.
+# reads it. It also provisions the patched codex-multi-auth fork at its
+# `integration` branch while it carries a patch upstream has not released —
+# declared by `NDY_FORK_ACTIVE` in that installer, so retiring the fork is an
+# edit there and a rerun here, never a hand edit to the installed shim.
 #
 # agentweb, agentscrape, and agentbrain are ordered along the conduit rather
 # than by any install-time requirement: agentweb serves the session conduit,
