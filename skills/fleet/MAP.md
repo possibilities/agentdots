@@ -136,7 +136,7 @@ sentence around the match, never from the name alone.
 | Caller | Callee | What | Evidence |
 | --- | --- | --- | --- |
 | agentstart | agentusage | `install-agent-clis` invokes the checkout's `scripts/install.sh --install`, which provisions the public claude-swap fork before installing the observer. It no longer writes a `codex-swap` shim — that command has one owner now | `agentstart/scripts/install-agent-clis`; `agentusage/scripts/install-providers.sh` |
-| agentstart | codex-swap | `install-agent-clis` invokes `scripts/install.sh --install`, which writes the `codex-swap` command as a source shim into the checkout and, while `NDY_FORK_ACTIVE=1`, provisions the patched codex-multi-auth fork at `~/src/codex-multi-auth@integration` and names it in the shim. Flipping that constant to 0 collapses the dependency back to the exact npm pin | `agentstart/scripts/install-agent-clis`; `codex-swap/scripts/install.sh` |
+| agentstart | codex-swap | `install-agent-clis` invokes `scripts/install.sh --install`, which writes the `codex-swap` command as a source shim into the checkout and installs the exact stock codex-multi-auth npm pin | `agentstart/scripts/install-agent-clis`; `codex-swap/scripts/install.sh` |
 | agentstart | agentlaunch | `install-agent-clis` invokes `scripts/install.sh --install` after `agentusage`; `scripts/install-agentlaunch-shims` is the external shim contract for bare `claude`/`codex`/`pi` | `agentstart/scripts/install-agent-clis`; `agentstart/scripts/install-agentlaunch-shims` |
 | agentlaunch | agentusage | `agentusage balance claude\|codex --json` chooses a balanced account. Real Codex/Pi launches add `--claim`; dry runs do not reserve capacity | `agentlaunch/src/balance.ts` (`balanceClaude`, `balanceCodexFamily`) |
 | agentlaunch | claude-swap | wraps balanced Claude launches as `cswap run <slot> --share-history -- <native argv>` | `agentlaunch/src/balance.ts` (`balanceClaude`); `agentlaunch/docs/adr/0003-balanced-launches-compose-a-prefix.md` |
@@ -174,7 +174,7 @@ sentence around the match, never from the name alone.
 | @native-sdk/cli | 0.7 line | the native-sdk skill documents 0.7 and its agent helpers are version-matched | `agentstart/scripts/install.sh` (`native_sdk_version`) |
 | zig | Brewfile-tracked, duplicated in the installer | AgentVoice's native duplex audio path and Native SDK packaging build against it | `agentstart/scripts/install.sh` |
 
-Each managed fork rebases its **`integration` branch** onto upstream on every
+The managed claude-swap fork rebases its **`integration` branch** onto upstream on every
 install — every patch we carry, merged, and the only ref the installer builds
 and binds — gated by that project's own CI steps and published with
 `--force-with-lease` only after the gate passes. A failed rebase or gate keeps
@@ -191,7 +191,11 @@ install, which is how the codex-multi-auth one was lost once. The
 | Fork | Integration branch | Owner | Gate |
 | --- | --- | --- | --- |
 | `~/src/claude-swap` | `integration` | `agentusage/scripts/install-providers.sh` | `uv sync --locked && uv run pytest` |
-| `~/src/codex-multi-auth` | `integration` | `codex-swap/scripts/install.sh` (`NDY_FORK_ACTIVE`) | `npm ci`, typecheck, lint, test, build |
+
+Codex-swap no longer binds `~/src/codex-multi-auth`: it uses the exact stock
+npm pin. Open upstream PRs #664 and #665 address helper cleanup for the retired
+per-TUI app-server topology and are no longer needed by this fleet; AgentVoice's
+independent app-server children do not use codex-swap's removed sidecars.
 
 ### routes (skill → skill)
 

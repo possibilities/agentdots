@@ -21,20 +21,17 @@
   service with two owners has them racing to render it. A fleet checkout
   ships the code; this repository decides that it is present and when it
   runs. Nothing outside this repository installs a fleet component.
-- Two fleet dependencies are other people's projects the fleet carries
-  patches on: `claude-swap` and `codex-multi-auth`. Each is cloned to
-  `~/src/<name>` under the `~/src` convention, with our fork as the `fork`
-  remote, and each is bound at its `integration` branch — every patch we
-  carry, merged, and the only ref an installer builds; a patch offered
-  upstream lives on its own branch beside it. The binding always belongs to
-  the consuming app's own installer, declared there so retiring the fork is
-  an edit and a rerun: agentusage's `scripts/install-providers.sh` owns
-  claude-swap and refuses a checkout whose fork remote is not ours,
-  codex-swap's `scripts/install.sh` owns codex-multi-auth behind
-  `NDY_FORK_ACTIVE`. Both are temporary — once the outstanding PRs land and
-  ship, each collapses back to a plain upstream install, and that change
-  belongs in the owning fleet repo, not here. The `fork-rebase-policy` wiki
-  page is the contract; `claude-swap` itself is not in the
+- One fleet dependency is another project the fleet carries patches on:
+  `claude-swap`, cloned to `~/src/claude-swap` under the `~/src` convention,
+  with our fork as the `fork` remote and bound at its `integration` branch —
+  every patch we carry, merged, and the only ref its installer builds. A patch
+  offered upstream lives on its own branch beside it. The binding belongs to
+  agentusage's `scripts/install-providers.sh`, which refuses a checkout whose
+  fork remote is not ours, so retiring it is an edit there and a rerun here.
+  The `fork-rebase-policy` wiki page is the contract. `codex-multi-auth` is no
+  longer a managed fork dependency: codex-swap installs its exact stock npm
+  pin, and the still-open upstream PRs #664 and #665 are not required by this
+  fleet after per-TUI app-server retirement. `claude-swap` itself is not in the
   `install-agent-clis` loop, arriving through agentusage's installer, which
   is why that loop runs agentusage before agentlaunch.
 - Every fleet repo's `AGENTS.md` ends with the same "The fleet" section
