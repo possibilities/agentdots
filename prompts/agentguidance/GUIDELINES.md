@@ -47,3 +47,7 @@
 - Finished work lands in main and is pushed — a worktree is where work
   happens, not where it stops. A pull request is a workflow to be asked for
   by name, not a default.
+- A Signal Room full-screen TUI uses a three-row header with the empty row
+  above the title/status row and the divider immediately below it. Encode that
+  placement explicitly (for example, `paddingTop: 1` in OpenTUI); do not rely
+  on flex centering, whose rounding changes with the child structure.
