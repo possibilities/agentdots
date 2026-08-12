@@ -10,40 +10,134 @@ set -euo pipefail
 }
 
 code_root="${AGENTSTART_CODE_ROOT:-$HOME/code}"
+script_dir=$(cd -P -- "$(dirname -- "$0")" && pwd)
 
 die() {
     printf 'AgentStart retired integrations: %s\n' "$*" >&2
     exit 1
 }
 
-remove_orca_hooks() {
-    local settings="$1" hook="$2" temp
-    [ -e "$settings" ] || return 0
+remove_orca_json_hooks() {
+    local settings="$1" delete_if_empty="$2" bundle="$3" result
+    local -a helper_args
+    shift 3
+    [ -e "$settings" ] || [ -L "$settings" ] || return 0
     [ -f "$settings" ] && [ ! -L "$settings" ] ||
         die "refusing to edit unsafe harness hook configuration: $settings"
-    grep -Fq "$hook" "$settings" || return 0
+    command -v bun >/dev/null 2>&1 ||
+        die "bun is required to remove retired JSON hook integrations"
 
-    temp="$settings.agentstart-tmp"
-    HOOK_PATH="$hook" /usr/bin/jq '
-      def owned: ((.command? // "") | contains(env.HOOK_PATH));
-      if (.hooks? | type) == "object" then
-        .hooks |= (
-          with_entries(
-            .value |= map(
-              .hooks |= map(select(owned | not))
-              | select((.hooks | length) > 0)
-            )
-          )
-          | with_entries(select((.value | length) > 0))
-        )
-      else . end
-    ' "$settings" >"$temp" || {
+    # macOS Bash 3.2 treats an empty array expansion as unset under `set -u`.
+    # Keep the command itself in the array so every expansion is non-empty.
+    helper_args=("$script_dir/remove-retired-json-hooks.ts")
+    [ -z "$bundle" ] || helper_args+=(--bundle "$bundle")
+    [ "$delete_if_empty" -eq 0 ] || helper_args+=(--delete-if-empty)
+    result=$("${helper_args[@]}" "$settings" "$@") ||
+        die "could not remove retired Orca hooks from $settings"
+    case "$result" in
+    changed) printf 'Removed retired Orca hooks from %s.\n' "$settings" ;;
+    deleted) printf 'Removed retired Orca hook file: %s.\n' "$settings" ;;
+    unchanged) ;;
+    *) die "unexpected retired JSON hook cleanup result for $settings: $result" ;;
+    esac
+}
+
+resolved_home() {
+    local variable_name="$1" fallback="$2" value
+    value=$(printenv "$variable_name" 2>/dev/null || true)
+    value=$(printf '%s' "$value" | /usr/bin/sed \
+        -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+    if [ -n "$value" ]; then
+        printf '%s\n' "$value"
+    else
+        printf '%s\n' "$fallback"
+    fi
+}
+
+remove_orca_kimi_hooks() {
+    local kimi_home config temp
+    kimi_home=$(resolved_home KIMI_CODE_HOME "$HOME/.kimi-code")
+    config="$kimi_home/config.toml"
+    [ -e "$config" ] || [ -L "$config" ] || return 0
+    [ -f "$config" ] && [ ! -L "$config" ] ||
+        die "refusing to edit unsafe Kimi hook configuration: $config"
+    grep -Fq '# >>> orca-managed-kimi-hooks (managed by Orca; do not edit) >>>' "$config" || return 0
+
+    temp="$config.agentstart-tmp"
+    /usr/bin/awk '
+      $0 == "# >>> orca-managed-kimi-hooks (managed by Orca; do not edit) >>>" { managed = 1; next }
+      $0 == "# <<< orca-managed-kimi-hooks <<<" { managed = 0; next }
+      !managed { print }
+      # Orca always appends its block last, so an absent end marker means the
+      # managed block runs to EOF and is still safe to remove.
+    ' "$config" >"$temp" || {
         rm -f -- "$temp"
-        die "harness hook configuration is not valid JSON: $settings"
+        die "could not remove the Orca-managed Kimi hook block"
     }
     chmod 600 "$temp"
-    mv -- "$temp" "$settings"
-    printf 'Removed retired Orca hooks from %s.\n' "$settings"
+    mv -- "$temp" "$config"
+    printf 'Removed retired Orca hooks from %s.\n' "$config"
+}
+
+remove_orca_hermes_plugin() {
+    local hermes_home config plugin_dir mode
+    hermes_home=$(resolved_home HERMES_HOME "$HOME/.hermes")
+    config="$hermes_home/config.yaml"
+    plugin_dir="$hermes_home/plugins/orca-status"
+    local temp="$config.agentstart-tmp"
+
+    if [ -e "$plugin_dir" ] || [ -L "$plugin_dir" ]; then
+        if ! [ -d "$plugin_dir" ] || [ -L "$plugin_dir" ] ||
+            ! [ -f "$plugin_dir/plugin.yaml" ] || [ -L "$plugin_dir/plugin.yaml" ] ||
+            ! [ -f "$plugin_dir/__init__.py" ] || [ -L "$plugin_dir/__init__.py" ] ||
+            ! grep -Fq 'Managed by Orca. Do not edit; changes may be overwritten.' \
+                "$plugin_dir/plugin.yaml" ||
+            ! grep -Fq 'Managed by Orca. Do not edit; changes may be overwritten.' \
+                "$plugin_dir/__init__.py"; then
+            die "refusing to remove independently owned Hermes plugin: $plugin_dir"
+        fi
+    fi
+
+    if [ -e "$config" ] || [ -L "$config" ]; then
+        [ -f "$config" ] && [ ! -L "$config" ] ||
+            die "refusing to edit unsafe Hermes configuration: $config"
+    fi
+    if [ -f "$config" ]; then
+        /usr/bin/ruby - "$config" "$temp" <<'RUBY' ||
+require "yaml"
+
+path, output = ARGV
+content = File.read(path, encoding: "UTF-8")
+parsed = content.strip.empty? ? {} : YAML.safe_load(content, aliases: true)
+raise "Hermes config.yaml root must be a mapping" unless parsed.nil? || parsed.is_a?(Hash)
+config = parsed || {}
+plugins = config["plugins"]
+if plugins.is_a?(Hash) && plugins["enabled"].is_a?(Array) &&
+   plugins["enabled"].all? { |entry| entry.is_a?(String) } &&
+   plugins["enabled"].include?("orca-status")
+  plugins["enabled"] = plugins["enabled"].reject { |entry| entry == "orca-status" }
+  serialized = YAML.dump(config).sub(/\A---\s*\n/, "")
+  File.write(output, serialized, mode: "w", encoding: "UTF-8")
+end
+RUBY
+            {
+                rm -f -- "$temp"
+                die "could not remove the retired Orca Hermes enablement"
+            }
+        if [ -f "$temp" ]; then
+            mode=$(stat -f '%Lp' "$config")
+            chmod "$mode" "$temp"
+        fi
+    fi
+
+    if [ -d "$plugin_dir" ] && [ ! -L "$plugin_dir" ]; then
+        rm -r -- "$plugin_dir"
+        printf 'Removed retired Orca Hermes plugin: %s.\n' "$plugin_dir"
+    fi
+    if [ -f "$temp" ]; then
+        mv -- "$temp" "$config"
+        printf 'Removed retired Orca Hermes enablement: %s.\n' "$config"
+    fi
 }
 
 remove_agentbus_codex_sandbox_override() {
@@ -114,7 +208,10 @@ rmdir "${old_shim_dir%/shims}" 2>/dev/null || true
 for target in \
     "$HOME/.pi/agent/extensions/orca-agent-status.ts" \
     "$HOME/.pi/agent/extensions/orca-prefill.ts" \
-    "$HOME/.pi/agent/extensions/orca-titlebar-spinner.ts"; do
+    "$HOME/.pi/agent/extensions/orca-titlebar-spinner.ts" \
+    "$HOME/.omp/agent/extensions/orca-agent-status.ts" \
+    "$HOME/.omp/agent/extensions/orca-prefill.ts" \
+    "$HOME/.omp/agent/extensions/orca-titlebar-spinner.ts"; do
     if [ -f "$target" ] && [ ! -L "$target" ] &&
         grep -Fq '@orca-managed-pi-extension' "$target"; then
         rm -- "$target"
@@ -133,8 +230,28 @@ elif [ -e "$target" ] || [ -L "$target" ]; then
     printf 'Leaving independently owned Amp plugin untouched: %s.\n' "$target"
 fi
 
-remove_orca_hooks "$HOME/.claude/settings.json" \
-    "$HOME/.orca/agent-hooks/claude-hook.sh"
-remove_orca_hooks "$HOME/.codex/hooks.json" \
-    "$HOME/.orca/agent-hooks/codex-hook.sh"
+remove_orca_json_hooks "$HOME/.claude/settings.json" 0 "" claude-hook
+remove_orca_json_hooks "$HOME/.codex/hooks.json" 0 "" codex-hook
+grok_home=$(resolved_home GROK_HOME "$HOME/.grok")
+copilot_home=$(resolved_home COPILOT_HOME "$HOME/.copilot")
+for hook_config in \
+    "$HOME/.config/devin/config.json:0:devin-hook" \
+    "$HOME/.factory/settings.json:0:droid-hook" \
+    "$HOME/.gemini/settings.json:0:gemini-hook" \
+    "$HOME/.cursor/hooks.json:0:cursor-hook" \
+    "$HOME/.commandcode/settings.json:0:command-code-hook" \
+    "$grok_home/hooks/orca-status.json:1:grok-hook" \
+    "$copilot_home/hooks/orca.json:1:copilot-hook" \
+    "$HOME/.openclaude/settings.json:0:openclaude-hook"; do
+    hook_target=${hook_config%%:*}
+    hook_rest=${hook_config#*:}
+    delete_if_empty=${hook_rest%%:*}
+    hook_stem=${hook_rest#*:}
+    remove_orca_json_hooks "$hook_target" "$delete_if_empty" "" "$hook_stem"
+done
+remove_orca_json_hooks "$HOME/.gemini/config/hooks.json" 0 orca-status \
+    antigravity-hook antigravity-pre-invocation antigravity-post-invocation \
+    antigravity-stop antigravity-post-tool-use
+remove_orca_kimi_hooks
+remove_orca_hermes_plugin
 remove_agentbus_codex_sandbox_override

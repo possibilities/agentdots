@@ -36,6 +36,8 @@ for script in scripts/install.sh scripts/sync-skills scripts/install-agent-clis 
     scripts/install-agentvoice-cli scripts/remove-retired-integrations; do
     [ -x "$script" ] || fail "installer script is not executable: $script"
 done
+[ -x scripts/remove-retired-json-hooks.ts ] \
+    || fail "retired JSON hook cleanup helper is not executable"
 
 # The obsolete llm model records stay gone, and the retired Orca overlay must
 # not return as a second harness-configuration path.
@@ -200,7 +202,8 @@ for shim_harness in claude codex pi; do
         || fail "AgentLaunch shim does not route $shim_harness through agentlaunch"
 done
 shim_output=$(
-    PATH="$shim_home/.local/share/agentlaunch/shims:$shim_bin:/usr/bin:/bin:/usr/sbin:/sbin" \
+    AGENTLAUNCH_LAUNCH='' AGENTLAUNCH_SHIM_BYPASS='' \
+        PATH="$shim_home/.local/share/agentlaunch/shims:$shim_bin:/usr/bin:/bin:/usr/sbin:/sbin" \
         "$shim_home/.local/share/agentlaunch/shims/claude" --version
 )
 [ "$shim_output" = 'agentlaunch <--x-harness> <claude> <--version>' ] \
@@ -222,10 +225,21 @@ mkdir -p \
     "$cleanup_home/.local/bin" \
     "$cleanup_home/.local/share/agentsurface/shims" \
     "$cleanup_home/.pi/agent/extensions" \
+    "$cleanup_home/.omp/agent/extensions" \
     "$cleanup_home/.claude/skills" \
     "$cleanup_home/.claude" \
     "$cleanup_home/.codex" \
     "$cleanup_home/.config/amp/plugins" \
+    "$cleanup_home/.config/devin" \
+    "$cleanup_home/.factory" \
+    "$cleanup_home/.gemini/config" \
+    "$cleanup_home/.cursor" \
+    "$cleanup_home/.commandcode" \
+    "$cleanup_home/.grok/hooks" \
+    "$cleanup_home/.copilot/hooks" \
+    "$cleanup_home/.openclaude" \
+    "$cleanup_home/.kimi-code" \
+    "$cleanup_home/.hermes/plugins/orca-status" \
     "$cleanup_code_root/agentbus/src" \
     "$cleanup_code_root/agentbus/extensions/pi" \
     "$cleanup_code_root/agentbus/plugins/claude" \
@@ -247,6 +261,10 @@ printf '// @orca-managed-pi-extension\n' \
     >"$cleanup_home/.pi/agent/extensions/orca-agent-status.ts"
 printf '// independent extension\n' \
     >"$cleanup_home/.pi/agent/extensions/orca-prefill.ts"
+printf '// @orca-managed-pi-extension\n' \
+    >"$cleanup_home/.omp/agent/extensions/orca-agent-status.ts"
+printf '// independent extension\n' \
+    >"$cleanup_home/.omp/agent/extensions/orca-prefill.ts"
 printf '// Managed by Orca. Do not edit\n' \
     >"$cleanup_home/.config/amp/plugins/orca-agent-status.ts"
 cat >"$cleanup_home/.claude/settings.json" <<EOF
@@ -297,6 +315,83 @@ cat >"$cleanup_home/.codex/hooks.json" <<EOF
   }
 }
 EOF
+for hook_fixture in \
+    ".config/devin/config.json:devin-hook.sh" \
+    ".factory/settings.json:droid-hook.sh" \
+    ".gemini/settings.json:gemini-hook.sh" \
+    ".commandcode/settings.json:command-code-hook.sh" \
+    ".openclaude/settings.json:openclaude-hook.sh"; do
+    hook_file="$cleanup_home/${hook_fixture%%:*}"
+    hook_name=${hook_fixture#*:}
+    cat >"$hook_file" <<EOF
+{
+  "hooks": {
+    "Stop": [
+      {"hooks": [
+        {"command": "$cleanup_home/.orca/agent-hooks/$hook_name"},
+        {"command": "keep-nested-hook"}
+      ]}
+    ],
+    "Direct": [
+      {"command": "$cleanup_home/.orca/agent-hooks/$hook_name"},
+      {"command": "keep-direct-hook"}
+    ]
+  }
+}
+EOF
+done
+cat >"$cleanup_home/.gemini/settings.json" <<'EOF'
+{
+  // Gemini accepts JSONC; Orca also installed PowerShell hooks on Windows.
+  "hooks": {
+    "Stop": [
+      {"powershell": "powershell.exe -File C:\\Users\\fixture\\.orca\\agent-hooks\\gemini-hook.ps1"},
+      {"command": "keep-gemini"},
+    ],
+  },
+}
+EOF
+cat >"$cleanup_home/.cursor/hooks.json" <<EOF
+{"version":1,"hooks":{"stop":[
+  {"command":"$cleanup_home/.orca/agent-hooks/cursor-hook.sh"},
+  {"command":"keep-cursor"}
+]}}
+EOF
+cat >"$cleanup_home/.grok/hooks/orca-status.json" <<EOF
+{"hooks":{"Stop":[{"hooks":[{"command":"$cleanup_home/.orca/agent-hooks/grok-hook.sh"}]}]}}
+EOF
+cat >"$cleanup_home/.copilot/hooks/orca.json" <<EOF
+{"version":1,"hooks":{"Stop":[
+  {"bash":"$cleanup_home/.orca/agent-hooks/copilot-hook.sh"},
+  {"bash":"keep-copilot"}
+]}}
+EOF
+cat >"$cleanup_home/.gemini/config/hooks.json" <<EOF
+{"orca-status":{"Stop":[
+  {"command":"$cleanup_home/.orca/agent-hooks/antigravity-hook.sh"},
+  {"command":"keep-antigravity"}
+]},"keep":{"value":true}}
+EOF
+cat >"$cleanup_home/.kimi-code/config.toml" <<EOF
+keep = true
+
+# >>> orca-managed-kimi-hooks (managed by Orca; do not edit) >>>
+[[hooks]]
+event = "Stop"
+command = "$cleanup_home/.orca/agent-hooks/kimi-hook.sh"
+# <<< orca-managed-kimi-hooks <<<
+EOF
+cat >"$cleanup_home/.hermes/config.yaml" <<'EOF'
+plugins:
+  enabled:
+    - keep-hermes
+    - orca-status
+other: true
+EOF
+printf '# Managed by Orca. Do not edit; changes may be overwritten.\n' \
+    >"$cleanup_home/.hermes/plugins/orca-status/plugin.yaml"
+printf '# Managed by Orca. Do not edit; changes may be overwritten.\n' \
+    >"$cleanup_home/.hermes/plugins/orca-status/__init__.py"
 cat >"$cleanup_home/.codex/config.toml" <<'EOF'
 model = "gpt"
 
@@ -325,6 +420,10 @@ HOME="$cleanup_home" AGENTSTART_CODE_ROOT="$cleanup_code_root" \
     || fail "retired Orca Pi extension was not removed"
 [ -e "$cleanup_home/.pi/agent/extensions/orca-prefill.ts" ] \
     || fail "independent Pi extension was removed"
+[ ! -e "$cleanup_home/.omp/agent/extensions/orca-agent-status.ts" ] \
+    || fail "retired Orca OMP extension was not removed"
+[ -e "$cleanup_home/.omp/agent/extensions/orca-prefill.ts" ] \
+    || fail "independent OMP extension was removed"
 [ ! -e "$cleanup_home/.config/amp/plugins/orca-agent-status.ts" ] \
     || fail "retired Orca Amp plugin was not removed"
 grep -F "$cleanup_home/.orca/agent-hooks/claude-hook.sh" "$cleanup_home/.claude/settings.json" >/dev/null \
@@ -335,12 +434,68 @@ grep -F 'keep-claude' "$cleanup_home/.claude/settings.json" >/dev/null \
     || fail "retired cleanup removed unrelated Claude hook"
 grep -F 'keep-codex' "$cleanup_home/.codex/hooks.json" >/dev/null \
     || fail "retired cleanup removed unrelated Codex hook"
+for hook_file in \
+    "$cleanup_home/.config/devin/config.json" \
+    "$cleanup_home/.factory/settings.json" \
+    "$cleanup_home/.gemini/settings.json" \
+    "$cleanup_home/.cursor/hooks.json" \
+    "$cleanup_home/.commandcode/settings.json" \
+    "$cleanup_home/.copilot/hooks/orca.json" \
+    "$cleanup_home/.openclaude/settings.json"; do
+    grep -F '.orca/agent-hooks/' "$hook_file" >/dev/null \
+        && fail "retired Orca hook remained in $hook_file"
+done
+for hook_file in \
+    "$cleanup_home/.config/devin/config.json" \
+    "$cleanup_home/.factory/settings.json" \
+    "$cleanup_home/.commandcode/settings.json" \
+    "$cleanup_home/.openclaude/settings.json"; do
+    grep -F 'keep-nested-hook' "$hook_file" >/dev/null \
+        || fail "retired cleanup removed an unrelated nested hook from $hook_file"
+    grep -F 'keep-direct-hook' "$hook_file" >/dev/null \
+        || fail "retired cleanup removed an unrelated direct hook from $hook_file"
+done
+grep -F 'keep-gemini' "$cleanup_home/.gemini/settings.json" >/dev/null \
+    || fail "retired cleanup removed an unrelated Gemini hook"
+grep -F 'gemini-hook.' "$cleanup_home/.gemini/settings.json" >/dev/null \
+    && fail "retired Gemini PowerShell hook remained"
+[ ! -e "$cleanup_home/.grok/hooks/orca-status.json" ] \
+    || fail "empty Orca-owned Grok hook file was not removed"
+grep -F 'keep-cursor' "$cleanup_home/.cursor/hooks.json" >/dev/null \
+    || fail "retired cleanup removed an unrelated Cursor hook"
+grep -F 'keep-copilot' "$cleanup_home/.copilot/hooks/orca.json" >/dev/null \
+    || fail "retired cleanup removed an unrelated Copilot hook"
+grep -F 'antigravity-hook.' "$cleanup_home/.gemini/config/hooks.json" >/dev/null \
+    && fail "retired Antigravity hook remained"
+grep -F 'keep-antigravity' "$cleanup_home/.gemini/config/hooks.json" >/dev/null \
+    || fail "retired cleanup removed an unrelated Antigravity hook"
+grep -F 'orca-managed-kimi-hooks' "$cleanup_home/.kimi-code/config.toml" >/dev/null \
+    && fail "retired Kimi hook block remained"
+grep -F 'keep = true' "$cleanup_home/.kimi-code/config.toml" >/dev/null \
+    || fail "retired cleanup removed unrelated Kimi configuration"
+[ ! -e "$cleanup_home/.hermes/plugins/orca-status" ] \
+    || fail "retired Hermes plugin was not removed"
+grep -F 'orca-status' "$cleanup_home/.hermes/config.yaml" >/dev/null \
+    && fail "retired Hermes plugin remained enabled"
+grep -F 'keep-hermes' "$cleanup_home/.hermes/config.yaml" >/dev/null \
+    || fail "retired cleanup removed an unrelated Hermes plugin"
+grep -F 'other: true' "$cleanup_home/.hermes/config.yaml" >/dev/null \
+    || fail "retired cleanup damaged unrelated Hermes configuration"
 grep -F 'agentbus: bus sends' "$cleanup_home/.codex/config.toml" >/dev/null \
     && fail "retired AgentBus Codex sandbox marker was not removed"
 grep -F 'network_access = true' "$cleanup_home/.codex/config.toml" >/dev/null \
     && fail "retired AgentBus Codex sandbox override was not removed"
 grep -F '[profiles.default]' "$cleanup_home/.codex/config.toml" >/dev/null \
     || fail "retired cleanup damaged unrelated Codex config"
+
+independent_cleanup_home="$skip_test_dir/independent-cleanup-home"
+mkdir -p "$independent_cleanup_home/.grok/hooks"
+printf '{"version":1,"hooks":{}}\n' \
+    >"$independent_cleanup_home/.grok/hooks/orca-status.json"
+HOME="$independent_cleanup_home" AGENTSTART_CODE_ROOT="$cleanup_code_root" \
+    "$root/scripts/remove-retired-integrations" >/dev/null
+[ -e "$independent_cleanup_home/.grok/hooks/orca-status.json" ] \
+    || fail "independent empty hook file was removed"
 
 bad_cleanup_home="$skip_test_dir/bad-cleanup-home"
 mkdir -p "$bad_cleanup_home/.codex"
