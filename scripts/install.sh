@@ -90,11 +90,13 @@ configure_shadcn_mcp() {
 # prompts/AGENTS.md, which stays deliberately empty — global advice belongs
 # in the extension prompts below, rendered into the collab and build skills,
 # not in a file loaded into every session. Claude Code reads only CLAUDE.md,
-# and Codex skips empty guidance files, so that home file is invisible to
-# both CLIs outside sessions whose working directory sits under the home
-# directory; link each CLI's global guidance location at it so future
+# Codex skips empty guidance files, and pi's designated global slot is
+# ~/.pi/agent/AGENTS.md — its startup walk from cwd through every ancestor
+# reaches ~/AGENTS.md only for sessions under the home directory, and under
+# the home directory it loads both copies, harmless while they are the same
+# file. Link each harness's global guidance location at it so future
 # guidance has a delivery path. An independent non-symlink file with content
-# at any of the three locations is preserved and reported — the same
+# at any of the four locations is preserved and reported — the same
 # conflict rule the guidance file itself prescribes for repositories.
 link_agent_guidance() {
     local source="$repo_root/prompts/AGENTS.md"
@@ -111,7 +113,7 @@ link_agent_guidance() {
     cmp -s "$source" "$home_guidance" \
         || die "linked guidance does not resolve to $source: $home_guidance"
 
-    for target in "$HOME/.claude/CLAUDE.md" "$HOME/.codex/AGENTS.md"; do
+    for target in "$HOME/.claude/CLAUDE.md" "$HOME/.codex/AGENTS.md" "$HOME/.pi/agent/AGENTS.md"; do
         if [ ! -L "$target" ] && [ -s "$target" ]; then
             die "refusing to replace independent guidance: $target"
         fi
@@ -241,6 +243,7 @@ Agent guidance:
   ln -sfn prompts/AGENTS.md ~/AGENTS.md  # deliberately empty; advice belongs in the extension prompts
   ln -sfn ~/AGENTS.md ~/.claude/CLAUDE.md  # Claude Code reads CLAUDE.md, not AGENTS.md
   ln -sfn ~/AGENTS.md ~/.codex/AGENTS.md  # Codex skips empty guidance files
+  ln -sfn ~/AGENTS.md ~/.pi/agent/AGENTS.md  # pi's global slot; its cwd walk reaches ~/AGENTS.md only under $HOME
   ln -sfn prompts/agentguidance/{SYSTEM,GUIDELINES,TOOLS}.md into ~/.config/agentguidance  # the extension prompts agentguidance renders against
   ln -sfn prompts/agentvoice/{ORCHESTRATOR.md,ORCHESTRATOR_SESSION_START.md,server.json} into ~/.config/agentvoice  # the voice orchestrator's doctrine, read at server boot
   remove AgentStart-owned ~/Library/Application Support/io.datasette.llm/extra-openai-models.yaml symlink  # its extra model records are obsolete
@@ -376,7 +379,7 @@ command -v npx >/dev/null 2>&1 || die "npx is required to install agent skills"
 
 configure_shadcn_mcp
 
-printf 'Linking the shared agent guidance for Claude Code and Codex.\n'
+printf 'Linking the shared agent guidance for Claude Code, Codex, and pi.\n'
 link_agent_guidance
 
 printf 'Linking the operator extension prompts into ~/.config/agentguidance.\n'

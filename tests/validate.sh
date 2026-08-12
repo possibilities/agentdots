@@ -491,6 +491,7 @@ for required_install in \
     'ln -sfn prompts/AGENTS.md ~/AGENTS.md  # deliberately empty; advice belongs in the extension prompts' \
     'ln -sfn ~/AGENTS.md ~/.claude/CLAUDE.md  # Claude Code reads CLAUDE.md, not AGENTS.md' \
     'ln -sfn ~/AGENTS.md ~/.codex/AGENTS.md  # Codex skips empty guidance files' \
+    'ln -sfn ~/AGENTS.md ~/.pi/agent/AGENTS.md  # pi'"'"'s global slot; its cwd walk reaches ~/AGENTS.md only under $HOME' \
     'ln -sfn prompts/agentvoice/{ORCHESTRATOR.md,ORCHESTRATOR_SESSION_START.md,server.json} into ~/.config/agentvoice  # the voice orchestrator'"'"'s doctrine, read at server boot' \
     'ln -sfn prompts/agentguidance/{SYSTEM,GUIDELINES,TOOLS}.md into ~/.config/agentguidance  # the extension prompts agentguidance renders against' \
     'npx --yes skills add https://github.com/vercel-labs/skills --agent codex claude-code pi --skill find-skills --global --yes' \
@@ -547,8 +548,8 @@ fi
 grep -F 'link_agent_guidance' scripts/install.sh >/dev/null \
     || fail "installer does not link the shared agent guidance"
 # shellcheck disable=SC2016 # Match the literal target paths in the script.
-grep -F '"$HOME/.claude/CLAUDE.md" "$HOME/.codex/AGENTS.md"' scripts/install.sh >/dev/null \
-    || fail "installer does not target both CLI guidance locations"
+grep -F '"$HOME/.claude/CLAUDE.md" "$HOME/.codex/AGENTS.md" "$HOME/.pi/agent/AGENTS.md"' scripts/install.sh >/dev/null \
+    || fail "installer does not target all three harness guidance locations"
 grep -F 'refusing to replace independent guidance' scripts/install.sh >/dev/null \
     || fail "installer would replace independent guidance files"
 grep -F 'link_extension_prompts' scripts/install.sh >/dev/null \
