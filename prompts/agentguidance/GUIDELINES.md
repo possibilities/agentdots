@@ -25,6 +25,12 @@
   and the docs that ship with the code.
 - Publish an artifact only when asked for one, and always through `wiki`,
   never a harness's own artifact publisher.
+- When a search runs in a pipeline, cap it at the source: `grep -m N` stops
+  after N matches, while `| head -N` stops only the reader — the harness
+  rewrites `grep` to an embedded ugrep that keeps searching after `head`
+  exits, holding memory with nobody left to consume it. Inside a `while read`
+  loop, give it `< /dev/null` as well, or it inherits the loop's stdin and
+  eats the input being iterated.
 - A clipboard copy leaves nothing on screen, so notify what landed there.
 - Finished work lands in main and is pushed — a worktree is where work
   happens, not where it stops. A pull request is a workflow to be asked for
