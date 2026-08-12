@@ -16,9 +16,11 @@
   the binding survives a reinstall or it is not a binding. Whether the fork
   is wired at all is a declared line in that installer, so retiring it is an
   edit and a rerun. The `fork-rebase-policy` wiki page is the contract.
-- Sessions usually start in a worktree. Work in the one you were given, not
-  the canonical checkout, and branch a throwaway worktree off the current
-  HEAD rather than main.
+- Worktrees and branches belong to the orchestrator that starts sessions:
+  when work needs one, the session is started inside it, already on the
+  right branch. Work where you were started, and when the task seems to
+  need a worktree or branch you were not given, say so rather than
+  creating it.
 - Build forward: the new shape replaces the old. Compatibility shims,
   deprecation windows, and migrations are opt-in — when a change breaks
   something, name what breaks and for whom before it lands; the softer path
