@@ -240,6 +240,8 @@ Command-line tools:
   curl -fsSL https://pi.dev/install.sh | sh  # in its own session, no controlling terminal
   brew install or upgrade zig  # AgentVoice's native duplex audio path builds against it
   brew install or upgrade llm  # an AI CLI, so AgentStart's outright — moved out of the machine's Brewfile
+  brew install or upgrade herdr  # the agent terminal multiplexer; homebrew-core, so no tap and no second update path
+  herdr integration install claude, codex, and pi  # the harness agent-state hooks, reinstalled every run because a herdr upgrade stales them
   npm install --global @native-sdk/cli@0.7  # the line the native-sdk skill documents
   npm install --global agent-browser@0.33.2  # Agentweb's config.json digest-locks this exact build
   ln -sfn "$(command -v agent-browser)" ~/.local/bin/agent-browser  # the candidate Agentscrape resolves before PATH
@@ -345,6 +347,37 @@ install_or_upgrade_formula zig
 # machine's Brewfile rather than duplicated from it.
 printf 'Installing or upgrading the llm CLI.\n'
 install_or_upgrade_formula llm
+
+# herdr is the terminal multiplexer agent sessions run inside — an AI tool by
+# the boundary rubric, so AgentStart's, not the machine's. It ships in
+# homebrew-core, so no tap is needed and the formula is the only update path:
+# `herdr update` belongs to the direct install this deliberately does not use,
+# and a second updater is the synchronization path this repository forbids.
+printf 'Installing or upgrading herdr.\n'
+install_or_upgrade_formula herdr
+
+# The harness integrations give herdr each agent's lifecycle state, and in
+# some cases native session restore, rather than leaving it to screen
+# detection. They install after the three harness CLIs above, because each one
+# writes inside a harness's own configuration directory that those installers
+# create. Reinstalled unconditionally on every run: a herdr upgrade can leave
+# an integration stale — the reason `herdr integration status --outdated-only`
+# exists — and reinstalling is how it converges. Unlike the harness
+# configuration this installer writes itself, these files belong to herdr, so
+# ownership and conflict rules are its installer's to enforce, exactly as they
+# are for a fleet checkout's own installer. The harnesses are the three the
+# fleet runs; herdr supports more, and adding one here is a deliberate edit.
+install_herdr_integrations() {
+    local harness
+
+    for harness in claude codex pi; do
+        printf 'Installing the herdr %s integration.\n' "$harness"
+        herdr integration install "$harness" \
+            || die "herdr integration install failed: $harness"
+    done
+}
+
+install_herdr_integrations
 
 command -v npm >/dev/null 2>&1 || die "npm is required to install the Native SDK CLI"
 

@@ -648,6 +648,8 @@ for required_install in \
     'curl -fsSL https://pi.dev/install.sh | sh  # in its own session, no controlling terminal' \
     'brew install or upgrade zig  # AgentVoice'"'"'s native duplex audio path builds against it' \
     'brew install or upgrade llm  # an AI CLI, so AgentStart'"'"'s outright — moved out of the machine'"'"'s Brewfile' \
+    'brew install or upgrade herdr  # the agent terminal multiplexer; homebrew-core, so no tap and no second update path' \
+    'herdr integration install claude, codex, and pi  # the harness agent-state hooks, reinstalled every run because a herdr upgrade stales them' \
     'remove AgentStart-owned ~/Library/Application Support/io.datasette.llm/extra-openai-models.yaml symlink  # its extra model records are obsolete' \
     'remove ownership-verified AgentSurface, AgentBus, and Orca harness integrations' \
     'npx --yes skills remove --global --yes bus orca-cli orchestration computer-use  # retired skills; full install only' \
@@ -763,6 +765,26 @@ if grep -F '@native-sdk/cli@latest' scripts/install.sh >/dev/null; then
 fi
 grep -F 'install_or_upgrade_formula zig' scripts/install.sh >/dev/null \
     || fail "installer does not converge the Zig toolchain"
+
+# herdr comes from homebrew-core, so the formula is its only update path: the
+# direct installer's own `herdr update` would be the second synchronization
+# path this repository forbids. Its integrations reinstall unconditionally
+# because a herdr upgrade can stale them, and they cover exactly the three
+# harnesses the fleet runs.
+grep -F 'install_or_upgrade_formula herdr' scripts/install.sh >/dev/null \
+    || fail "installer does not converge herdr"
+# Anchored to an invocation, not any mention: the comment above the install
+# step names `herdr update` to explain why it is not used.
+if grep -E '^[[:space:]]*herdr update' scripts/install.sh >/dev/null; then
+    fail "installer grows a second herdr update path beside the formula"
+fi
+if grep -F 'herdr.dev/install.sh' scripts/install.sh >/dev/null; then
+    fail "installer uses the direct herdr installer instead of the formula"
+fi
+grep -F 'install_herdr_integrations' scripts/install.sh >/dev/null \
+    || fail "installer does not converge the herdr harness integrations"
+grep -F 'for harness in claude codex pi' scripts/install.sh >/dev/null \
+    || fail "herdr integrations do not cover the three harnesses the fleet runs"
 grep -F 'agent_browser_version=0.33.2' scripts/install.sh >/dev/null \
     || fail "installer does not pin agent-browser to the Agentweb-locked build"
 grep -F 'refusing to replace independent file' scripts/install.sh >/dev/null \
