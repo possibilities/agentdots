@@ -39,6 +39,10 @@
   and agentguidance as the home of general doctrine. Changing any of those
   conventions updates that section in every fleet checkout in the same
   change — the uniformity is what keeps twelve copies maintainable.
+  codex-swap is the deliberate exception: a one-way member — the fleet
+  installs it, but it stands alone for anyone outside this machine who
+  wants an account-swapping launcher, so its own guidance does not
+  advertise the fleet back.
 
 ## Fix-forward installation
 

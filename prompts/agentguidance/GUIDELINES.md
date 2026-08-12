@@ -38,8 +38,8 @@
 - Publish an artifact only when asked for one, and always through `wiki`,
   never a harness's own artifact publisher.
 - When a search runs in a pipeline, cap it at the source: `grep -m N` stops
-  after N matches, while `| head -N` stops only the reader — the harness
-  rewrites `grep` to an embedded ugrep that keeps searching after `head`
+  after N matches, while `| head -N` stops only the reader — some harnesses
+  run `grep` through an embedded engine that keeps searching after `head`
   exits, holding memory with nobody left to consume it. Inside a `while read`
   loop, give it `< /dev/null` as well, or it inherits the loop's stdin and
   eats the input being iterated.
