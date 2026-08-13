@@ -51,3 +51,10 @@
   above the title/status row and the divider immediately below it. Encode that
   placement explicitly (for example, `paddingTop: 1` in OpenTUI); do not rely
   on flex centering, whose rounding changes with the child structure.
+- A fleet full-screen TUI uses one three-row footer: top divider, empty row,
+  then a single non-wrapping action rail. Render keys in bold accent and labels
+  in muted text; show passive mode at the right only when it fits intact.
+  Narrow rails scroll horizontally by wheel or touch-style vertical gestures,
+  hide both scrollbars, and keep every advertised action tappable. Never let
+  Yoga shrink a mode label to a dangling character or wrap an action onto the
+  empty row; give the rail and mode explicit bounded widths.
