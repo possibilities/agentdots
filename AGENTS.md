@@ -29,11 +29,13 @@
   agentusage's `scripts/install-providers.sh`, which refuses a checkout whose
   fork remote is not ours, so retiring it is an edit there and a rerun here.
   The `fork-rebase-policy` wiki page is the contract. `codex-multi-auth` is no
-  longer a managed fork dependency: codex-swap installs its exact stock npm
-  pin, and the still-open upstream PRs #664 and #665 are not required by this
-  fleet after per-TUI app-server retirement. `claude-swap` itself is not in the
-  `install-agent-clis` loop, arriving through agentusage's installer, which
-  is why that loop runs agentusage before agentlaunch.
+  longer a managed fork dependency: upstream merged PRs #664 and #665, so
+  codex-swap installs the exact stock npm pin instead. Its installer keeps the
+  fork behind `NDY_FORK_ACTIVE=0` — dormant rather than deleted, which is what
+  makes reviving it an edit rather than a rewrite. `claude-swap` is the one
+  fork still carried, and it is not in the `install-agent-clis` loop, arriving
+  through agentusage's installer, which is why that loop runs agentusage
+  before agentlaunch.
 - Every fleet repo's `AGENTS.md` ends with the same "The fleet" section
   pointing back here: the skills scan and its cadence, the fleet-map rule,
   and agentguidance as the home of general doctrine. Changing any of those
