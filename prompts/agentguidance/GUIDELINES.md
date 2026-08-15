@@ -31,10 +31,16 @@
   (agentscrape's installer does), `CLAUDE.md` is instead a short pointer
   file naming `AGENTS.md` as the real notes — never a second set of
   instructions.
-- A document someone asks for goes in the wiki — write-ups, reports, plans,
-  research, notes — unless they ask for it in the project. What the repo
+- A document someone asks for goes in the wiki — write-ups, reports,
+  research, designs — unless they ask for it in the project. What the repo
   itself owns stays in the repo: `AGENTS.md`, `CONTEXT.md`, `README`, ADRs,
-  and the docs that ship with the code.
+  and the docs that ship with the code. The wiki is the operator's library,
+  not the session's memory: what happened is already indexed by `chats`,
+  the plan lives on the board, and context written for a successor session
+  is a handoff — a dated standalone file in `~/handoffs/`
+  (`YYYY-MM-DD-<slug>.md`), deleted by its consumer, with anything durable
+  promoted out before it dies. The `document-placement-policy` wiki page is
+  the contract.
 - Publish an artifact only when asked for one, and always through `wiki`,
   never a harness's own artifact publisher.
 - When a search runs in a pipeline, cap it at the source: `grep -m N` stops

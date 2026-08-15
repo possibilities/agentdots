@@ -17,8 +17,11 @@ say when.
 - `browser` — a real, signed-in browser for interaction: clicking, forms,
   anything behind a login, handing control to a human. Fetching content is
   `scrape`; finding pages is `search`.
-- `wiki` — durable notes: capturing what should outlive the session,
-  finding where something was written down, publishing citable artifacts.
+- `wiki` — the operator's library: documents asked for or worth finding
+  again by name — research, reports, decisions, designs — plus finding
+  where something was written down and publishing citable artifacts.
+  Working state and successor-session context are `~/handoffs/` files,
+  not wiki pages.
 - `board` — the shared plan: capturing work, asking what to do next,
   claiming an item before starting and closing it when done.
 - `groom` — reshaping the plan in bulk: merging duplicates, splitting an
