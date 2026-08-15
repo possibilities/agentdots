@@ -41,6 +41,7 @@ flowchart LR
     board[agentboard]
     wiki[agentwiki]
     chats[cass / agentchats]
+    herdr[herdr — the surface]
 
     launch -->|balance claude/codex --json| usage
     launch -->|run --share-history| claudeSwap
@@ -55,6 +56,7 @@ flowchart LR
     voice -->|app-server children, login| codex
     voice -->|balance codex| usage
     voice -.->|fallback: select| swap
+    voice -->|surface wakes: events.subscribe, unix socket| herdr
     brain -->|extraction and discovery| scrape
     scrape -->|drives| browser
     scrape -->|sessions/resolve, unix-socket IPC| web
@@ -72,6 +74,7 @@ flowchart LR
 
     machine ==>|scripts/install.sh --install, sync-skills| start
     start ==>|official installers| harnesses[Claude Code / Codex / Pi]
+    start ==>|brew formula + harness integrations + binary-rendered skill| herdrInstall[herdr]
     start ==>|npm pin| browser[agent-browser]
     start ==>|checkout contracts| fleet[agentvoice / agentwiki / agentboard / agentsearch / agentkeys / agentweb / agentscrape / agentbrain / codex-swap / agentusage / agentlaunch / cass]
     start ==>|skills scan + post-sync hooks| skills[all agent skills, agentguidance rendered]
@@ -149,6 +152,8 @@ sentence around the match, never from the name alone.
 | agentusage | codex-swap | `codex-swap snapshot --json` observes codex accounts; paced polling | `agentusage/src/codex/observe.ts:221`, `daemon.ts:19` |
 | agentvoice | codex | runs the resident `codex app-server` under launchd via a rendered wrapper, and `codex login --device-auth` for profile onboarding | `agentvoice/src/resident/contract.ts` (`residentArgv`), `src/resident/install.ts` (`renderWrapper`), `src/main.ts` (`accounts add`) |
 | agentvoice | agentusage → codex-swap | `agentusage balance codex`, falling back to `codex-swap select`, consulted by the resident wrapper at every spawn (`pick-home`) and by the console's rotation check | `agentvoice/src/core/accounts.ts` (`selectAccount`), `src/resident/install.ts` (`runPickHome`), `src/core/runtime.ts` (`maybeRotate`) |
+| agentvoice | herdr | unix-socket IPC, not a spawn: with `surface.events` on, the console holds an `events.subscribe` NDJSON stream on herdr's socket and reconciles via one-shot `agent.list` calls; pane lifecycle events for token-tagged placed workers become `<surface_report>` turns at the orchestrator | `agentvoice/src/core/surface.ts` (`HerdrSurface`), `src/core/runtime.ts` (surface wiring); enabled by `agentstart/prompts/agentvoice/server.json` |
+| agentstart | herdr | `install_or_upgrade_formula herdr` (homebrew-core, the one update path), `herdr integration install claude\|codex\|pi` every run, and the surface skill rendered from `herdr --skill` into a managed pack and shipped through `skills add` — the skill converges with the formula, never a checkout | `agentstart/scripts/install.sh` (`install_herdr_integrations`, `install_herdr_skill`), asserted by `agentstart/tests/validate.sh` |
 | agentbrain | agentscrape | evidence pipeline in four argv shapes — `fetch-markdown --markdown`, `fetch-markdown --envelope --allow-private-network --max-content-bytes`, `discover-feed`, `fetch-links --preset x-timeline --limit --max-scrolls` — plus a doctor check; a flag change breaks each shape separately | `agentbrain/src/agentscrape.ts:642,1298-1306,2038,2121-2129`, `src/jobs.ts:736` |
 | agentscrape | agentweb | unix-socket IPC, not a spawn: before navigating, asks the daemon `POST /v1/sessions/resolve` whether the origin has a stored signed-in session, via `AGENTSCRAPE_CONDUIT_SOCKET`/`_TOKEN_FILE`; degrades silently to unauthenticated fetching by contract, so it never surfaces in an error path | `agentscrape/src/conduit.ts:10-21,107-110`; served by `agentweb/src/ipc.ts:442-453` |
 | agentscrape | agent-browser | resolves `~/.local/bin/agent-browser` first, then PATH | `agentscrape/src/browser.ts:386-391` |
@@ -212,7 +217,7 @@ independent app-server children do not use codex-swap's removed sidecars.
 | browser | scrape, search | fetching content is scrape; finding pages is search |
 | wiki | board, brain, chats | the durable home the others cite into. Wiki's `search` is its own subcommand, not the search skill |
 | TOOLS.md (this repo) | search, scrape, brain, browser, wiki, board, groom, chats, notify | spliced into collab, build, and orchestrate at render — the advertisement lines are the routing |
-| orchestrate (agentguidance) | collab, build | the wielder: collab's contract holds on the conversation thread, and execution leaves as standalone briefs run under build's contract by dispatched workers (`agentguidance/skills/orchestrate/SKILL.md`, `fragments/orchestrator-conduct.md`) |
+| orchestrate (agentguidance) | collab, build, herdr | the wielder: collab's contract holds on the conversation thread, and execution leaves as standalone briefs run under build's contract by dispatched workers (`agentguidance/skills/orchestrate/SKILL.md`, `fragments/orchestrator-conduct.md`). Dispatch runs on two lanes: the native facility for work in the orchestrator's own service, and the surface — herdr — for the work itself; both orchestrator renditions bind herdr by name and load its skill for placement mechanics |
 | resource-create / resource-update (agentguidance) | brain | resources are built from and refreshed against the agentbrain index |
 | story (agentguidance) | wiki | publishes the finished narrative through agentwiki |
 | watch-requests (agentguidance) | chats, notify | the watch diagnoses but never authors: `cass resume <source_path> --shell` names the session that opened the request, and notify carries the resume command and steering prompt to the human (`agentguidance/skills/watch-requests/SKILL.md`) |
@@ -241,3 +246,9 @@ orchestrate skill wields collab and build, and AgentStart links rendered
 doctrine instead of owning it. Updated again 2026-08-12 for the fleet service
 taxonomy: noun-role labels, explicit lifecycle metadata, and one public binary
 per tool replace daemon/command-shaped labels and separate `*d` executables.
+Updated 2026-08-15 for the surface abstraction: herdr (external,
+homebrew-core) becomes the orchestrator doctrine's reference launch surface —
+AgentStart renders its shipped skill from the binary, agentvoice subscribes
+to its events for `<surface_report>` wakes, and the orchestrate/voice
+doctrine binds it by name. The `land-vs-place` and new launch-surface wiki
+pages carry the ruling.

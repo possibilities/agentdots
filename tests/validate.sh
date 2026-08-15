@@ -674,6 +674,8 @@ for required_install in \
     'npx --yes skills add https://github.com/vercel/ai-elements --agent codex claude-code pi --skill ai-elements --global --yes' \
     'npx --yes skills add https://github.com/shadcn/ui --agent codex claude-code pi --skill shadcn --global --yes' \
     'npx --yes skills add https://github.com/vercel-labs/native --agent codex claude-code pi --skill native-sdk --global --yes' \
+    'herdr --skill, rendered to ~/.local/share/agentstart/herdr-skill/skills/herdr/SKILL.md  # the surface skill ships inside the binary, so it converges with the formula, never a checkout' \
+    'npx --yes skills add ~/.local/share/agentstart/herdr-skill --agent codex claude-code pi --skill herdr --global --yes' \
     "npx --yes skills add \"$code_skills_root/agentdemo\" --agent codex claude-code pi --skill demo second --global --yes" \
     "\"$code_skills_root/agentdemo/scripts/post-sync\""; do
     printf '%s\n' "$install_plan" | grep -F "$required_install" >/dev/null \
@@ -785,6 +787,16 @@ grep -F 'install_herdr_integrations' scripts/install.sh >/dev/null \
     || fail "installer does not converge the herdr harness integrations"
 grep -F 'for harness in claude codex pi' scripts/install.sh >/dev/null \
     || fail "herdr integrations do not cover the three harnesses the fleet runs"
+# The surface skill ships inside the binary (`herdr --skill`) and converges
+# with the formula; a GitHub-sourced copy would track a different head than
+# the installed herdr and grow a second update path.
+grep -F 'install_herdr_skill' scripts/install.sh >/dev/null \
+    || fail "installer does not converge the herdr surface skill"
+grep -F 'herdr --skill' scripts/install.sh >/dev/null \
+    || fail "the herdr skill is not rendered from the installed binary"
+if grep -E 'skills add https://github.com/[^ ]*herdr' scripts/install.sh >/dev/null; then
+    fail "the herdr skill tracks the GitHub head instead of the installed binary"
+fi
 grep -F 'agent_browser_version=0.33.2' scripts/install.sh >/dev/null \
     || fail "installer does not pin agent-browser to the Agentweb-locked build"
 grep -F 'refusing to replace independent file' scripts/install.sh >/dev/null \

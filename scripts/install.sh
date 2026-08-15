@@ -272,6 +272,8 @@ Agent skills:
   npx --yes skills add https://github.com/vercel/ai-elements --agent codex claude-code pi --skill ai-elements --global --yes
   npx --yes skills add https://github.com/shadcn/ui --agent codex claude-code pi --skill shadcn --global --yes
   npx --yes skills add https://github.com/vercel-labs/native --agent codex claude-code pi --skill native-sdk --global --yes
+  herdr --skill, rendered to ~/.local/share/agentstart/herdr-skill/skills/herdr/SKILL.md  # the surface skill ships inside the binary, so it converges with the formula, never a checkout
+  npx --yes skills add ~/.local/share/agentstart/herdr-skill --agent codex claude-code pi --skill herdr --global --yes
 EOF
     "$script_dir/install-statusline" --check
     "$script_dir/install-launchagents" --check
@@ -356,9 +358,10 @@ install_or_upgrade_formula llm
 printf 'Installing or upgrading herdr.\n'
 install_or_upgrade_formula herdr
 
-# The harness integrations give herdr each agent's lifecycle state, and in
-# some cases native session restore, rather than leaving it to screen
-# detection. They install after the three harness CLIs above, because each one
+# The harness integrations wire each agent into herdr — pi's is a lifecycle
+# authority, while claude's and codex's report session identity (for native
+# restore) and deliberately leave lifecycle to herdr's screen detection.
+# They install after the three harness CLIs above, because each one
 # writes inside a harness's own configuration directory that those installers
 # create. Reinstalled unconditionally on every run: a herdr upgrade can leave
 # an integration stale — the reason `herdr integration status --outdated-only`
@@ -497,6 +500,33 @@ npx --yes skills add https://github.com/vercel-labs/native \
     --agent codex claude-code pi \
     --skill native-sdk \
     --global --yes
+
+# The surface skill — herdr is the orchestrator doctrine's reference launch
+# surface — ships inside the herdr binary (`herdr --skill`), so the installed
+# skill converges with the formula on every run, exactly like the harness
+# integrations above, and never tracks the GitHub head: the formula is
+# herdr's one update path, and the skill follows it. The rendered pack lives
+# in a managed state root shaped like a checkout (skills/herdr/) so the same
+# `skills add` mechanism ships it globally. Deliberately not advertised in
+# TOOLS.md: a role skill is named by the orchestrator doctrine, not by the
+# always-on advertisement surface (the tool-advertisement-policy wiki page).
+install_herdr_skill() {
+    local pack_root="$HOME/.local/share/agentstart/herdr-skill"
+    local skill_dir="$pack_root/skills/herdr"
+
+    mkdir -p "$skill_dir"
+    herdr --skill >"$skill_dir/SKILL.md" \
+        || die "rendering the herdr skill from the installed binary failed"
+    [ -s "$skill_dir/SKILL.md" ] \
+        || die "the installed herdr rendered an empty skill"
+    npx --yes skills add "$pack_root" \
+        --agent codex claude-code pi \
+        --skill herdr \
+        --global --yes
+}
+
+printf 'Installing the herdr surface skill from the installed binary.\n'
+install_herdr_skill
 
 printf 'Verifying the installed Native SDK agent documentation helpers.\n'
 native skills list >/dev/null

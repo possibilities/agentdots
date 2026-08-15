@@ -16,5 +16,8 @@
   },
   "voice": {
     "codex-response-handoff-mode": "bemTags"
+  },
+  "surface": {
+    "events": true
   }
 }
