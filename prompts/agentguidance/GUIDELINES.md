@@ -34,6 +34,7 @@
   for by name, not a default.
 - A fleet full-screen TUI follows the Signal Room design language. Before
   building or reshaping one, read the `fleet-tui-design` wiki page — the
-  shell contract: header and footer rows, the action rail, explicit
-  widths — and the design-language page it opens with, for the tokens and
-  their law. The contracts live there, not here.
+  shell contract: chromeless, with no header, footer, identity row, or
+  help line; status inside the instrument's panels; every action in the
+  ctrl+k command palette — and the design-language page it opens with,
+  for the tokens and their law. The contracts live there, not here.
