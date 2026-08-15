@@ -90,7 +90,12 @@ Where things go:
   each renderer's comments record what its harness cannot.
 - An operator extension prompt edit: `prompts/agentguidance/`, then
   `scripts/install.sh --install` (or wait for the six-hour sync plus the
-  next render) so the rendered skills pick it up.
+  next render) so the rendered skills pick it up. A GUIDELINES.md bullet
+  is a rule plus, when detail exists, the named wiki contract page
+  (`fork-rebase-policy`, `document-placement-policy`, `fleet-tui-design`)
+  — never the detail itself, which lives in the page and is read at the
+  trigger. These lines render into every session, so each one is paid for
+  in every conversation.
 - A voice orchestrator doctrine edit: `~/code/agentguidance`
   (`prompts/agentvoice/`, spliced from the shared orchestrator fragments),
   then the same render path. This repository keeps only
