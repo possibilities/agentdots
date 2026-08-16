@@ -42,7 +42,10 @@ flowchart LR
     wiki[agentwiki]
     chats[cass / agentchats]
     herdr[herdr — the surface]
+    surface[agentsurface]
 
+    surface -->|x-catalog --x-json| launch
+    surface -->|workspace/worktree create, agent start| herdr
     launch -->|balance claude/codex --json| usage
     launch -->|run --share-history| claudeSwap
     launch -->|run / resume / pi run --claim| swap
@@ -159,6 +162,8 @@ sentence around the match, never from the name alone.
 | agentscrape | agent-browser | resolves `~/.local/bin/agent-browser` first, then PATH | `agentscrape/src/browser.ts:386-391` |
 | agentweb | agent-browser | daemon-only launch of the configured absolute path (default `~/Library/pnpm/bin/agent-browser`, never resolved through PATH), refused unless SHA-256 digest and version lock verify | `agentweb/src/config-schema.ts:51,83`, `src/paths.ts:268` |
 | agentboard | agentwiki | `agentwiki publish <file> --name agentboard --kind render --json` | `agentboard/src/cli.ts:834-843` |
+| agentsurface | agentlaunch | `agentlaunch x-catalog --x-json` at launcher start: the resolved catalog — harness order, per-model efforts, defaults — so the TUI offers only validated model:effort pairs and re-resolves nothing | `agentsurface/src/catalog.ts` (`loadLaunchCatalog`) |
+| agentsurface | herdr | drives the socket API through the CLI (`HERDR_BIN_PATH`, then PATH): `workspace create`/`worktree create` with `--focus`, `agent list`, and `agent start <kind>-<n> --kind <harness> --pane <root-pane> -- --x-level <model>:<effort> [intent]` with the pane-busy ready retry. The bare harness command herdr runs is agentstart's shim, so the shim → agentlaunch edge carries balancing and yolo; `agent_not_ready` (blocked on a startup dialog) is a soft outcome because the intent rides the argv and the harness submits it once the dialog clears | `agentsurface/src/herdr.ts`, `agentsurface/src/launch/app.ts` |
 
 ### serves / data
 
@@ -174,6 +179,7 @@ sentence around the match, never from the name alone.
 | agentboard, agentchats | each other's CLIs | the shared "agent* state dump" bearings convention: one cross-tool contract for state dumps, with a common ~4-chars-per-token budget | `agentboard/src/help.ts:367`, `agentchats/bin/agentchats:13`, `agentboard/src/brief.ts:140` |
 | agentstart statusline | claude-swap | the claude renderer names the balanced account by reading `CLAUDE_CONFIG_DIR`, whose basename claude-swap spells `<n>-<slugified-email>`; renaming that profile directory silently drops the account segment. No counterpart for codex or pi — codex-swap pins an account by swapping auth in place and exports nothing naming it | `agentstart/config/statusline/claude-statusline.sh` (balanced-account segment); `claude-swap/src/claude_swap/session.py:161-167` |
 | agentguidance | agentvoice (via agentstart) | the voice orchestrator doctrine is rendered doctrine: `agentguidance/prompts/agentvoice/` templates splice the shared orchestrator fragments to `~/.agents/prompts/agentvoice/`, agentstart links the result into `~/.config/agentvoice` after sync-skills (keeping only `server.json` as its own source), and agentvoice discovers the files by name at console start | `agentguidance/scripts/render`; `agentstart/scripts/install.sh` (`link_agentvoice_config`); `agentvoice/src/core/config.ts` (`PROMPT_FILES`) |
+| funk | agentsurface | the launcher's entry point: herdr's config.toml (stowed by funk, herdr's config owner) binds `prefix+l` to a `type = "popup"` command running `agentsurface launch`, so the whole launch flow lives in a popup over the current workspace | `funk/herdr/.config/herdr/config.toml` |
 
 ### pins
 
@@ -252,4 +258,7 @@ homebrew-core) becomes the orchestrator doctrine's reference launch surface —
 AgentStart renders its shipped skill from the binary, agentvoice subscribes
 to its events for `<surface_report>` wakes, and the orchestrate/voice
 doctrine binds it by name. The `land-vs-place` and new launch-surface wiki
-pages carry the ruling.
+pages carry the ruling. Updated 2026-08-16 for the first AgentSurface
+integration: `agentsurface launch` composes herdr (workspace/worktree
+create, agent start) with agentlaunch's new read-only `x-catalog`, and
+funk's herdr config gains the `prefix+l` popup binding.
