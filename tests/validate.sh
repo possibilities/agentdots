@@ -648,7 +648,9 @@ for required_install in \
     'curl -fsSL https://pi.dev/install.sh | sh  # in its own session, no controlling terminal' \
     'brew install or upgrade zig  # AgentVoice'"'"'s native duplex audio path builds against it' \
     'brew install or upgrade llm  # an AI CLI, so AgentStart'"'"'s outright — moved out of the machine'"'"'s Brewfile' \
-    'brew install or upgrade herdr  # the agent terminal multiplexer; homebrew-core, so no tap and no second update path' \
+    'brew install or upgrade zig@0.15  # herdr'"'"'s vendored libghostty-vt pins the 0.15 line; keg-only beside the tracked zig' \
+    'scripts/update-herdr  # herdr from the bound ~/src/herdr checkout: fast-forward clean master, build, install to ~/.local/bin; blocked checkouts notify instead of forcing' \
+    'brew uninstall herdr if the formula lingers  # retired: it would shadow the checkout build on PATH' \
     'herdr integration install claude, codex, and pi  # the harness agent-state hooks, reinstalled every run because a herdr upgrade stales them' \
     'remove AgentStart-owned ~/Library/Application Support/io.datasette.llm/extra-openai-models.yaml symlink  # its extra model records are obsolete' \
     'remove ownership-verified AgentSurface, AgentBus, and Orca harness integrations' \
@@ -674,7 +676,7 @@ for required_install in \
     'npx --yes skills add https://github.com/vercel/ai-elements --agent codex claude-code pi --skill ai-elements --global --yes' \
     'npx --yes skills add https://github.com/shadcn/ui --agent codex claude-code pi --skill shadcn --global --yes' \
     'npx --yes skills add https://github.com/vercel-labs/native --agent codex claude-code pi --skill native-sdk --global --yes' \
-    'herdr --skill, rendered to ~/.local/share/agentstart/herdr-skill/skills/herdr/SKILL.md  # the surface skill ships inside the binary, so it converges with the formula, never a checkout' \
+    'herdr --skill, rendered to ~/.local/share/agentstart/herdr-skill/skills/herdr/SKILL.md  # the surface skill ships inside the binary, so it converges with the installed build, never a stale copy' \
     'npx --yes skills add ~/.local/share/agentstart/herdr-skill --agent codex claude-code pi --skill herdr --global --yes' \
     "npx --yes skills add \"$code_skills_root/agentdemo\" --agent codex claude-code pi --skill demo second --global --yes" \
     "\"$code_skills_root/agentdemo/scripts/post-sync\""; do
@@ -768,28 +770,39 @@ fi
 grep -F 'install_or_upgrade_formula zig' scripts/install.sh >/dev/null \
     || fail "installer does not converge the Zig toolchain"
 
-# herdr comes from homebrew-core, so the formula is its only update path: the
-# direct installer's own `herdr update` would be the second synchronization
-# path this repository forbids. Its integrations reinstall unconditionally
-# because a herdr upgrade can stale them, and they cover exactly the three
-# harnesses the fleet runs.
-grep -F 'install_or_upgrade_formula herdr' scripts/install.sh >/dev/null \
-    || fail "installer does not converge herdr"
-# Anchored to an invocation, not any mention: the comment above the install
-# step names `herdr update` to explain why it is not used.
+# herdr is bound to the ~/src/herdr checkout at upstream master and
+# update-herdr is its one update path — fast-forward a clean checkout, build
+# with the pinned Zig, install to ~/.local/bin — so the retired formula and
+# the direct installer must both stay out. Its integrations reinstall
+# unconditionally because a herdr upgrade can stale them, and they cover
+# exactly the three harnesses the fleet runs.
+# shellcheck disable=SC2016 # Match the literal invocation in the installer.
+grep -F '"$script_dir/update-herdr"' scripts/install.sh >/dev/null \
+    || fail "installer does not converge herdr from the bound checkout"
+[ -x scripts/update-herdr ] \
+    || fail "update-herdr is missing or not executable"
+grep -F -- '--ff-only' scripts/update-herdr >/dev/null \
+    || fail "update-herdr does not restrict itself to fast-forwarding the checkout"
+grep -F 'install_or_upgrade_formula zig@0.15' scripts/install.sh >/dev/null \
+    || fail "installer does not converge the Zig 0.15 line herdr builds against"
+if grep -F 'install_or_upgrade_formula herdr' scripts/install.sh >/dev/null; then
+    fail "installer resurrects the retired herdr formula beside the checkout build"
+fi
+# Anchored to an invocation, not any mention: comments may name `herdr update`
+# to explain why it stays unused.
 if grep -E '^[[:space:]]*herdr update' scripts/install.sh >/dev/null; then
-    fail "installer grows a second herdr update path beside the formula"
+    fail "installer grows a second herdr update path beside update-herdr"
 fi
 if grep -F 'herdr.dev/install.sh' scripts/install.sh >/dev/null; then
-    fail "installer uses the direct herdr installer instead of the formula"
+    fail "installer uses the direct herdr installer instead of the checkout build"
 fi
 grep -F 'install_herdr_integrations' scripts/install.sh >/dev/null \
     || fail "installer does not converge the herdr harness integrations"
 grep -F 'for harness in claude codex pi' scripts/install.sh >/dev/null \
     || fail "herdr integrations do not cover the three harnesses the fleet runs"
 # The surface skill ships inside the binary (`herdr --skill`) and converges
-# with the formula; a GitHub-sourced copy would track a different head than
-# the installed herdr and grow a second update path.
+# with the installed build; a GitHub-sourced copy would track a different
+# head than the installed herdr and grow a second update path.
 grep -F 'install_herdr_skill' scripts/install.sh >/dev/null \
     || fail "installer does not converge the herdr surface skill"
 grep -F 'herdr --skill' scripts/install.sh >/dev/null \

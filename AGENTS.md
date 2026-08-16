@@ -35,7 +35,11 @@
   makes reviving it an edit rather than a rewrite. `claude-swap` is the one
   fork still carried, and it is not in the `install-agent-clis` loop, arriving
   through agentusage's installer, which is why that loop runs agentusage
-  before agentlaunch.
+  before agentlaunch. `herdr` is the other bound outside checkout —
+  `~/src/herdr` at upstream `master`, no patches carried — and
+  `scripts/update-herdr` owns that binding: it only ever fast-forwards a
+  clean checkout and reports anything else with a notification, and it is
+  herdr's one update path now that the homebrew-core formula is retired.
 - Every fleet repo's `AGENTS.md` ends with the same "The fleet" section
   pointing back here: the skills scan and its cadence, the fleet-map rule,
   and agentguidance as the home of general doctrine. Changing any of those
@@ -54,13 +58,14 @@ machine, and do not grow a second installer or synchronization path here or
 in `~/code/agentguidance`.
 
 The external interface is exactly `scripts/install.sh` (`--install`,
-`--check`), `scripts/sync-skills` (`--check`), and
+`--check`), `scripts/sync-skills` (`--check`),
+`scripts/update-herdr`, and
 `scripts/install-agentlaunch-shims`. The machine's installer and scheduled
 updater call these by path with fixed semantics: a missing optional fleet
 checkout is a skip inside the script, a present-but-broken one fails, and
-the updater path (`sync-skills`) must stay unattended-safe — no sudo, no
-uninstalls, no application restarts. Retired integration cleanup belongs in
-the full installer. That caller's own test suite greps
+the updater path (`sync-skills`, `update-herdr`) must stay unattended-safe
+— no sudo, no uninstalls, no application restarts. Retired integration
+cleanup belongs in the full installer. That caller's own test suite greps
 these scripts, so renaming or resemanticizing them breaks it.
 
 Where things go:

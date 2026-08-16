@@ -1,0 +1,168 @@
+#!/bin/bash
+
+set -euo pipefail
+
+# herdr is bound to the ~/src/herdr checkout at upstream master: releases
+# trail master by weeks, so the toolchain builds the head instead of waiting
+# on the homebrew-core formula (retired) or the direct installer (never
+# used). This script is the one update path. It only ever fast-forwards a
+# clean checkout — a dirty tree or a diverged master is the operator's work
+# in progress, so it is reported with a notification and left exactly as
+# found, never resolved in passing.
+#
+# Unattended-safe by the scheduled path's rules: no sudo, no uninstalls, no
+# application restarts. A freshly installed binary sits beside the running
+# server untouched; the notification tells the operator to adopt it with
+# `herdr server live-handoff --import-exe ~/.local/bin/herdr`, which moves
+# the live panes without disturbing their processes.
+
+die() {
+    printf 'AgentStart herdr updater: %s\n' "$*" >&2
+    exit 1
+}
+
+[ "$#" -eq 0 ] || {
+    printf 'Usage: update-herdr\n' >&2
+    exit 64
+}
+
+[ "$(uname -s)" = Darwin ] || die "macOS is required"
+[ "$(id -u)" -ne 0 ] || die "run as the target user, not root"
+
+# The bound checkout. AGENTSTART_HERDR_SRC relocates it for tests, matching
+# the AGENTSTART_CODE_ROOT idiom; the default deliberately resolves from
+# $HOME because the updater converges the machine, not a worktree.
+herdr_src="${AGENTSTART_HERDR_SRC:-$HOME/src/herdr}"
+bin_dest="$HOME/.local/bin/herdr"
+state_dir="$HOME/.local/state/agentstart"
+receipt="$state_dir/herdr-built-commit"
+build_log="$state_dir/herdr-build.log"
+
+find_brew() {
+    if command -v brew >/dev/null 2>&1; then
+        command -v brew
+        return
+    fi
+    for candidate in /opt/homebrew/bin/brew /usr/local/bin/brew; do
+        if [ -x "$candidate" ]; then
+            printf '%s\n' "$candidate"
+            return
+        fi
+    done
+    return 1
+}
+
+notify() {
+    local title="$1"
+    local message="$2"
+    local notifier
+
+    if [ -n "${AGENTSTART_TERMINAL_NOTIFIER_BIN:-}" ] \
+        && [ -x "$AGENTSTART_TERMINAL_NOTIFIER_BIN" ]; then
+        notifier="$AGENTSTART_TERMINAL_NOTIFIER_BIN"
+    elif command -v terminal-notifier >/dev/null 2>&1; then
+        notifier=$(command -v terminal-notifier)
+    else
+        printf 'AgentStart herdr updater: terminal-notifier unavailable; not notifying: %s\n' \
+            "$message" >&2
+        return 0
+    fi
+    "$notifier" -title "$title" -message "$message" -group agentstart.update-herdr \
+        || true
+}
+
+# A blocked update is reported, not forced: the notification reaches the
+# operator when this runs from the scheduled path with no terminal.
+blocked() {
+    notify 'Herdr Update Blocked' "$1"
+    die "$1"
+}
+
+[ -d "$herdr_src/.git" ] \
+    || blocked "herdr checkout missing at $herdr_src; clone herdrdev/herdr there"
+
+git -C "$herdr_src" fetch --quiet origin \
+    || blocked "fetching origin failed in $herdr_src; check the network and remote"
+
+# Tracked modifications block everything, including the branch switch that
+# would carry them along. Untracked files are allowed — scratch files should
+# not wedge the scheduled path.
+[ -z "$(git -C "$herdr_src" status --porcelain --untracked-files=no)" ] \
+    || blocked "herdr checkout at $herdr_src has uncommitted changes; converge it by hand"
+
+branch=$(git -C "$herdr_src" rev-parse --abbrev-ref HEAD)
+if [ "$branch" != master ]; then
+    git -C "$herdr_src" checkout --quiet master \
+        || blocked "could not check out master in $herdr_src (was on $branch)"
+fi
+
+git -C "$herdr_src" merge --ff-only --quiet origin/master \
+    || blocked "herdr master has diverged from origin/master; reconcile $herdr_src by hand"
+
+head=$(git -C "$herdr_src" rev-parse HEAD)
+if [ -x "$bin_dest" ] && [ -f "$receipt" ] && [ "$(cat "$receipt")" = "$head" ]; then
+    printf 'herdr already current at %s\n' "$(git -C "$herdr_src" rev-parse --short HEAD)"
+    exit 0
+fi
+
+brew_bin=$(find_brew) || blocked "Homebrew is required to locate zig@0.15"
+
+# herdr's vendored libghostty-vt pins the Zig 0.15 line and its release CI
+# builds with this same keg-only formula. The official 0.15 tarball cannot
+# link against current macOS SDKs, so the brew build is not a convenience —
+# it is the only Zig 0.15 that works here.
+zig_bin="$("$brew_bin" --prefix zig@0.15 2>/dev/null)/bin/zig"
+[ -x "$zig_bin" ] \
+    || blocked "zig@0.15 is missing; run scripts/install.sh --install to provision it"
+
+# When upstream moves the vendored pin off the 0.15 line, refuse loudly so
+# the zig@0.15 formula pin gets moved as a deliberate edit rather than the
+# build failing obscurely.
+minimum_zig=$(sed -n 's/.*minimum_zig_version = "\([^"]*\)".*/\1/p' \
+    "$herdr_src/vendor/libghostty-vt/build.zig.zon" 2>/dev/null || true)
+case "$minimum_zig" in
+    0.15.* | '') ;;
+    *) blocked "herdr now pins zig $minimum_zig; move the zig@0.15 pin forward deliberately" ;;
+esac
+
+command -v cargo >/dev/null 2>&1 \
+    || blocked "cargo is required to build herdr; install the Rust toolchain"
+
+mkdir -p "$state_dir" "$HOME/.cache" "$(dirname "$bin_dest")"
+
+# ~/.cache is a symlink on this machine, and Zig computes relative paths
+# between its global cache and the build tree that the kernel then resolves
+# physically — so hand it the physical path or the build's generated tools
+# fail to spawn. Cache clearing matches herdr's release CI, which starts
+# every build from empty zig caches.
+physical_cache=$(cd -P -- "$HOME/.cache" && pwd)
+rm -rf "$herdr_src/.zig-cache" \
+    "$herdr_src/vendor/libghostty-vt/.zig-cache" \
+    "$herdr_src/vendor/libghostty-vt/zig-out"
+# The clear above removes build outputs cargo's fingerprint knows nothing
+# about, so an unchanged build.rs input set would skip the zig build and
+# link against the just-deleted archive. Bumping a declared input's mtime
+# (content untouched, so the checkout stays clean) forces the rerun.
+touch "$herdr_src/vendor/libghostty-vt/build.zig"
+
+printf 'building herdr at %s\n' "$(git -C "$herdr_src" rev-parse --short HEAD)"
+(
+    cd "$herdr_src" \
+        && ZIG="$zig_bin" ZIG_GLOBAL_CACHE_DIR="$physical_cache/zig" \
+            HERDR_BUILD_COMMIT="$head" \
+            cargo build --release
+) >"$build_log" 2>&1 \
+    || blocked "herdr build failed; see $build_log"
+
+# Rename, never overwrite: the installed file may back the running server,
+# and macOS kills a process whose executable is rewritten in place.
+tmp_dest="$bin_dest.new.$$"
+cp "$herdr_src/target/release/herdr" "$tmp_dest"
+chmod 0755 "$tmp_dest"
+mv "$tmp_dest" "$bin_dest"
+printf '%s\n' "$head" >"$receipt"
+
+short=$(git -C "$herdr_src" rev-parse --short HEAD)
+printf 'herdr %s installed to %s\n' "$short" "$bin_dest"
+notify 'Herdr Updated' \
+    "herdr $short installed — adopt it with: herdr server live-handoff --import-exe ~/.local/bin/herdr"

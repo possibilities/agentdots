@@ -240,7 +240,9 @@ Command-line tools:
   curl -fsSL https://pi.dev/install.sh | sh  # in its own session, no controlling terminal
   brew install or upgrade zig  # AgentVoice's native duplex audio path builds against it
   brew install or upgrade llm  # an AI CLI, so AgentStart's outright — moved out of the machine's Brewfile
-  brew install or upgrade herdr  # the agent terminal multiplexer; homebrew-core, so no tap and no second update path
+  brew install or upgrade zig@0.15  # herdr's vendored libghostty-vt pins the 0.15 line; keg-only beside the tracked zig
+  scripts/update-herdr  # herdr from the bound ~/src/herdr checkout: fast-forward clean master, build, install to ~/.local/bin; blocked checkouts notify instead of forcing
+  brew uninstall herdr if the formula lingers  # retired: it would shadow the checkout build on PATH
   herdr integration install claude, codex, and pi  # the harness agent-state hooks, reinstalled every run because a herdr upgrade stales them
   npm install --global @native-sdk/cli@0.7  # the line the native-sdk skill documents
   npm install --global agent-browser@0.33.2  # Agentweb's config.json digest-locks this exact build
@@ -272,7 +274,7 @@ Agent skills:
   npx --yes skills add https://github.com/vercel/ai-elements --agent codex claude-code pi --skill ai-elements --global --yes
   npx --yes skills add https://github.com/shadcn/ui --agent codex claude-code pi --skill shadcn --global --yes
   npx --yes skills add https://github.com/vercel-labs/native --agent codex claude-code pi --skill native-sdk --global --yes
-  herdr --skill, rendered to ~/.local/share/agentstart/herdr-skill/skills/herdr/SKILL.md  # the surface skill ships inside the binary, so it converges with the formula, never a checkout
+  herdr --skill, rendered to ~/.local/share/agentstart/herdr-skill/skills/herdr/SKILL.md  # the surface skill ships inside the binary, so it converges with the installed build, never a stale copy
   npx --yes skills add ~/.local/share/agentstart/herdr-skill --agent codex claude-code pi --skill herdr --global --yes
 EOF
     "$script_dir/install-statusline" --check
@@ -350,13 +352,34 @@ install_or_upgrade_formula zig
 printf 'Installing or upgrading the llm CLI.\n'
 install_or_upgrade_formula llm
 
+# herdr's vendored libghostty-vt pins the Zig 0.15 line, which the tracked
+# `zig` formula above has moved past, and the official 0.15 tarball cannot
+# link against current macOS SDKs — herdr's own release CI builds with this
+# same keg-only formula, so it is the one Zig 0.15 that works here.
+# update-herdr refuses with a notification if the vendored pin drifts.
+printf 'Installing or upgrading Zig 0.15 for the herdr build (keg-only, beside the tracked zig).\n'
+install_or_upgrade_formula zig@0.15
+
 # herdr is the terminal multiplexer agent sessions run inside — an AI tool by
-# the boundary rubric, so AgentStart's, not the machine's. It ships in
-# homebrew-core, so no tap is needed and the formula is the only update path:
-# `herdr update` belongs to the direct install this deliberately does not use,
-# and a second updater is the synchronization path this repository forbids.
-printf 'Installing or upgrading herdr.\n'
-install_or_upgrade_formula herdr
+# the boundary rubric, so AgentStart's, not the machine's. It is bound to the
+# ~/src/herdr checkout at upstream master, because releases trail master by
+# weeks and the operator runs the head. update-herdr is the one update path —
+# it fast-forwards a clean checkout, builds with the pinned Zig, installs to
+# ~/.local/bin, and notifies instead of forcing when the checkout cannot
+# converge; the stowed herdr config disables the binary's own version check
+# for the same one-updater reason. The formula and the direct installer both
+# stay retired.
+printf 'Building and installing herdr from the bound checkout.\n'
+"$script_dir/update-herdr"
+
+# Retired: the homebrew-core herdr formula, the previous update path. PATH
+# prefers the formula's bin over ~/.local/bin, so a lingering keg would
+# shadow the checkout build with a stale, protocol-incompatible binary.
+# Removal is full-install cleanup; the scheduled path never uninstalls.
+if "$brew_bin" list --formula --versions herdr >/dev/null 2>&1; then
+    printf 'Removing the retired herdr formula.\n'
+    "$brew_bin" uninstall --formula herdr
+fi
 
 # The harness integrations wire each agent into herdr — pi's is a lifecycle
 # authority, while claude's and codex's report session identity (for native
@@ -503,9 +526,9 @@ npx --yes skills add https://github.com/vercel-labs/native \
 
 # The surface skill — herdr is the orchestrator doctrine's reference launch
 # surface — ships inside the herdr binary (`herdr --skill`), so the installed
-# skill converges with the formula on every run, exactly like the harness
-# integrations above, and never tracks the GitHub head: the formula is
-# herdr's one update path, and the skill follows it. The rendered pack lives
+# skill converges with the installed build on every run, exactly like the
+# harness integrations above, and never tracks a different head: update-herdr
+# is herdr's one update path, and the skill follows it. The rendered pack lives
 # in a managed state root shaped like a checkout (skills/herdr/) so the same
 # `skills add` mechanism ships it globally. Deliberately not advertised in
 # TOOLS.md: a role skill is named by the orchestrator doctrine, not by the
