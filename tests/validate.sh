@@ -657,7 +657,7 @@ for required_install in \
     'brew install or upgrade zig@0.15  # herdr'"'"'s vendored libghostty-vt pins the 0.15 line; keg-only beside the tracked zig' \
     'scripts/update-herdr  # herdr from the bound ~/src/herdr checkout: fast-forward clean master, build, install to ~/.local/bin; blocked checkouts notify instead of forcing' \
     'brew uninstall herdr if the formula lingers  # retired: it would shadow the checkout build on PATH' \
-    'herdr integration install claude, codex, and pi  # the harness agent-state hooks, reinstalled every run because a herdr upgrade stales them' \
+    'herdr integration install claude, codex, and pi  # Codex is pinned to canonical ~/.codex and stale multi-auth shadow hooks are pruned' \
     'scripts/herdr-tinty install  # build all Base16/Base24/Tinted8 palettes, render ~/.config/herdr/config.toml, and reload Herdr' \
     'remove AgentStart-owned ~/Library/Application Support/io.datasette.llm/extra-openai-models.yaml symlink  # its extra model records are obsolete' \
     'remove ownership-verified AgentSurface, AgentBus, and Orca harness integrations' \
@@ -690,6 +690,13 @@ for required_install in \
     printf '%s\n' "$install_plan" | grep -F "$required_install" >/dev/null \
         || fail "installation plan is missing: $required_install"
 done
+# shellcheck disable=SC2016 # Assert the literal environment pin in the installer.
+grep -F 'CODEX_HOME="$HOME/.codex" herdr integration install "$harness"' \
+    scripts/install.sh >/dev/null \
+    || fail "Herdr's Codex integration can inherit a disposable multi-auth CODEX_HOME"
+grep -F "codex-multi-auth-runtime-home-[^/']+/herdr-agent-state\\.sh" \
+    scripts/install.sh >/dev/null \
+    || fail "installer does not prune stale Codex multi-auth Herdr hook definitions"
 if printf '%s\n' "$install_plan" | grep -qi 'livekit'; then
     fail "installation plan still includes LiveKit setup"
 fi

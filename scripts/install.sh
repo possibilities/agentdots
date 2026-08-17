@@ -248,7 +248,7 @@ Command-line tools:
   brew install or upgrade zig@0.15  # herdr's vendored libghostty-vt pins the 0.15 line; keg-only beside the tracked zig
   scripts/update-herdr  # herdr from the bound ~/src/herdr checkout: fast-forward clean master, build, install to ~/.local/bin; blocked checkouts notify instead of forcing
   brew uninstall herdr if the formula lingers  # retired: it would shadow the checkout build on PATH
-  herdr integration install claude, codex, and pi  # the harness agent-state hooks, reinstalled every run because a herdr upgrade stales them
+  herdr integration install claude, codex, and pi  # Codex is pinned to canonical ~/.codex and stale multi-auth shadow hooks are pruned
   herdr plugin link ~/code/agentsurface/plugin  # the tab-naming plugin; a link registers the checkout path, so relinking is a safe converge
   scripts/herdr-tinty install  # build all Base16/Base24/Tinted8 palettes, render ~/.config/herdr/config.toml, and reload Herdr
   npm install --global @native-sdk/cli@0.7  # the line the native-sdk skill documents
@@ -409,13 +409,106 @@ fi
 # ownership and conflict rules are its installer's to enforce, exactly as they
 # are for a fleet checkout's own installer. The harnesses are the three the
 # fleet runs; herdr supports more, and adding one here is a deliberate edit.
+prune_shadow_codex_herdr_hooks() {
+    local hooks_path="$HOME/.codex/hooks.json"
+
+    [ -f "$hooks_path" ] || return 0
+
+    /usr/bin/python3 - "$hooks_path" <<'PYTHON' \
+        || die "failed to prune stale herdr hooks from $hooks_path"
+import json
+import os
+import re
+import stat
+import sys
+import tempfile
+
+hooks_path = sys.argv[1]
+with open(hooks_path, encoding="utf-8") as source:
+    document = json.load(source)
+
+session_start = document.get("hooks", {}).get("SessionStart")
+if not isinstance(session_start, list):
+    raise SystemExit(0)
+
+shadow_command = re.compile(
+    r"^bash '.*?/multi-auth/runtime-shadow-homes/"
+    r"codex-multi-auth-runtime-home-[^/']+/herdr-agent-state\.sh' session$"
+)
+removed = 0
+groups = []
+
+for group in session_start:
+    if not isinstance(group, dict) or not isinstance(group.get("hooks"), list):
+        groups.append(group)
+        continue
+
+    handlers = []
+    for handler in group["hooks"]:
+        generated_shadow_hook = (
+            isinstance(handler, dict)
+            and handler.get("type") == "command"
+            and isinstance(handler.get("command"), str)
+            and shadow_command.fullmatch(handler["command"]) is not None
+        )
+        if generated_shadow_hook:
+            removed += 1
+        else:
+            handlers.append(handler)
+
+    if handlers:
+        group["hooks"] = handlers
+        groups.append(group)
+
+if removed == 0:
+    raise SystemExit(0)
+
+document["hooks"]["SessionStart"] = groups
+write_path = os.path.realpath(hooks_path)
+mode = stat.S_IMODE(os.stat(write_path).st_mode)
+temporary = tempfile.NamedTemporaryFile(
+    mode="w",
+    encoding="utf-8",
+    dir=os.path.dirname(write_path),
+    prefix=f".{os.path.basename(write_path)}.",
+    suffix=".tmp",
+    delete=False,
+)
+try:
+    with temporary:
+        json.dump(document, temporary, indent=2)
+        temporary.write("\n")
+        temporary.flush()
+        os.fsync(temporary.fileno())
+    os.chmod(temporary.name, mode)
+    os.replace(temporary.name, write_path)
+except BaseException:
+    try:
+        os.unlink(temporary.name)
+    except FileNotFoundError:
+        pass
+    raise
+
+print(f"Removed {removed} stale Codex multi-auth Herdr hook(s) from {hooks_path}.")
+PYTHON
+}
+
 install_herdr_integrations() {
     local harness
 
     for harness in claude codex pi; do
         printf 'Installing the herdr %s integration.\n' "$harness"
-        herdr integration install "$harness" \
-            || die "herdr integration install failed: $harness"
+        if [ "$harness" = codex ]; then
+            # A Codex-swap launch runs with a disposable CODEX_HOME. Never let
+            # that session-local path enter the canonical hook definition:
+            # Codex trusts the definition hash, so every new path asks again.
+            prune_shadow_codex_herdr_hooks
+            CODEX_HOME="$HOME/.codex" herdr integration install "$harness" \
+                || die "herdr integration install failed: $harness"
+        else
+            herdr integration install "$harness" \
+                || die "herdr integration install failed: $harness"
+        fi
     done
 }
 
