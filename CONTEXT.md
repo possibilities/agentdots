@@ -2,7 +2,7 @@
 
 **The fleet** — the agent apps in `~/code` whose checkouts are named
 `agent*` — `agentguidance` carries the general skills — plus `cass` from
-`agentchats`.
+`agentchats` and `peekaboo` from `agentdesk`.
 Each fleet repo owns its own hardened installer and exports its own skills;
 AgentStart invokes contracts and never reaches inside a sibling checkout.
 _Avoid_: suite, monorepo, workspace.

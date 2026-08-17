@@ -290,6 +290,9 @@ EOF
     if [ -f "$code_root/agentchats/scripts/install.sh" ]; then
         "$code_root/agentchats/scripts/install.sh" --check
     fi
+    if [ -f "$code_root/agentdesk/scripts/install.sh" ]; then
+        "$code_root/agentdesk/scripts/install.sh" --check
+    fi
     exit 0
 fi
 
@@ -739,6 +742,26 @@ if [ -f "$agentchats_root/scripts/install.sh" ]; then
 else
     printf 'AgentStart installer: no agentchats checkout at %s; skipping cass.\n' \
         "$agentchats_root"
+fi
+
+# peekaboo — the macOS GUI capture and automation CLI — installs by the
+# agentdesk checkout's own contract: the official tap formula, the TCC
+# permission verification (grants stay the human's act), and a served-capture
+# gate. Its desktop skill ships through the agent* checkout skill scan like
+# every other tool's. A machine without the checkout skips; a present
+# checkout that fails to install is a real error.
+agentdesk_root="$code_root/agentdesk"
+if [ -f "$agentdesk_root/scripts/install.sh" ]; then
+    agentdesk_status=0
+    "$agentdesk_root/scripts/install.sh" --install || agentdesk_status=$?
+    if [ "$agentdesk_status" -ne 0 ]; then
+        printf 'AgentStart installer: peekaboo install failed (exit %s). Fix the reported problem, then rerun scripts/install.sh --install or %s/scripts/install.sh --install.\n' \
+            "$agentdesk_status" "$agentdesk_root" >&2
+        exit "$agentdesk_status"
+    fi
+else
+    printf 'AgentStart installer: no agentdesk checkout at %s; skipping peekaboo.\n' \
+        "$agentdesk_root"
 fi
 
 # The fleet's long-running services. This runs after every CLI above, because

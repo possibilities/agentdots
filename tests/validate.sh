@@ -725,6 +725,12 @@ if printf '%s\n' "$install_plan" \
     | grep -F '/code/agentchats"' >/dev/null; then
     fail "installation plan still synchronizes chats explicitly beside the scan"
 fi
+# The agentdesk checkout ships its desktop skill through the same scan; the
+# same rule holds.
+if printf '%s\n' "$install_plan" \
+    | grep -F '/code/agentdesk"' >/dev/null; then
+    fail "installation plan still synchronizes desktop explicitly beside the scan"
+fi
 # The ownership boundary: desktop applications and the GitHub CLI belong to the
 # machine layer, so a cask or gh line here means the seam is leaking back.
 if printf '%s\n' "$install_plan" | grep -Eq -- '--cask|brew install or upgrade gh'; then
@@ -1022,6 +1028,9 @@ esac
 # shellcheck disable=SC2016 # Match the literal checkout resolution in the script.
 grep -F 'agentchats_root="$code_root/agentchats"' scripts/install.sh >/dev/null \
     || fail "installer does not own the cass installation call"
+# shellcheck disable=SC2016 # Match the literal checkout resolution in the script.
+grep -F 'agentdesk_root="$code_root/agentdesk"' scripts/install.sh >/dev/null \
+    || fail "installer does not own the peekaboo installation call"
 # One fleet root, honoured by every script that walks it. A script resolving
 # $HOME/code directly cannot be pointed at a fixture tree, and one resolving it
 # relative to its own location would silently skip the whole fleet on a worktree
@@ -1040,6 +1049,9 @@ done
 # shellcheck disable=SC2016 # Match the literal invocation in the script.
 grep -F '"$agentchats_root/scripts/install.sh" --install' scripts/install.sh >/dev/null \
     || fail "installer does not invoke the agentchats contract"
+# shellcheck disable=SC2016 # Match the literal invocation in the script.
+grep -F '"$agentdesk_root/scripts/install.sh" --install' scripts/install.sh >/dev/null \
+    || fail "installer does not invoke the agentdesk contract"
 
 # The ownership boundary, from this side: nothing here may install a desktop
 # cask, migrate gh credentials, or grow launchd machinery — those are the

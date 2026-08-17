@@ -88,7 +88,7 @@ flowchart LR
     start ==>|brew formula + harness integrations + binary-rendered skill| herdrInstall[herdr]
     start ==>|upstream tap + formula + local templates| tinty[tinty]
     start ==>|npm pin| browser[agent-browser]
-    start ==>|checkout contracts| fleet[agentvoice / agentwiki / agentboard / agentsearch / agentkeys / agentweb / agentscrape / agentbrain / codex-swap / agentusage / agentlaunch / agentsurface / cass]
+    start ==>|checkout contracts| fleet[agentvoice / agentwiki / agentboard / agentsearch / agentkeys / agentweb / agentscrape / agentbrain / codex-swap / agentusage / agentlaunch / agentsurface / cass / peekaboo]
     start ==>|skills scan + post-sync hooks| skills[all agent skills, agentguidance rendered]
     start ==>|per-file links, after the scan| voiceDoctrine[agentvoice doctrine: server.json from start, orchestrator prompts agentguidance-rendered]
     start -.->|config/launchd + install-launchagents| services[agentbrain worker + share + doctor / agentusage observer / agentweb broker / agentscrape queue-processor / agentwiki server]
@@ -109,6 +109,7 @@ flowchart LR
         search -.-> brain & chats & scrape
         browser -.-> scrape & search
         wiki -.-> board & brain & chats
+        desktop -.-> browser & bus
         chats
         keys
         bus
@@ -124,8 +125,9 @@ flowchart LR
 
     watchRequests -.-> chats
     bus -.-> notify
+    desktop -.-> notify
 
-    tools[TOOLS.md — agentstart prompts, spliced into collab, build, and orchestrate at render] -.-> search & scrape & brain & browser & wiki & board & groom & chats & notify & bus
+    tools[TOOLS.md — agentstart prompts, spliced into collab, build, and orchestrate at render] -.-> search & scrape & brain & browser & wiki & board & groom & chats & notify & bus & desktop
 ```
 
 The TOOLS.md node is the widest fan-out in the fleet and this repository is
@@ -189,6 +191,7 @@ sentence around the match, never from the name alone.
 | agentstart | agentscrape ↔ agentweb conduit | brokers the session conduit, because it is the only thing that installs both: it renders agentweb's socket and token paths into the agentbrain.worker service, and the worker passes them uninterpreted into the agentscrape children it spawns | `agentstart/scripts/install-launchagents` (agentbrain.worker tokens), asserted by the machine's local-service verification |
 | agentboard | agentwiki | stored data, distinct from the publish call: board items hold agentwiki slugs (`link <ref> --wiki <slug>` / `unlink`), so changing wiki's slug scheme breaks stored links even where publishing never runs | `agentboard/skills/board/SKILL.md:228-232`, reciprocated `agentwiki/skills/wiki/SKILL.md:133-134` |
 | cass (agentchats) | Claude Code, Codex, Pi | builds and refreshes the search index over the local session stores; cass itself is upstream software — the official checksummed installer, gh-resolved — with only the `agentchats` state CLI linked editable from the checkout | `agentchats/scripts/install.sh:6,95,123-129,137` |
+| peekaboo (agentdesk) | the macOS GUI | sessions see and drive the Mac's screen and native apps through the `desktop` skill; peekaboo itself is upstream software installed from the official `steipete/tap` formula by agentdesk's contract, gated on the capability serving — TCC grants (Screen Recording, Accessibility — the human's act) verified and a `--no-remote` screen capture delivered. Its daemon is on-demand; no fleet service supervises it | `agentdesk/scripts/install.sh`; `agentdesk/skills/desktop/SKILL.md` |
 | agentchats view | cass, session stores | the transcript viewer discovers sessions through `cass sessions --json` (workspace-scoped, deduped by path) and then reads the native store files directly for fidelity and live follow — cass is discovery, never the render source | `agentchats/viewer/src/discover.ts`, `agentchats/viewer/src/tail.ts`, `agentchats/bin/agentchats` (`view`) |
 | agentkeys | stowed machine configs | audits the interception chain across Karabiner/skhd/Ghostty/tmux/Neovim — files the machine layer stows | `agentkeys` skill description; the machine's stow packages |
 | agentboard, agentchats | each other's CLIs | the shared "agent* state dump" bearings convention: one cross-tool contract for state dumps, with a common ~4-chars-per-token budget | `agentboard/src/help.ts:367`, `agentchats/bin/agentchats:13`, `agentboard/src/brief.ts:140` |
@@ -240,6 +243,7 @@ independent app-server children do not use codex-swap's removed sidecars.
 | scrape | brain, browser, search | scrape wants a URL in hand; finding URLs is search; interaction is browser |
 | search | brain, chats, scrape | check brain first — the answer is often already local |
 | browser | scrape, search | fetching content is scrape; finding pages is search |
+| desktop | browser, bus, notify | anything inside a web page is browser's; a peer agent's pane is messaged over bus, never clicked; an input takeover is announced through notify (`agentdesk/skills/desktop/SKILL.md`) |
 | wiki | board, brain, chats | the durable home the others cite into. Wiki's `search` is its own subcommand, not the search skill |
 | TOOLS.md (this repo) | search, scrape, brain, browser, wiki, board, groom, chats, notify, bus | spliced into collab, build, and orchestrate at render — the advertisement lines are the routing |
 | bus | notify | a blocked bus target is waiting on the operator, so a message that matters escalates to a human notification instead of more retries (`agentsurface/skills/bus/SKILL.md`) |
@@ -305,3 +309,11 @@ by tab-label names or session ids with herdr as the delivery path. The bus
 gained its skill the same day: `bus` joins TOOLS.md's advertisements and
 routes to `notify` for blocked-target escalation; `message --wait-unblocked`
 retries a blocked delivery until its deadline.
+Updated 2026-08-17 again for the desktop capability: peekaboo (upstream,
+`steipete/tap`, repo openclaw/Peekaboo) joins through the new agentdesk
+checkout — the agentchats pattern, a skill over third-party software —
+installed by its own contract from AgentStart's installer beside the
+agentchats block, with the `desktop` skill advertised in TOOLS.md and routing
+to `browser`, `bus`, and `notify`. The `computer-use` name stays retired (an
+Orca-era skill the full install still removes); the capability re-lands as
+`desktop`.
