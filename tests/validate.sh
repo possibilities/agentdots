@@ -855,6 +855,9 @@ grep -F 'plugin pane open --plugin agentsurface --entrypoint launch' \
 grep -F 'plugin pane open --plugin agentsurface --entrypoint usage' \
     config/herdr/config.toml >/dev/null \
     || fail "agentusage binding does not open its AgentSurface plugin pane"
+grep -F 'plugin pane open --plugin agentsurface --entrypoint voice' \
+    config/herdr/config.toml >/dev/null \
+    || fail "agentvoice binding does not open its AgentSurface plugin pane"
 grep -F 'HERDR_ACTIVE_PANE_CWD' config/herdr/config.toml >/dev/null \
     || fail "AgentSurface plugin popup does not preserve the active pane cwd"
 grep -F 'command = "agentsurface launch"' config/herdr/config.toml >/dev/null \

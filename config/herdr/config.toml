@@ -50,6 +50,15 @@ type = "shell"
 command = '"$HERDR_BIN_PATH" plugin pane open --plugin agentsurface --entrypoint usage'
 description = "usage"
 
+# The voice pane runs `agentvoice remote` bare — the remote control for the
+# console already running on this machine. Its manifest carries no
+# escape-to-quit because that TUI spends esc on its own ctrl+k palette.
+[[keys.command]]
+key = "prefix+v"
+type = "shell"
+command = '"$HERDR_BIN_PATH" plugin pane open --plugin agentsurface --entrypoint voice'
+description = "voice console"
+
 # AgentSurface's linked herdr plugin owns the popup title and geometry. Open
 # its launch entrypoint from the active pane's cwd so the form preselects that
 # project; the launcher quits on esc itself and needs no escape-to-quit wrapper.
