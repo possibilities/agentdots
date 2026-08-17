@@ -176,9 +176,11 @@ PYTHON
     printf 'Removed the retired AgentBus Codex sandbox override: %s.\n' "$config"
 }
 
+# The agentsurface command link is deliberately absent: the path came back
+# to life with the rebooted repo, whose own installer owns it now via the
+# checkout contract in install-agent-clis.
 for item in \
     "$HOME/.local/bin/agentbus:$code_root/agentbus/src/main.ts" \
-    "$HOME/.local/bin/agentsurface:$code_root/agentsurface/src/main.ts" \
     "$HOME/.pi/agent/extensions/agentbus.ts:$code_root/agentbus/extensions/pi/agentbus.ts" \
     "$HOME/.claude/skills/agentbus:$code_root/agentbus/plugins/claude"; do
     expected=${item#*:}

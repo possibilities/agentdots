@@ -244,6 +244,7 @@ Command-line tools:
   scripts/update-herdr  # herdr from the bound ~/src/herdr checkout: fast-forward clean master, build, install to ~/.local/bin; blocked checkouts notify instead of forcing
   brew uninstall herdr if the formula lingers  # retired: it would shadow the checkout build on PATH
   herdr integration install claude, codex, and pi  # the harness agent-state hooks, reinstalled every run because a herdr upgrade stales them
+  herdr plugin link ~/code/agentsurface/plugin  # the tab-naming plugin; a link registers the checkout path, so relinking is a safe converge
   npm install --global @native-sdk/cli@0.7  # the line the native-sdk skill documents
   npm install --global agent-browser@0.33.2  # Agentweb's config.json digest-locks this exact build
   ln -sfn "$(command -v agent-browser)" ~/.local/bin/agent-browser  # the candidate Agentscrape resolves before PATH
@@ -404,6 +405,26 @@ install_herdr_integrations() {
 }
 
 install_herdr_integrations
+
+# AgentSurface's herdr plugin (tab naming from a conversation's first
+# prompt) registers by link, not copy: herdr records the checkout path, so
+# a changed checkout needs no relink and relinking the same path is a safe
+# converge. Linking works with or without a running server. The registered
+# plugin belongs to herdr; the plugin directory belongs to the agentsurface
+# checkout, whose absence is a skip exactly as in install-agent-clis.
+install_herdr_plugins() {
+    local plugin_root="$code_root/agentsurface/plugin"
+
+    if [ ! -f "$plugin_root/herdr-plugin.toml" ]; then
+        printf 'AgentStart installer: no agentsurface plugin at %s; skipping.\n' "$plugin_root"
+        return 0
+    fi
+    printf 'Linking the agentsurface herdr plugin.\n'
+    herdr plugin link "$plugin_root" \
+        || die "herdr plugin link failed: $plugin_root"
+}
+
+install_herdr_plugins
 
 command -v npm >/dev/null 2>&1 || die "npm is required to install the Native SDK CLI"
 

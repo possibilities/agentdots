@@ -406,8 +406,8 @@ HOME="$cleanup_home" AGENTSTART_CODE_ROOT="$cleanup_code_root" \
     "$root/scripts/remove-retired-integrations" >/dev/null
 [ ! -e "$cleanup_home/.local/bin/agentbus" ] \
     || fail "retired AgentBus CLI symlink was not removed"
-[ ! -e "$cleanup_home/.local/bin/agentsurface" ] \
-    || fail "retired AgentSurface CLI symlink was not removed"
+[ -L "$cleanup_home/.local/bin/agentsurface" ] \
+    || fail "live AgentSurface CLI symlink was removed by retired cleanup"
 [ ! -e "$cleanup_home/.pi/agent/extensions/agentbus.ts" ] \
     || fail "retired AgentBus Pi extension was not removed"
 [ ! -e "$cleanup_home/.claude/skills/agentbus" ] \
@@ -800,6 +800,13 @@ grep -F 'install_herdr_integrations' scripts/install.sh >/dev/null \
     || fail "installer does not converge the herdr harness integrations"
 grep -F 'for harness in claude codex pi' scripts/install.sh >/dev/null \
     || fail "herdr integrations do not cover the three harnesses the fleet runs"
+# The tab-naming plugin registers by checkout path; linking every run is the
+# converge, and a missing agentsurface checkout is a skip, not a failure.
+grep -F 'install_herdr_plugins' scripts/install.sh >/dev/null \
+    || fail "installer does not link the agentsurface herdr plugin"
+# shellcheck disable=SC2016 # Match the literal link invocation, $-sign and all.
+grep -F 'herdr plugin link "$plugin_root"' scripts/install.sh >/dev/null \
+    || fail "the agentsurface plugin is not registered by checkout path"
 # The surface skill ships inside the binary (`herdr --skill`) and converges
 # with the installed build; a GitHub-sourced copy would track a different
 # head than the installed herdr and grow a second update path.
@@ -876,13 +883,13 @@ fi
 # codex-swap itself installed.
 agent_cli_order=$(tr '\n' ' ' <scripts/install-agent-clis | tr -s ' ')
 case "$agent_cli_order" in
-    *"for tool in agentwiki agentboard agentsearch agentkeys agentweb agentscrape \\ agentbrain codex-swap agentusage agentlaunch"*) ;;
+    *"for tool in agentwiki agentboard agentsearch agentkeys agentweb agentscrape \\ agentbrain codex-swap agentusage agentlaunch agentsurface"*) ;;
     *) fail "agent CLI installer changed its tool list or ordering" ;;
 esac
 # Every checkout with an installer is in the loop; a name missing from it is a
 # tool nothing installs.
 for expected_tool in agentwiki agentboard agentsearch agentkeys agentweb \
-    agentscrape agentbrain codex-swap agentusage agentlaunch; do
+    agentscrape agentbrain codex-swap agentusage agentlaunch agentsurface; do
     case "$agent_cli_order" in
         *" $expected_tool "*) ;;
         *) fail "agent CLI loop no longer installs $expected_tool" ;;
@@ -890,7 +897,6 @@ for expected_tool in agentwiki agentboard agentsearch agentkeys agentweb \
 done
 case "$agent_cli_order" in
     *" agentbus "*) fail "agent CLI loop still installs retired agentbus" ;;
-    *" agentsurface "*) fail "agent CLI loop still installs retired agentsurface" ;;
 esac
 # shellcheck disable=SC2016 # Match the literal checkout resolution in the script.
 grep -F 'agentchats_root="$code_root/agentchats"' scripts/install.sh >/dev/null \
