@@ -321,5 +321,5 @@ Orca-era skill the full install still removes); the capability re-lands as
 `desktop`.
 Updated 2026-08-17 to make the AgentSurface plugin the shared home for fleet
 TUIs bound to popups: its new `usage` pane runs `agentusage` through the
-escape-to-close wrapper under the title `Subscription usage`, while
+escape-to-close wrapper under the title `Agent Usage`, while
 AgentStart's `prefix+u` binding opens that pane entrypoint.
