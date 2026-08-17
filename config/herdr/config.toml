@@ -84,6 +84,7 @@ auto_switch = false
 [ui]
 agent_panel_sort = "priority"
 sidebar_collapsed_mode = "hidden"
+sidebar_max_width = 72
 # Keep one optical size across Spaces and Agents. State remains distinguishable
 # by hue, while unseen idle agents use a hollow dot.
 status_indicators = "dots"
@@ -100,7 +101,7 @@ tab_bar_right = [
 # Managed launch aliases are machine targets, not human identity. The Space
 # and conversation tab carry the useful context in the expanded Agent list.
 [ui.sidebar.agents]
-rows = [["state_icon", "workspace", "tab"]]
+rows = [["state_icon", "workspace"], ["tab"]]
 
 [ui.toast]
 # Avoid the single in-app toast slot used by config reloads. On macOS Herdr's
