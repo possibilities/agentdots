@@ -21,3 +21,15 @@ red = "#{{base08-hex}}"
 blue = "#{{base0D-hex}}"
 teal = "#{{base0C-hex}}"
 peach = "#{{base09-hex}}"
+
+# AgentSurface publishes $project as the workspace label, or the root repository
+# name plus worktree branch for a linked worktree. One token keeps that first
+# line contiguous and gives it the standard inactive workspace-name treatment.
+# The conversation tab on row two uses branch grey without the extra dim.
+[ui.sidebar.agents]
+rows = [[
+  "state_icon",
+  { token = "$project", fg = "#{{base04-hex}}", bold = true, dim = false },
+], [
+  { token = "tab", fg = "#{{base03-hex}}", dim = false },
+]]

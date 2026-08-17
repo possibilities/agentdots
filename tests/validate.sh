@@ -658,7 +658,7 @@ for required_install in \
     'scripts/update-herdr  # herdr from the bound ~/src/herdr checkout: fast-forward clean master, build, install to ~/.local/bin; blocked checkouts notify instead of forcing' \
     'brew uninstall herdr if the formula lingers  # retired: it would shadow the checkout build on PATH' \
     'herdr integration install claude, codex, and pi  # Codex is pinned to canonical ~/.codex and stale multi-auth shadow hooks are pruned' \
-    'scripts/herdr-tinty install  # build all Base16/Base24/Tinted8 palettes, render ~/.config/herdr/config.toml, and reload Herdr' \
+    'scripts/herdr-tinty install  # apply Base16 Chalk to generated Herdr and Ghostty configs, then reload both' \
     'remove AgentStart-owned ~/Library/Application Support/io.datasette.llm/extra-openai-models.yaml symlink  # its extra model records are obsolete' \
     'remove ownership-verified AgentSurface, AgentBus, and Orca harness integrations' \
     'npx --yes skills remove --global --yes bus orca-cli orchestration computer-use  # retired skills; full install only' \
@@ -826,17 +826,20 @@ grep -F 'for harness in claude codex pi' scripts/install.sh >/dev/null \
 
 # AgentStart owns Herdr's behavior config and composes it with a Tinty-built
 # palette outside Git. Both template systems expose all nineteen Herdr custom
-# tokens, and the two scoped cycle bindings were audited before being added.
+# tokens, while installation deterministically selects Base16 Chalk.
 [ -s config/herdr/config.toml ] \
     || fail "AgentStart's Herdr base config is missing"
-grep -F 'key = "prefix+["' config/herdr/config.toml >/dev/null \
-    || fail "Herdr config is missing the previous-theme binding"
-grep -F 'key = "prefix+]"' config/herdr/config.toml >/dev/null \
-    || fail "Herdr config is missing the next-theme binding"
-grep -F 'command = "herdr-tinty previous"' config/herdr/config.toml >/dev/null \
-    || fail "previous-theme binding does not call herdr-tinty"
-grep -F 'command = "herdr-tinty next"' config/herdr/config.toml >/dev/null \
-    || fail "next-theme binding does not call herdr-tinty"
+grep -F 'plugin pane open --plugin agentsurface --entrypoint launch' \
+    config/herdr/config.toml >/dev/null \
+    || fail "AgentSurface binding does not open its plugin launch pane"
+grep -F 'HERDR_ACTIVE_PANE_CWD' config/herdr/config.toml >/dev/null \
+    || fail "AgentSurface plugin popup does not preserve the active pane cwd"
+grep -F 'command = "agentsurface launch"' config/herdr/config.toml >/dev/null \
+    && fail "AgentSurface binding still opens an untitled generic popup"
+if grep -E 'herdr-tinty (next|previous)|key = "prefix\+[\[\]]"' \
+    config/herdr/config.toml >/dev/null; then
+    fail "Herdr config still contains Tinty theme-cycling bindings"
+fi
 grep -F 'status_indicators = "dots"' config/herdr/config.toml >/dev/null \
     || fail "Herdr status indicators do not keep a uniform icon size"
 grep -F 'delivery = "system"' config/herdr/config.toml >/dev/null \
@@ -845,25 +848,33 @@ grep -F 'delivery = "system"' config/herdr/config.toml >/dev/null \
     || fail "AgentStart's Tinty config is missing"
 [ -s config/tinty/schemes-only.toml ] \
     || fail "Tinty's local-template update workaround config is missing"
-grep -F 'supported-systems = ["base16", "base24", "tinted8"]' \
+grep -Fqx 'default-scheme = "base16-chalk"' config/tinty/config.toml \
+    || fail "Tinty does not default to Base16 Chalk"
+[ "$(grep -Fc 'supported-systems = ["base16"]' config/tinty/config.toml)" -eq 2 ] \
+    || fail "Tinty's Herdr and Ghostty items are not confined to Base16"
+grep -F 'path = "https://github.com/tinted-theming/tinted-terminal"' \
     config/tinty/config.toml >/dev/null \
-    || fail "Tinty's Herdr item does not cover Base16, Base24, and Tinted8"
-for template in base16 tinted8; do
-    template_path="config/tinty/tinted-herdr/templates/$template.mustache"
-    [ -s "$template_path" ] || fail "Tinty template is missing: $template_path"
-    for token in accent panel_bg sidebar_bg active_row_bg selection_bg surface0 \
-        surface1 surface_dim overlay0 overlay1 text subtext0 mauve green yellow \
-        red blue teal peach; do
-        grep -q "^$token = " "$template_path" \
-            || fail "$template Tinty template is missing Herdr token: $token"
-    done
+    || fail "Tinty does not install the official terminal templates"
+grep -F 'themes-dir = "themes/ghostty"' config/tinty/config.toml >/dev/null \
+    || fail "Tinty does not render the official Ghostty template"
+grep -F 'TINTY_THEME_FILE_PATH' config/tinty/config.toml \
+    | grep -F '/ghostty/themes/tinted-theming' >/dev/null \
+    || fail "Tinty does not copy the generated theme into Ghostty's theme directory"
+grep -F 'killall -SIGUSR2 ghostty' config/tinty/config.toml >/dev/null \
+    || fail "Tinty does not reload running Ghostty instances"
+template_path="config/tinty/tinted-herdr/templates/base16.mustache"
+[ -s "$template_path" ] || fail "Tinty template is missing: $template_path"
+for token in accent panel_bg sidebar_bg active_row_bg selection_bg surface0 \
+    surface1 surface_dim overlay0 overlay1 text subtext0 mauve green yellow \
+    red blue teal peach; do
+    grep -q "^$token = " "$template_path" \
+        || fail "Base16 Tinty template is missing Herdr token: $token"
 done
 grep -F 'surface_dim = "#{{base03-hex}}"' \
     config/tinty/tinted-herdr/templates/base16.mustache >/dev/null \
     || fail "Base16 Herdr dividers do not contrast with panel backgrounds"
-grep -F 'surface_dim = "#{{palette.gray.normal.hex}}"' \
-    config/tinty/tinted-herdr/templates/tinted8.mustache >/dev/null \
-    || fail "Tinted8 Herdr dividers do not use a contrasting neutral"
+[ ! -e config/tinty/tinted-herdr/templates/tinted8.mustache ] \
+    || fail "the fixed Base16 Chalk integration still carries a Tinted8 template"
 if find config/tinty/tinted-herdr -path '*/themes/*' -type f -print -quit \
     | grep -q .; then
     fail "generated Tinty themes must stay outside the AgentStart checkout"
@@ -883,13 +894,21 @@ grep -F '"$tinty_bin" install --quiet' scripts/herdr-tinty >/dev/null \
 grep -F '"$tinty_bin" update --config "$tinty_schemes_config" --quiet' \
     scripts/herdr-tinty >/dev/null \
     || fail "herdr-tinty does not update schemes without Git-updating its local template"
+# shellcheck disable=SC2016 # Match the literal deterministic application.
+grep -F '"$tinty_bin" apply base16-chalk' scripts/herdr-tinty >/dev/null \
+    || fail "herdr-tinty does not apply Base16 Chalk during installation"
+if grep -E 'cycle_theme|AGENTSTART_HERDR_TINTY_LOCK_HELD|tinty_bin" (list|current|init)' \
+    scripts/herdr-tinty >/dev/null; then
+    fail "herdr-tinty still contains theme-cycling machinery"
+fi
 # shellcheck disable=SC2016 # Match the literal installer variable.
 grep -F '"$script_dir/herdr-tinty" install' scripts/install.sh >/dev/null \
     || fail "installer does not converge the Herdr Tinty integration"
 tests/herdr-tinty.sh
 
-# The tab-naming plugin registers by checkout path; linking every run is the
-# converge, and a missing agentsurface checkout is a skip, not a failure.
+# The AgentSurface launcher and tab-naming plugin registers by checkout path;
+# linking every run is the converge, and a missing agentsurface checkout is a
+# skip, not a failure.
 grep -F 'install_herdr_plugins' scripts/install.sh >/dev/null \
     || fail "installer does not link the agentsurface herdr plugin"
 # shellcheck disable=SC2016 # Match the literal link invocation, $-sign and all.

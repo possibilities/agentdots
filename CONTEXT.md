@@ -44,9 +44,9 @@ downloads beyond the skills tool, no elevation, no uninstalls, no restarts.
 _Avoid_: update, upgrade (binaries never move on this path).
 
 **The Herdr theme config** — the live `~/.config/herdr/config.toml` rendered by
-AgentStart from its tracked behavior config plus the last Tinty palette. Tinty
-changes generated palette state; `herdr-tinty` validates and replaces the live
-composition, so neither checkout becomes program-written state.
+AgentStart from its tracked behavior config plus Tinted Theming's fixed Base16
+Chalk palette. `herdr-tinty` validates and replaces the live composition, so
+neither checkout becomes program-written state.
 _Avoid_: dotfile, Tinty config (that names only Tinty's own input file).
 
 **Participant** — an `agent*` checkout that exports

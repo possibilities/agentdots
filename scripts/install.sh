@@ -249,8 +249,8 @@ Command-line tools:
   scripts/update-herdr  # herdr from the bound ~/src/herdr checkout: fast-forward clean master, build, install to ~/.local/bin; blocked checkouts notify instead of forcing
   brew uninstall herdr if the formula lingers  # retired: it would shadow the checkout build on PATH
   herdr integration install claude, codex, and pi  # Codex is pinned to canonical ~/.codex and stale multi-auth shadow hooks are pruned
-  herdr plugin link ~/code/agentsurface/plugin  # the tab-naming plugin; a link registers the checkout path, so relinking is a safe converge
-  scripts/herdr-tinty install  # build all Base16/Base24/Tinted8 palettes, render ~/.config/herdr/config.toml, and reload Herdr
+  herdr plugin link ~/code/agentsurface/plugin  # the launcher pane + tab-naming plugin; a link registers the checkout path, so relinking is a safe converge
+  scripts/herdr-tinty install  # apply Base16 Chalk to generated Herdr and Ghostty configs, then reload both
   npm install --global @native-sdk/cli@0.7  # the line the native-sdk skill documents
   npm install --global agent-browser@0.33.2  # Agentweb's config.json digest-locks this exact build
   ln -sfn "$(command -v agent-browser)" ~/.local/bin/agent-browser  # the candidate Agentscrape resolves before PATH
@@ -514,12 +514,13 @@ install_herdr_integrations() {
 
 install_herdr_integrations
 
-# AgentSurface's herdr plugin (tab naming from a conversation's first
-# prompt) registers by link, not copy: herdr records the checkout path, so
-# a changed checkout needs no relink and relinking the same path is a safe
-# converge. Linking works with or without a running server. The registered
-# plugin belongs to herdr; the plugin directory belongs to the agentsurface
-# checkout, whose absence is a skip exactly as in install-agent-clis.
+# AgentSurface's herdr plugin (the titled launcher popup plus tab naming from
+# a conversation's first prompt) registers by link, not copy: herdr records
+# the checkout path, so a changed checkout needs no relink and relinking the
+# same path is a safe converge. Linking works with or without a running server.
+# The registered plugin belongs to herdr; the plugin directory belongs to the
+# agentsurface checkout, whose absence is a skip exactly as in
+# install-agent-clis.
 install_herdr_plugins() {
     local plugin_root="$code_root/agentsurface/plugin"
 
@@ -535,12 +536,11 @@ install_herdr_plugins() {
 install_herdr_plugins
 
 # The Herdr configuration is a generated composition: AgentStart's tracked
-# behavior plus the last Tinty palette under ~/.local/state. The helper owns
-# the migration from Funk's former Stow link, validates candidates before an
-# atomic replacement, and reloads a running server. It also stages and builds
-# every supported Tinty scheme outside this checkout so generated themes never
-# dirty either repository.
-printf 'Installing the AgentStart-owned Tinty integration for Herdr.\n'
+# behavior plus Tinted Theming's Base16 Chalk palette. The helper owns the
+# migration from Funk's former Stow link, validates candidates before an atomic
+# replacement, and reloads running Herdr and Ghostty instances. Generated
+# themes stay outside both checkouts.
+printf 'Applying the AgentStart-owned Base16 Chalk theme to Herdr and Ghostty.\n'
 "$script_dir/herdr-tinty" install
 
 command -v npm >/dev/null 2>&1 || die "npm is required to install the Native SDK CLI"

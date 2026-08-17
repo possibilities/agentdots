@@ -49,31 +49,14 @@ description = "usage"
 width = "80%"
 height = "80%"
 
-# AgentSurface's launcher quits on esc itself, so no escape-to-quit wrapper.
-# The whole flow runs in the popup: type the intent, confirm project /
-# worktree / harness:model:effort, and the popup closes onto the new
-# workspace with the agent started and the intent submitted.
+# AgentSurface's linked herdr plugin owns the popup title and geometry. Open
+# its launch entrypoint from the active pane's cwd so the form preselects that
+# project; the launcher quits on esc itself and needs no escape-to-quit wrapper.
 [[keys.command]]
 key = "prefix+l"
-type = "popup"
-command = "agentsurface launch"
+type = "shell"
+command = '"$HERDR_BIN_PATH" plugin pane open --plugin agentsurface --entrypoint launch --cwd "${HERDR_ACTIVE_PANE_CWD:-$PWD}"'
 description = "launch an agent"
-width = "80%"
-height = "80%"
-
-# These scoped pairs are free across the machine's current interception chain.
-# They cycle the complete Tinty catalog and wrap at both ends.
-[[keys.command]]
-key = "prefix+["
-type = "shell"
-command = "herdr-tinty previous"
-description = "previous Tinty theme"
-
-[[keys.command]]
-key = "prefix+]"
-type = "shell"
-command = "herdr-tinty next"
-description = "next Tinty theme"
 
 [theme]
 # Herdr applies [theme.custom] as overrides on a built-in base; every palette
@@ -97,11 +80,6 @@ tab_bar_right = [
   { type = "command", command = "~/.config/herdr/agent-mem.sh", interval_seconds = 10 },
   { type = "text", text = " " },
 ]
-
-# Managed launch aliases are machine targets, not human identity. The Space
-# and conversation tab carry the useful context in the expanded Agent list.
-[ui.sidebar.agents]
-rows = [["state_icon", "workspace"], ["tab"]]
 
 [ui.toast]
 # Avoid the single in-app toast slot used by config reloads. On macOS Herdr's

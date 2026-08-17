@@ -32,22 +32,6 @@ resolved_link_path() {
     canonical_entry_path "$link_target"
 }
 
-theme_display_name() {
-    local fragment="$1"
-    local header=''
-    local name
-
-    IFS= read -r header <"$fragment" || return 1
-    case "$header" in
-        '# Tinty '*" scheme: "*" ("*')') ;;
-        *) return 1 ;;
-    esac
-    name="${header#* scheme: }"
-    name="${name% (*)}"
-    [ -n "$name" ] || return 1
-    printf '%s\n' "$name"
-}
-
 # Resolve through the ~/.local/bin link so the checkout remains the source of
 # truth and worktree installs bind the checkout that performed the install.
 script_path="$0"
@@ -103,10 +87,6 @@ acquire_lock() {
     local attempts=0
     local owner_pid=''
 
-    if [ "${AGENTSTART_HERDR_TINTY_LOCK_HELD:-0}" = 1 ]; then
-        return 0
-    fi
-
     mkdir -p -- "$(dirname -- "$lock_dir")"
     while ! mkdir -- "$lock_dir" 2>/dev/null; do
         if [ -f "$lock_dir/pid" ]; then
@@ -156,8 +136,6 @@ render_candidate() {
     local fragment="$1"
     local target_dir
     local candidate
-    local theme_changed=1
-    local theme_name=''
 
     [ -s "$config_source" ] \
         || die "Herdr base config is missing or empty: $config_source"
@@ -187,12 +165,6 @@ render_candidate() {
         die "Herdr rejected the generated config; the active config was not changed"
     fi
 
-    if [ -f "$theme_state" ] && cmp -s "$fragment" "$theme_state"; then
-        theme_changed=0
-    elif ! theme_name=$(theme_display_name "$fragment"); then
-        theme_name=''
-    fi
-
     mkdir -p -- "$(dirname -- "$theme_state")"
     state_candidate=$(mktemp "$(dirname -- "$theme_state")/.herdr-theme.toml.XXXXXX")
     cp -- "$fragment" "$state_candidate"
@@ -215,10 +187,6 @@ render_candidate() {
         esac
     fi
 
-    if [ "$theme_changed" -eq 1 ] && [ -n "$theme_name" ]; then
-        "$herdr_bin" notification show "Theme: $theme_name" --sound none \
-            >/dev/null 2>&1 || true
-    fi
 }
 
 apply_theme() {
@@ -226,59 +194,6 @@ apply_theme() {
 
     acquire_lock
     render_candidate "$fragment"
-}
-
-cycle_theme() {
-    local direction="$1"
-    local current=''
-    local chosen=''
-    local index=-1
-    local count
-    local i
-    local list_file
-    local theme
-    local -a themes=()
-
-    acquire_lock
-    list_file=$(mktemp "$state_root/.tinty-list.XXXXXX")
-    temporary_file="$list_file"
-    "$tinty_bin" list >"$list_file"
-    while IFS= read -r theme || [ -n "$theme" ]; do
-        [ -n "$theme" ] || continue
-        themes[${#themes[@]}]="$theme"
-    done <"$list_file"
-    rm -f -- "$list_file"
-    temporary_file=''
-
-    count=${#themes[@]}
-    [ "$count" -gt 0 ] || die "Tinty returned no themes; run tinty sync"
-    if current=$("$tinty_bin" current 2>/dev/null); then
-        :
-    else
-        current=''
-    fi
-    for ((i = 0; i < count; i += 1)); do
-        if [ "${themes[$i]}" = "$current" ]; then
-            index=$i
-            break
-        fi
-    done
-
-    if [ "$direction" = next ]; then
-        if [ "$index" -lt 0 ]; then
-            chosen="${themes[0]}"
-        else
-            chosen="${themes[$(((index + 1) % count))]}"
-        fi
-    else
-        if [ "$index" -lt 0 ]; then
-            chosen="${themes[$((count - 1))]}"
-        else
-            chosen="${themes[$(((index + count - 1) % count))]}"
-        fi
-    fi
-
-    AGENTSTART_HERDR_TINTY_LOCK_HELD=1 "$tinty_bin" apply "$chosen"
 }
 
 link_owned_file() {
@@ -333,7 +248,7 @@ install_integration() {
     else
         mkdir -p -- "$runtime_template/templates" "$runtime_template/themes"
         : >"$runtime_template/.agentstart-managed"
-        for template_file in config.yaml base16.mustache tinted8.mustache; do
+        for template_file in config.yaml base16.mustache; do
             cp -- "$template_source/templates/$template_file" \
                 "$runtime_template/templates/$template_file"
         done
@@ -351,7 +266,7 @@ install_integration() {
     temporary_dir="$stage"
     mkdir -p -- "$stage/templates" "$stage/themes"
     : >"$stage/.agentstart-managed"
-    for template_file in config.yaml base16.mustache tinted8.mustache; do
+    for template_file in config.yaml base16.mustache; do
         [ -s "$template_source/templates/$template_file" ] \
             || die "Tinty Herdr template is missing or empty: $template_source/templates/$template_file"
         cp -- "$template_source/templates/$template_file" "$stage/templates/$template_file"
@@ -359,9 +274,6 @@ install_integration() {
     "$tinty_bin" build "$stage" --quiet
     find "$stage/themes" -type f -name 'base16-*' -print -quit | grep -q . \
         || die "Tinty did not build any Base16 Herdr themes"
-    find "$stage/themes" -type f -name 'tinted8-*' -print -quit | grep -q . \
-        || die "Tinty did not build any Tinted8 Herdr themes"
-
     backup="$runtime_parent/.tinted-herdr.previous.$$"
     mv -- "$runtime_template" "$backup"
     if ! mv -- "$stage" "$runtime_template"; then
@@ -371,7 +283,7 @@ install_integration() {
     temporary_dir=''
     rm -rf -- "$backup"
 
-    "$tinty_bin" init
+    "$tinty_bin" apply base16-chalk
 }
 
 usage() {
@@ -379,19 +291,13 @@ usage() {
 Usage: herdr-tinty <command>
 
 Commands:
-  next                 Apply the next theme from `tinty list`
-  previous             Apply the previous theme from `tinty list`
   apply-theme <file>   Render a Tinty-generated palette into Herdr's config
-  render-config        Re-render Herdr's config from the last palette
+  render-config        Re-render Herdr's config from the recorded palette
   install              Install/update the AgentStart-owned integration
 EOF
 }
 
 case "${1:-}" in
-    next|previous)
-        [ "$#" -eq 1 ] || die "$1 takes no arguments"
-        cycle_theme "$1"
-        ;;
     apply-theme)
         [ "$#" -eq 2 ] || die "apply-theme requires one theme fragment"
         apply_theme "$2"

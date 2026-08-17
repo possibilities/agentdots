@@ -81,22 +81,19 @@ flags, and skip-versus-fail semantics are load-bearing:
 AI desktop applications are not here by design: the claude and chatgpt casks
 belong to the machine layer, as does the `gh` credential migration.
 
-## Herdr themes
+## Herdr and Ghostty theme
 
-AgentStart owns Herdr's behavior config and composes it with the last palette
-Tinty applied. The live `~/.config/herdr/config.toml` is generated and checked
-with `herdr config check` before replacement; the palette itself stays under
-`~/.local/state/agentstart`, and the hundreds of built theme files stay under
-`~/.local/share/agentstart`. Neither belongs in Git.
+AgentStart fixes Herdr and Ghostty to Tinted Theming's Base16 Chalk scheme.
+`scripts/herdr-tinty install` builds the Tinty templates and explicitly applies
+`base16-chalk`; there are no theme-cycle commands or Herdr keybindings.
 
-Inside Herdr, `prefix+[` applies the previous theme and `prefix+]` the next,
-wrapping across every Base16, Base24, and Tinted8 scheme from `tinty list`.
-The same operations are available as `herdr-tinty previous` and
-`herdr-tinty next`. Use `tinty gallery` to browse visually or
-`tinty apply <scheme-id>` to jump directly; Tinty's hook validates, rewrites,
-and live-reloads Herdr without changing Herdr itself. A successful palette
-change also shows a silent system notification with the scheme name. On macOS,
-Herdr delivers it through `terminal-notifier` when available.
+Tinty's Herdr hook composes the generated Chalk palette with AgentStart's
+tracked behavior config, checks the candidate with `herdr config check`,
+atomically replaces `~/.config/herdr/config.toml`, and asks a running server to
+reload. Tinted Theming's official Ghostty hook writes the same scheme to
+`~/.config/ghostty/themes/tinted-theming` and signals running Ghostty instances
+to reload. Funk's tracked Ghostty config selects that stable generated name.
+The rendered palettes remain untracked machine state.
 
 ## Working on it
 
