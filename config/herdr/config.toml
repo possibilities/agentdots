@@ -52,9 +52,11 @@ description = "usage"
 
 # The voice pane runs `agentvoice remote` bare — the remote control for the
 # console already running on this machine. Its manifest carries no
-# escape-to-quit because that TUI spends esc on its own ctrl+k palette.
+# escape-to-quit because that TUI spends esc on its own ctrl+k palette. `t` for
+# talk, because `prefix+v` is Herdr's own split_vertical and a fleet popup
+# never displaces a surface primitive.
 [[keys.command]]
-key = "prefix+v"
+key = "prefix+t"
 type = "shell"
 command = '"$HERDR_BIN_PATH" plugin pane open --plugin agentsurface --entrypoint voice'
 description = "voice console"
