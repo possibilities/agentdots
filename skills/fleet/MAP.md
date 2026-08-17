@@ -109,6 +109,7 @@ flowchart LR
         wiki -.-> board & brain & chats
         chats
         keys
+        bus
     end
 
     subgraph guidanceSkills [agentguidance skills]
@@ -120,8 +121,9 @@ flowchart LR
     end
 
     watchRequests -.-> chats
+    bus -.-> notify
 
-    tools[TOOLS.md — agentstart prompts, spliced into collab, build, and orchestrate at render] -.-> search & scrape & brain & browser & wiki & board & groom & chats & notify
+    tools[TOOLS.md — agentstart prompts, spliced into collab, build, and orchestrate at render] -.-> search & scrape & brain & browser & wiki & board & groom & chats & notify & bus
 ```
 
 The TOOLS.md node is the widest fan-out in the fleet and this repository is
@@ -236,7 +238,8 @@ independent app-server children do not use codex-swap's removed sidecars.
 | search | brain, chats, scrape | check brain first — the answer is often already local |
 | browser | scrape, search | fetching content is scrape; finding pages is search |
 | wiki | board, brain, chats | the durable home the others cite into. Wiki's `search` is its own subcommand, not the search skill |
-| TOOLS.md (this repo) | search, scrape, brain, browser, wiki, board, groom, chats, notify | spliced into collab, build, and orchestrate at render — the advertisement lines are the routing |
+| TOOLS.md (this repo) | search, scrape, brain, browser, wiki, board, groom, chats, notify, bus | spliced into collab, build, and orchestrate at render — the advertisement lines are the routing |
+| bus | notify | a blocked bus target is waiting on the operator, so a message that matters escalates to a human notification instead of more retries (`agentsurface/skills/bus/SKILL.md`) |
 | orchestrate (agentguidance) | collab, build, herdr | the wielder: collab's contract holds on the conversation thread, and execution leaves as standalone briefs run under build's contract by dispatched workers (`agentguidance/skills/orchestrate/SKILL.md`, `fragments/orchestrator-conduct.md`). Dispatch runs on two lanes: the native facility for work in the orchestrator's own service, and the surface — herdr — for the work itself; both orchestrator renditions bind herdr by name and load its skill for placement mechanics |
 | resource-create / resource-update (agentguidance) | brain | resources are built from and refreshed against the agentbrain index |
 | story (agentguidance) | wiki | publishes the finished narrative through agentwiki |
@@ -290,4 +293,7 @@ the managed keybinding opening that pane entrypoint from the active pane's cwd.
 Updated 2026-08-17 for the third AgentSurface integration, the message bus:
 `agentsurface agents`/`message` speak herdr's `agent list`, `tab list`,
 `pane get`, and `agent prompt`, so agents on the surface message each other
-by tab-label names or session ids with herdr as the delivery path.
+by tab-label names or session ids with herdr as the delivery path. The bus
+gained its skill the same day: `bus` joins TOOLS.md's advertisements and
+routes to `notify` for blocked-target escalation; `message --wait-unblocked`
+retries a blocked delivery until its deadline.

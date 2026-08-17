@@ -30,5 +30,10 @@ say when.
 - `chats` — every past coding-agent session on this machine: load when a
   bug, error, or decision feels familiar, or to reconstruct what an
   earlier session did.
+- `bus` — messaging another live agent on this machine's surface: telling
+  a peer session something, asking one a question, or replying when a
+  message "sent over the agent message bus" arrives. Delivery types into
+  the peer's harness like the operator would; the skill covers who is
+  reachable and what delivery does and does not promise.
 - `notify` — reach the human when they are away from the terminal: work
   they are waiting on is done, or something has stalled and needs them.
