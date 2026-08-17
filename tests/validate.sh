@@ -535,12 +535,14 @@ mkdir -p \
     "$code_skills_root/agentdemo/skills/demo" \
     "$code_skills_root/agentdemo/skills/second" \
     "$code_skills_root/agentquiet/src" \
+    "$code_skills_root/agentretired/skills/orchestration" \
     "$code_skills_root/agentvoice/skills/story" \
     "$code_skills_root/notagent/skills/x"
 for code_skills_fixture in \
     agentbus/skills/bus \
     agentdemo/skills/demo \
     agentdemo/skills/second \
+    agentretired/skills/orchestration \
     agentvoice/skills/story \
     notagent/skills/x; do
     printf '# fixture skill\n' >"$code_skills_root/$code_skills_fixture/SKILL.md"
@@ -576,8 +578,15 @@ printf '%s\n' "$sync_plan" \
 if printf '%s\n' "$sync_plan" | grep -Eq 'agentquiet|notagent'; then
     fail "skill sync plan includes a checkout that is not a participant"
 fi
-if printf '%s\n' "$sync_plan" | grep -F 'agentbus' >/dev/null; then
-    fail "skill sync plan re-adds the retired bus skill"
+printf '%s\n' "$sync_plan" \
+    | grep -F "npx --yes skills add \"$code_skills_root/agentbus\" --agent codex claude-code pi --skill bus --global --yes" \
+        >/dev/null \
+    || fail "skill sync plan skips the bus skill, back in service since 2026-08-17"
+# A checkout whose every skill is retired drops out of the plan entirely, which
+# is what keeps a full install's explicit removal from being undone six hours
+# later by the unattended additive path.
+if printf '%s\n' "$sync_plan" | grep -Eq 'agentretired|orchestration'; then
+    fail "skill sync plan re-adds a retired skill"
 fi
 printf '%s\n' "$sync_plan" \
     | grep -F "\"$code_skills_root/agentdemo/scripts/post-sync\"" >/dev/null \
@@ -598,10 +607,14 @@ grep -F "npx-stub <--yes> <skills> <add> <$code_skills_root/agentvoice> <--agent
 if grep -E 'agentquiet|notagent' "$code_skills_log" >/dev/null; then
     fail "skill sync synchronized a checkout that is not a participant"
 fi
-if grep -F 'agentbus' "$code_skills_log" >/dev/null; then
-    fail "skill sync re-added the retired bus skill"
+grep -F "npx-stub <--yes> <skills> <add> <$code_skills_root/agentbus> <--agent> <codex> <claude-code> <pi> <--skill> <bus> <--global> <--yes>" \
+    "$code_skills_log" >/dev/null \
+    || fail "skill sync skipped the bus skill, back in service since 2026-08-17"
+if grep -E 'agentretired|orchestration' "$code_skills_log" >/dev/null; then
+    fail "skill sync re-added a retired skill"
 fi
-[ "$(grep -c 'skills> <add>' "$code_skills_log")" -eq 2 ] \
+# One invocation each for agentbus, agentdemo, and agentvoice.
+[ "$(grep -c 'skills> <add>' "$code_skills_log")" -eq 3 ] \
     || fail "skill sync did not invoke the skills tool exactly once per source"
 [ -e "$code_skills_root/agentdemo/post-sync-ran" ] \
     || fail "skill sync did not run a participant's post-sync hook after its skills landed"
@@ -635,7 +648,8 @@ scan_failure_status=$?
 set -e
 [ "$scan_failure_status" -ne 0 ] \
     || fail "skill sync ignored a failing skills tool"
-printf '%s\n' "$scan_failure" | grep -F 'agentdemo' >/dev/null \
+# The scan walks the root in order, so agentbus is the participant that fails.
+printf '%s\n' "$scan_failure" | grep -F 'agentbus' >/dev/null \
     || fail "skill sync failure does not name the project to fix"
 
 # shellcheck disable=SC2016 # Match the exclusion guard the scan must not have.
@@ -661,7 +675,7 @@ for required_install in \
     'scripts/herdr-tinty install  # apply Base16 Chalk to generated Herdr and Ghostty configs, then reload both' \
     'remove AgentStart-owned ~/Library/Application Support/io.datasette.llm/extra-openai-models.yaml symlink  # its extra model records are obsolete' \
     'remove ownership-verified AgentSurface, AgentBus, and Orca harness integrations' \
-    'npx --yes skills remove --global --yes bus orca-cli orchestration computer-use  # retired skills; full install only' \
+    'npx --yes skills remove --global --yes orca-cli orchestration computer-use  # retired skills; full install only' \
     'npm install --global @native-sdk/cli@0.7  # the line the native-sdk skill documents' \
     'npm install --global agent-browser@0.33.2  # Agentweb'"'"'s config.json digest-locks this exact build' \
     'ln -sfn "$(command -v agent-browser)" ~/.local/bin/agent-browser  # the candidate Agentscrape resolves before PATH' \
