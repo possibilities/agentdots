@@ -84,10 +84,9 @@ auto_switch = false
 [ui]
 agent_panel_sort = "priority"
 sidebar_collapsed_mode = "hidden"
-# "dots" renders working, blocked, and done all as a filled dot, separated only
-# by hue; "symbols" gives each state its own glyph (working ◐, done ✓, blocked
-# ×). Added after v0.8.0, so this key needs a master build.
-status_indicators = "symbols"
+# Keep one optical size across Spaces and Agents. State remains distinguishable
+# by hue, while unseen idle agents use a hollow dot.
+status_indicators = "dots"
 # Agent memory per kind ("cc 3.4 / co 2.1"), summed over each agent pane's
 # process tree by Funk's machine-config script. The status area ends flush
 # against the terminal edge, and command output is trimmed before it is drawn,
@@ -104,7 +103,9 @@ tab_bar_right = [
 rows = [["state_icon", "workspace", "tab"]]
 
 [ui.toast]
-delivery = "herdr"
+# Avoid the single in-app toast slot used by config reloads. On macOS Herdr's
+# system backend prefers terminal-notifier and falls back to AppleScript.
+delivery = "system"
 
 # The binary is built from ~/src/herdr by AgentStart's update-herdr, so herdr's
 # own update check would only offer a crossgrade back to the stable channel.

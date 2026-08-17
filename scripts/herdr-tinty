@@ -32,6 +32,22 @@ resolved_link_path() {
     canonical_entry_path "$link_target"
 }
 
+theme_display_name() {
+    local fragment="$1"
+    local header=''
+    local name
+
+    IFS= read -r header <"$fragment" || return 1
+    case "$header" in
+        '# Tinty '*" scheme: "*" ("*')') ;;
+        *) return 1 ;;
+    esac
+    name="${header#* scheme: }"
+    name="${name% (*)}"
+    [ -n "$name" ] || return 1
+    printf '%s\n' "$name"
+}
+
 # Resolve through the ~/.local/bin link so the checkout remains the source of
 # truth and worktree installs bind the checkout that performed the install.
 script_path="$0"
@@ -140,6 +156,8 @@ render_candidate() {
     local fragment="$1"
     local target_dir
     local candidate
+    local theme_changed=1
+    local theme_name=''
 
     [ -s "$config_source" ] \
         || die "Herdr base config is missing or empty: $config_source"
@@ -169,6 +187,12 @@ render_candidate() {
         die "Herdr rejected the generated config; the active config was not changed"
     fi
 
+    if [ -f "$theme_state" ] && cmp -s "$fragment" "$theme_state"; then
+        theme_changed=0
+    elif ! theme_name=$(theme_display_name "$fragment"); then
+        theme_name=''
+    fi
+
     mkdir -p -- "$(dirname -- "$theme_state")"
     state_candidate=$(mktemp "$(dirname -- "$theme_state")/.herdr-theme.toml.XXXXXX")
     cp -- "$fragment" "$state_candidate"
@@ -189,6 +213,11 @@ render_candidate() {
                     "$reload_output" >&2
                 ;;
         esac
+    fi
+
+    if [ "$theme_changed" -eq 1 ] && [ -n "$theme_name" ]; then
+        "$herdr_bin" notification show "Theme: $theme_name" --sound none \
+            >/dev/null 2>&1 || true
     fi
 }
 

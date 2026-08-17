@@ -94,7 +94,9 @@ wrapping across every Base16, Base24, and Tinted8 scheme from `tinty list`.
 The same operations are available as `herdr-tinty previous` and
 `herdr-tinty next`. Use `tinty gallery` to browse visually or
 `tinty apply <scheme-id>` to jump directly; Tinty's hook validates, rewrites,
-and live-reloads Herdr without changing Herdr itself.
+and live-reloads Herdr without changing Herdr itself. A successful palette
+change also shows a silent system notification with the scheme name. On macOS,
+Herdr delivers it through `terminal-notifier` when available.
 
 ## Working on it
 

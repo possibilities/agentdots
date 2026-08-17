@@ -837,6 +837,10 @@ grep -F 'command = "herdr-tinty previous"' config/herdr/config.toml >/dev/null \
     || fail "previous-theme binding does not call herdr-tinty"
 grep -F 'command = "herdr-tinty next"' config/herdr/config.toml >/dev/null \
     || fail "next-theme binding does not call herdr-tinty"
+grep -F 'status_indicators = "dots"' config/herdr/config.toml >/dev/null \
+    || fail "Herdr status indicators do not keep a uniform icon size"
+grep -F 'delivery = "system"' config/herdr/config.toml >/dev/null \
+    || fail "Herdr notifications do not use the terminal-notifier-backed system delivery"
 [ -s config/tinty/config.toml ] \
     || fail "AgentStart's Tinty config is missing"
 [ -s config/tinty/schemes-only.toml ] \
@@ -854,6 +858,12 @@ for template in base16 tinted8; do
             || fail "$template Tinty template is missing Herdr token: $token"
     done
 done
+grep -F 'surface_dim = "#{{base03-hex}}"' \
+    config/tinty/tinted-herdr/templates/base16.mustache >/dev/null \
+    || fail "Base16 Herdr dividers do not contrast with panel backgrounds"
+grep -F 'surface_dim = "#{{palette.gray.normal.hex}}"' \
+    config/tinty/tinted-herdr/templates/tinted8.mustache >/dev/null \
+    || fail "Tinted8 Herdr dividers do not use a contrasting neutral"
 if find config/tinty/tinted-herdr -path '*/themes/*' -type f -print -quit \
     | grep -q .; then
     fail "generated Tinty themes must stay outside the AgentStart checkout"
