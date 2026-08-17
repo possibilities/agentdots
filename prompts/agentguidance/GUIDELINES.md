@@ -29,6 +29,11 @@
   and `< /dev/null` on a grep inside a `while read` loop — some harness
   grep engines outlive the pipe and eat the loop's stdin.
 - A clipboard copy leaves nothing on screen, so notify what landed there.
+- Mint a new project with `ghinit`: run it bare from inside the new
+  directory directly under `~/code`, or pass a name and it creates
+  `~/code/<name>` first. Either way it initializes the repository and
+  binds a private GitHub origin with the first push — never hand-assemble
+  `git init` and `gh repo create`.
 - Finished work lands in main and is pushed — a worktree is where work
   happens, not where it stops. A pull request is a workflow to be asked
   for by name, not a default.
