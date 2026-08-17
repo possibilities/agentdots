@@ -86,6 +86,10 @@ Where things go:
   contract — what every service shares and what is deliberately
   per-service. Labels are bare `<tool>.<service>`; a reverse-DNS label is a
   machine service and does not belong here.
+- A fleet TUI bound to a Herdr popup: always add a pane entrypoint to the
+  `agentsurface` plugin, then bind the key to `herdr plugin pane open`. The
+  tool continues to own its TUI; the shared plugin owns the popup title and
+  geometry so the dialog is also exposed through Herdr's plugin surface.
 - A statusline change: `config/statusline/`, converged by
   `scripts/install-statusline`. One bar in three harness idioms, because
   that is all the harnesses offer — claude runs a render command per frame,

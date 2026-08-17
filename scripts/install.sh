@@ -249,7 +249,7 @@ Command-line tools:
   scripts/update-herdr  # herdr from the bound ~/src/herdr checkout: fast-forward clean master, build, install to ~/.local/bin; blocked checkouts notify instead of forcing
   brew uninstall herdr if the formula lingers  # retired: it would shadow the checkout build on PATH
   herdr integration install claude, codex, and pi  # Codex is pinned to canonical ~/.codex and stale multi-auth shadow hooks are pruned
-  herdr plugin link ~/code/agentsurface/plugin  # the launcher pane + tab-naming plugin; a link registers the checkout path, so relinking is a safe converge
+  herdr plugin link ~/code/agentsurface/plugin  # the fleet popup panes + tab-naming plugin; a link registers the checkout path, so relinking is a safe converge
   scripts/herdr-tinty install  # apply Base16 Chalk to generated Herdr and Ghostty configs, then reload both
   npm install --global @native-sdk/cli@0.7  # the line the native-sdk skill documents
   npm install --global agent-browser@0.33.2  # Agentweb's config.json digest-locks this exact build
@@ -517,10 +517,10 @@ install_herdr_integrations() {
 
 install_herdr_integrations
 
-# AgentSurface's herdr plugin (the titled launcher popup plus tab naming from
-# a conversation's first prompt) registers by link, not copy: herdr records
-# the checkout path, so a changed checkout needs no relink and relinking the
-# same path is a safe converge. Linking works with or without a running server.
+# AgentSurface's herdr plugin (the titled fleet TUI popups plus tab naming from
+# a conversation's first prompt) registers by link, not copy: herdr records the
+# checkout path, so a changed checkout needs no relink and relinking the same
+# path is a safe converge. Linking works with or without a running server.
 # The registered plugin belongs to herdr; the plugin directory belongs to the
 # agentsurface checkout, whose absence is a skip exactly as in
 # install-agent-clis.

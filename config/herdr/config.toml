@@ -41,13 +41,14 @@ type = "shell"
 command = "herdr-agent-tab pi"
 description = "new tab running pi"
 
+# Popup-bound fleet TUIs are pane entrypoints in AgentSurface's linked plugin,
+# which owns their titles and geometry. The usage pane keeps escape-to-quit in
+# its manifest because the TUI itself uses q rather than esc to quit.
 [[keys.command]]
 key = "prefix+u"
-type = "popup"
-command = "escape-to-quit agentusage"
+type = "shell"
+command = '"$HERDR_BIN_PATH" plugin pane open --plugin agentsurface --entrypoint usage'
 description = "usage"
-width = "80%"
-height = "80%"
 
 # AgentSurface's linked herdr plugin owns the popup title and geometry. Open
 # its launch entrypoint from the active pane's cwd so the form preselects that

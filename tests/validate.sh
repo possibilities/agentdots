@@ -852,10 +852,15 @@ grep -F 'for harness in claude codex pi' scripts/install.sh >/dev/null \
 grep -F 'plugin pane open --plugin agentsurface --entrypoint launch' \
     config/herdr/config.toml >/dev/null \
     || fail "AgentSurface binding does not open its plugin launch pane"
+grep -F 'plugin pane open --plugin agentsurface --entrypoint usage' \
+    config/herdr/config.toml >/dev/null \
+    || fail "agentusage binding does not open its AgentSurface plugin pane"
 grep -F 'HERDR_ACTIVE_PANE_CWD' config/herdr/config.toml >/dev/null \
     || fail "AgentSurface plugin popup does not preserve the active pane cwd"
 grep -F 'command = "agentsurface launch"' config/herdr/config.toml >/dev/null \
     && fail "AgentSurface binding still opens an untitled generic popup"
+grep -F 'command = "escape-to-quit agentusage"' config/herdr/config.toml >/dev/null \
+    && fail "agentusage binding still opens an untitled generic popup"
 if grep -E 'herdr-tinty (next|previous)|key = "prefix\+[\[\]]"' \
     config/herdr/config.toml >/dev/null; then
     fail "Herdr config still contains Tinty theme-cycling bindings"
@@ -926,7 +931,7 @@ grep -F '"$script_dir/herdr-tinty" install' scripts/install.sh >/dev/null \
     || fail "installer does not converge the Herdr Tinty integration"
 tests/herdr-tinty.sh
 
-# The AgentSurface launcher and tab-naming plugin registers by checkout path;
+# The AgentSurface popup-pane and tab-naming plugin registers by checkout path;
 # linking every run is the converge, and a missing agentsurface checkout is a
 # skip, not a failure.
 grep -F 'install_herdr_plugins' scripts/install.sh >/dev/null \
