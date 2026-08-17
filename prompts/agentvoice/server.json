@@ -6,7 +6,7 @@
     "dispatch": true,
     "dispatch-reports": true,
     "effort": "high",
-    "sandbox": "workspace-write",
+    "sandbox": "danger-full-access",
     "approval-policy": "on-request",
     "approvals-reviewer": "auto_review",
     "config": {
