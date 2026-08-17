@@ -18,7 +18,9 @@ scripts/install-agentlaunch-shims
 scripts/install-agentvoice-cli
 scripts/remove-retired-integrations
 scripts/install-launchagents
+scripts/herdr-tinty
 tests/validate.sh
+tests/herdr-tinty.sh
 tests/fixtures/npx
 "
 
@@ -33,9 +35,12 @@ fi
 
 for script in scripts/install.sh scripts/sync-skills scripts/install-agent-clis \
     scripts/install-agentlaunch-shims scripts/install-launchagents \
-    scripts/install-agentvoice-cli scripts/remove-retired-integrations; do
+    scripts/install-agentvoice-cli scripts/remove-retired-integrations \
+    scripts/herdr-tinty; do
     [ -x "$script" ] || fail "installer script is not executable: $script"
 done
+[ -x tests/herdr-tinty.sh ] \
+    || fail "Herdr Tinty test is not executable: tests/herdr-tinty.sh"
 [ -x scripts/remove-retired-json-hooks.ts ] \
     || fail "retired JSON hook cleanup helper is not executable"
 
@@ -83,11 +88,11 @@ sync_skills_line=$(grep -n '^"$script_dir/sync-skills"$' scripts/install.sh | cu
     && [ "$voice_link_line" -gt "$sync_skills_line" ] \
     || fail "link_agentvoice_config must run after sync-skills renders the doctrine"
 
-# Global advice belongs in the operator extension prompts, so the shared home
-# guidance stays deliberately empty; the tripwire keeps advice from accreting
+# Global advice belongs in the operator extension prompts, so the harness
+# guidance source stays deliberately empty; the tripwire keeps advice from accreting
 # back into every session.
 [ -f prompts/AGENTS.md ] \
-    || fail "the shared home guidance source is missing: prompts/AGENTS.md"
+    || fail "the harness guidance source is missing: prompts/AGENTS.md"
 [ ! -s prompts/AGENTS.md ] \
     || fail "prompts/AGENTS.md should stay empty — global advice belongs in the operator extension prompts"
 
@@ -648,10 +653,12 @@ for required_install in \
     'curl -fsSL https://pi.dev/install.sh | sh  # in its own session, no controlling terminal' \
     'brew install or upgrade zig  # AgentVoice'"'"'s native duplex audio path builds against it' \
     'brew install or upgrade llm  # an AI CLI, so AgentStart'"'"'s outright — moved out of the machine'"'"'s Brewfile' \
+    'brew tap + trust tinted-theming/tinted, then install or upgrade tinty  # builds the Herdr palettes AgentStart manages' \
     'brew install or upgrade zig@0.15  # herdr'"'"'s vendored libghostty-vt pins the 0.15 line; keg-only beside the tracked zig' \
     'scripts/update-herdr  # herdr from the bound ~/src/herdr checkout: fast-forward clean master, build, install to ~/.local/bin; blocked checkouts notify instead of forcing' \
     'brew uninstall herdr if the formula lingers  # retired: it would shadow the checkout build on PATH' \
     'herdr integration install claude, codex, and pi  # the harness agent-state hooks, reinstalled every run because a herdr upgrade stales them' \
+    'scripts/herdr-tinty install  # build all Base16/Base24/Tinted8 palettes, render ~/.config/herdr/config.toml, and reload Herdr' \
     'remove AgentStart-owned ~/Library/Application Support/io.datasette.llm/extra-openai-models.yaml symlink  # its extra model records are obsolete' \
     'remove ownership-verified AgentSurface, AgentBus, and Orca harness integrations' \
     'npx --yes skills remove --global --yes bus orca-cli orchestration computer-use  # retired skills; full install only' \
@@ -661,10 +668,10 @@ for required_install in \
     'codex mcp add shadcn -- npx shadcn@latest mcp' \
     'claude mcp add --scope user shadcn -- npx shadcn@latest mcp' \
     'native skills list' \
-    'ln -sfn prompts/AGENTS.md ~/AGENTS.md  # deliberately empty; advice belongs in the extension prompts' \
-    'ln -sfn ~/AGENTS.md ~/.claude/CLAUDE.md  # Claude Code reads CLAUDE.md, not AGENTS.md' \
-    'ln -sfn ~/AGENTS.md ~/.codex/AGENTS.md  # Codex skips empty guidance files' \
-    'ln -sfn ~/AGENTS.md ~/.pi/agent/AGENTS.md  # pi'"'"'s global slot; its cwd walk reaches ~/AGENTS.md only under $HOME' \
+    'ln -sfn prompts/AGENTS.md ~/.claude/CLAUDE.md  # Claude Code reads CLAUDE.md, not AGENTS.md' \
+    'ln -sfn prompts/AGENTS.md ~/.codex/AGENTS.md  # Codex skips empty guidance files' \
+    'ln -sfn prompts/AGENTS.md ~/.pi/agent/AGENTS.md  # pi'"'"'s global slot' \
+    'remove AgentStart-owned ~/AGENTS.md symlink  # retired hub; independent occupants are preserved' \
     'ln -sfn prompts/agentvoice/server.json into ~/.config/agentvoice  # the voice server configuration, read at server boot' \
     'ln -sfn ~/.agents/prompts/agentvoice/{ORCHESTRATOR.md,ORCHESTRATOR_SESSION_START.md} into ~/.config/agentvoice  # the voice orchestrator'"'"'s doctrine; agentguidance renders it, so this links after sync-skills' \
     'ln -sfn prompts/agentguidance/{SYSTEM,GUIDELINES,TOOLS}.md into ~/.config/agentguidance  # the extension prompts agentguidance renders against' \
@@ -722,12 +729,21 @@ if grep -En "$operator_account|agentguidance" scripts/install.sh \
     fail "installer grew agentguidance handling beyond the extension prompts; the scan and post-sync hook own the rest"
 fi
 grep -F 'link_agent_guidance' scripts/install.sh >/dev/null \
-    || fail "installer does not link the shared agent guidance"
+    || fail "installer does not link the harness guidance"
 # shellcheck disable=SC2016 # Match the literal target paths in the script.
 grep -F '"$HOME/.claude/CLAUDE.md" "$HOME/.codex/AGENTS.md" "$HOME/.pi/agent/AGENTS.md"' scripts/install.sh >/dev/null \
     || fail "installer does not target all three harness guidance locations"
 grep -F 'refusing to replace independent guidance' scripts/install.sh >/dev/null \
     || fail "installer would replace independent guidance files"
+# shellcheck disable=SC2016 # Match the literal direct-link operation.
+grep -F 'ln -sfn "$source" "$target"' scripts/install.sh >/dev/null \
+    || fail "installer does not link each harness slot directly to the guidance source"
+if grep -F 'home_guidance=' scripts/install.sh >/dev/null \
+    || grep -F 'ln -sfn prompts/AGENTS.md ~/AGENTS.md' scripts/install.sh >/dev/null; then
+    fail "installer still creates the retired home guidance hub"
+fi
+grep -q '^remove_retired_home_guidance$' scripts/install.sh \
+    || fail "installer does not remove its retired home guidance symlink"
 grep -F 'link_extension_prompts' scripts/install.sh >/dev/null \
     || fail "installer does not link the operator extension prompts"
 grep -F 'refusing to replace independent extension prompt' scripts/install.sh >/dev/null \
@@ -746,7 +762,7 @@ for doctrine_name in ORCHESTRATOR.md ORCHESTRATOR_SESSION_START.md server.json; 
 done
 # shellcheck disable=SC2016 # Match the literal home-guidance source path.
 grep -F 'source="$repo_root/prompts/AGENTS.md"' scripts/install.sh >/dev/null \
-    || fail "installer does not own the shared home guidance"
+    || fail "installer does not own the harness guidance source"
 grep -F 'install_or_upgrade_formula llm' scripts/install.sh >/dev/null \
     || fail "installer does not converge the llm CLI"
 grep -F 'remove_retired_llm_config' scripts/install.sh >/dev/null \
@@ -800,6 +816,61 @@ grep -F 'install_herdr_integrations' scripts/install.sh >/dev/null \
     || fail "installer does not converge the herdr harness integrations"
 grep -F 'for harness in claude codex pi' scripts/install.sh >/dev/null \
     || fail "herdr integrations do not cover the three harnesses the fleet runs"
+
+# AgentStart owns Herdr's behavior config and composes it with a Tinty-built
+# palette outside Git. Both template systems expose all nineteen Herdr custom
+# tokens, and the two scoped cycle bindings were audited before being added.
+[ -s config/herdr/config.toml ] \
+    || fail "AgentStart's Herdr base config is missing"
+grep -F 'key = "prefix+["' config/herdr/config.toml >/dev/null \
+    || fail "Herdr config is missing the previous-theme binding"
+grep -F 'key = "prefix+]"' config/herdr/config.toml >/dev/null \
+    || fail "Herdr config is missing the next-theme binding"
+grep -F 'command = "herdr-tinty previous"' config/herdr/config.toml >/dev/null \
+    || fail "previous-theme binding does not call herdr-tinty"
+grep -F 'command = "herdr-tinty next"' config/herdr/config.toml >/dev/null \
+    || fail "next-theme binding does not call herdr-tinty"
+[ -s config/tinty/config.toml ] \
+    || fail "AgentStart's Tinty config is missing"
+[ -s config/tinty/schemes-only.toml ] \
+    || fail "Tinty's local-template update workaround config is missing"
+grep -F 'supported-systems = ["base16", "base24", "tinted8"]' \
+    config/tinty/config.toml >/dev/null \
+    || fail "Tinty's Herdr item does not cover Base16, Base24, and Tinted8"
+for template in base16 tinted8; do
+    template_path="config/tinty/tinted-herdr/templates/$template.mustache"
+    [ -s "$template_path" ] || fail "Tinty template is missing: $template_path"
+    for token in accent panel_bg sidebar_bg active_row_bg selection_bg surface0 \
+        surface1 surface_dim overlay0 overlay1 text subtext0 mauve green yellow \
+        red blue teal peach; do
+        grep -q "^$token = " "$template_path" \
+            || fail "$template Tinty template is missing Herdr token: $token"
+    done
+done
+if find config/tinty/tinted-herdr -path '*/themes/*' -type f -print -quit \
+    | grep -q .; then
+    fail "generated Tinty themes must stay outside the AgentStart checkout"
+fi
+# shellcheck disable=SC2016 # Match the literal installer variable.
+grep -F '"$brew_bin" tap tinted-theming/tinted' scripts/install.sh >/dev/null \
+    || fail "installer does not configure Tinty upstream's Homebrew tap"
+# shellcheck disable=SC2016 # Match the literal installer variable.
+grep -F '"$brew_bin" trust --tap tinted-theming/tinted' scripts/install.sh >/dev/null \
+    || fail "installer does not explicitly trust Tinty upstream's Homebrew tap"
+grep -F 'install_or_upgrade_formula tinty' scripts/install.sh >/dev/null \
+    || fail "installer does not converge Tinty"
+# shellcheck disable=SC2016 # Match the literal helper variable.
+grep -F '"$tinty_bin" install --quiet' scripts/herdr-tinty >/dev/null \
+    || fail "herdr-tinty does not install its local Tinty template"
+# shellcheck disable=SC2016 # Match the literal helper variables.
+grep -F '"$tinty_bin" update --config "$tinty_schemes_config" --quiet' \
+    scripts/herdr-tinty >/dev/null \
+    || fail "herdr-tinty does not update schemes without Git-updating its local template"
+# shellcheck disable=SC2016 # Match the literal installer variable.
+grep -F '"$script_dir/herdr-tinty" install' scripts/install.sh >/dev/null \
+    || fail "installer does not converge the Herdr Tinty integration"
+tests/herdr-tinty.sh
+
 # The tab-naming plugin registers by checkout path; linking every run is the
 # converge, and a missing agentsurface checkout is a skip, not a failure.
 grep -F 'install_herdr_plugins' scripts/install.sh >/dev/null \

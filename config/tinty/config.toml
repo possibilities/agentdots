@@ -1,0 +1,9 @@
+shell = "sh -c '{}'"
+default-scheme = "base16-catppuccin-mocha"
+
+[[items]]
+name = "tinted-herdr"
+path = "~/.local/share/agentstart/tinted-herdr"
+themes-dir = "themes"
+hook = "\"$HOME/.local/bin/herdr-tinty\" apply-theme \"$TINTY_THEME_FILE_PATH\""
+supported-systems = ["base16", "base24", "tinted8"]

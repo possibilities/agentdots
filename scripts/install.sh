@@ -86,42 +86,46 @@ configure_shadcn_mcp() {
     claude mcp add --scope user shadcn -- npx shadcn@latest mcp
 }
 
-# AgentStart owns the shared home guidance file: ~/AGENTS.md links at
-# prompts/AGENTS.md, which stays deliberately empty — global advice belongs
+# AgentStart owns one guidance slot for each harness. Link all three directly
+# at prompts/AGENTS.md, which stays deliberately empty — global advice belongs
 # in the extension prompts below, rendered into the collab and build skills,
 # not in a file loaded into every session. Claude Code reads only CLAUDE.md,
 # Codex skips empty guidance files, and pi's designated global slot is
-# ~/.pi/agent/AGENTS.md — its startup walk from cwd through every ancestor
-# reaches ~/AGENTS.md only for sessions under the home directory, and under
-# the home directory it loads both copies, harmless while they are the same
-# file. Link each harness's global guidance location at it so future
-# guidance has a delivery path. An independent non-symlink file with content
-# at any of the four locations is preserved and reported — the same
-# conflict rule the guidance file itself prescribes for repositories.
+# ~/.pi/agent/AGENTS.md. An independent non-symlink file with content at any
+# target is preserved and reported — the same conflict rule the guidance file
+# itself prescribes for repositories.
 link_agent_guidance() {
     local source="$repo_root/prompts/AGENTS.md"
-    local home_guidance="$HOME/AGENTS.md"
     local target
 
     [ -f "$source" ] \
-        || die "shared agent guidance source is missing: $source"
-
-    if [ ! -L "$home_guidance" ] && [ -s "$home_guidance" ]; then
-        die "refusing to replace independent guidance: $home_guidance"
-    fi
-    ln -sfn "$source" "$home_guidance"
-    cmp -s "$source" "$home_guidance" \
-        || die "linked guidance does not resolve to $source: $home_guidance"
+        || die "agent guidance source is missing: $source"
 
     for target in "$HOME/.claude/CLAUDE.md" "$HOME/.codex/AGENTS.md" "$HOME/.pi/agent/AGENTS.md"; do
         if [ ! -L "$target" ] && [ -s "$target" ]; then
             die "refusing to replace independent guidance: $target"
         fi
         mkdir -p "$(dirname "$target")"
-        ln -sfn "$home_guidance" "$target"
+        ln -sfn "$source" "$target"
         cmp -s "$source" "$target" \
             || die "linked guidance does not resolve to $source: $target"
     done
+}
+
+# Remove only the exact home guidance symlink this checkout previously
+# created. With the three harness slots linked directly, ~/AGENTS.md is a
+# project guidance location again; an independent occupant belongs to its
+# owner and is left alone.
+remove_retired_home_guidance() {
+    local retired_source="$repo_root/prompts/AGENTS.md"
+    local target="$HOME/AGENTS.md"
+
+    if [ -L "$target" ] && [ "$(readlink "$target")" = "$retired_source" ]; then
+        rm -- "$target"
+        printf 'Removed retired AgentStart-owned home guidance symlink: %s.\n' "$target"
+    elif [ -e "$target" ] || [ -L "$target" ]; then
+        printf 'Leaving independent home guidance untouched: %s.\n' "$target"
+    fi
 }
 
 # The extra model records are retired. Remove only the exact symlink this
@@ -240,11 +244,13 @@ Command-line tools:
   curl -fsSL https://pi.dev/install.sh | sh  # in its own session, no controlling terminal
   brew install or upgrade zig  # AgentVoice's native duplex audio path builds against it
   brew install or upgrade llm  # an AI CLI, so AgentStart's outright — moved out of the machine's Brewfile
+  brew tap + trust tinted-theming/tinted, then install or upgrade tinty  # builds the Herdr palettes AgentStart manages
   brew install or upgrade zig@0.15  # herdr's vendored libghostty-vt pins the 0.15 line; keg-only beside the tracked zig
   scripts/update-herdr  # herdr from the bound ~/src/herdr checkout: fast-forward clean master, build, install to ~/.local/bin; blocked checkouts notify instead of forcing
   brew uninstall herdr if the formula lingers  # retired: it would shadow the checkout build on PATH
   herdr integration install claude, codex, and pi  # the harness agent-state hooks, reinstalled every run because a herdr upgrade stales them
   herdr plugin link ~/code/agentsurface/plugin  # the tab-naming plugin; a link registers the checkout path, so relinking is a safe converge
+  scripts/herdr-tinty install  # build all Base16/Base24/Tinted8 palettes, render ~/.config/herdr/config.toml, and reload Herdr
   npm install --global @native-sdk/cli@0.7  # the line the native-sdk skill documents
   npm install --global agent-browser@0.33.2  # Agentweb's config.json digest-locks this exact build
   ln -sfn "$(command -v agent-browser)" ~/.local/bin/agent-browser  # the candidate Agentscrape resolves before PATH
@@ -255,10 +261,10 @@ Agent documentation:
   native skills list
 
 Agent guidance:
-  ln -sfn prompts/AGENTS.md ~/AGENTS.md  # deliberately empty; advice belongs in the extension prompts
-  ln -sfn ~/AGENTS.md ~/.claude/CLAUDE.md  # Claude Code reads CLAUDE.md, not AGENTS.md
-  ln -sfn ~/AGENTS.md ~/.codex/AGENTS.md  # Codex skips empty guidance files
-  ln -sfn ~/AGENTS.md ~/.pi/agent/AGENTS.md  # pi's global slot; its cwd walk reaches ~/AGENTS.md only under $HOME
+  ln -sfn prompts/AGENTS.md ~/.claude/CLAUDE.md  # Claude Code reads CLAUDE.md, not AGENTS.md
+  ln -sfn prompts/AGENTS.md ~/.codex/AGENTS.md  # Codex skips empty guidance files
+  ln -sfn prompts/AGENTS.md ~/.pi/agent/AGENTS.md  # pi's global slot
+  remove AgentStart-owned ~/AGENTS.md symlink  # retired hub; independent occupants are preserved
   ln -sfn prompts/agentguidance/{SYSTEM,GUIDELINES,TOOLS}.md into ~/.config/agentguidance  # the extension prompts agentguidance renders against
   ln -sfn prompts/agentvoice/server.json into ~/.config/agentvoice  # the voice server configuration, read at server boot
   ln -sfn ~/.agents/prompts/agentvoice/{ORCHESTRATOR.md,ORCHESTRATOR_SESSION_START.md} into ~/.config/agentvoice  # the voice orchestrator's doctrine; agentguidance renders it, so this links after sync-skills
@@ -353,6 +359,15 @@ install_or_upgrade_formula zig
 printf 'Installing or upgrading the llm CLI.\n'
 install_or_upgrade_formula llm
 
+# Tinty builds and selects the palette Herdr uses. Although Homebrew itself is
+# machine-owned, this formula is deeply related to the fleet and is installed
+# here for the same standalone-convergence reason as Zig and llm. Tinty lives
+# in its upstream tap rather than homebrew-core.
+printf 'Installing or upgrading Tinty for Herdr themes.\n'
+"$brew_bin" tap tinted-theming/tinted
+"$brew_bin" trust --tap tinted-theming/tinted
+install_or_upgrade_formula tinty
+
 # herdr's vendored libghostty-vt pins the Zig 0.15 line, which the tracked
 # `zig` formula above has moved past, and the official 0.15 tarball cannot
 # link against current macOS SDKs — herdr's own release CI builds with this
@@ -367,9 +382,9 @@ install_or_upgrade_formula zig@0.15
 # weeks and the operator runs the head. update-herdr is the one update path —
 # it fast-forwards a clean checkout, builds with the pinned Zig, installs to
 # ~/.local/bin, and notifies instead of forcing when the checkout cannot
-# converge; the stowed herdr config disables the binary's own version check
-# for the same one-updater reason. The formula and the direct installer both
-# stay retired.
+# converge. The AgentStart-rendered Herdr config disables the binary's own
+# update check for the same one-updater reason. The formula and the direct
+# installer both stay retired.
 printf 'Building and installing herdr from the bound checkout.\n'
 "$script_dir/update-herdr"
 
@@ -426,6 +441,15 @@ install_herdr_plugins() {
 
 install_herdr_plugins
 
+# The Herdr configuration is a generated composition: AgentStart's tracked
+# behavior plus the last Tinty palette under ~/.local/state. The helper owns
+# the migration from Funk's former Stow link, validates candidates before an
+# atomic replacement, and reloads a running server. It also stages and builds
+# every supported Tinty scheme outside this checkout so generated themes never
+# dirty either repository.
+printf 'Installing the AgentStart-owned Tinty integration for Herdr.\n'
+"$script_dir/herdr-tinty" install
+
 command -v npm >/dev/null 2>&1 || die "npm is required to install the Native SDK CLI"
 
 # The native-sdk skill documents the 0.7 line and its agent helpers are
@@ -470,8 +494,11 @@ command -v npx >/dev/null 2>&1 || die "npx is required to install agent skills"
 
 configure_shadcn_mcp
 
-printf 'Linking the shared agent guidance for Claude Code, Codex, and pi.\n'
+printf 'Linking the harness guidance for Claude Code, Codex, and pi.\n'
 link_agent_guidance
+
+printf 'Removing the retired home guidance hub if AgentStart owns it.\n'
+remove_retired_home_guidance
 
 printf 'Linking the operator extension prompts into ~/.config/agentguidance.\n'
 link_extension_prompts

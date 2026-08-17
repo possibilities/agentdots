@@ -34,10 +34,11 @@ believing any of this.
     skills. Linked into `~/.config/agentguidance/`.
   - `agentvoice/` — the voice orchestrator's doctrine and `server.json`,
     linked into `~/.config/agentvoice/` and read at server boot.
-  - `AGENTS.md` — the deliberately empty shared home guidance at
-    `~/AGENTS.md`. Advice belongs in the extension prompts.
-- `config/` — harness configuration and the launchd templates for fleet
-  services AgentStart owns.
+  - `AGENTS.md` — the deliberately empty harness guidance source, linked
+    directly into the Claude Code, Codex, and Pi global slots. Advice belongs
+    in the extension prompts.
+- `config/` — harness configuration, the Herdr/Tinty theme integration, and
+  the launchd templates for fleet services AgentStart owns.
 - `skills/` — skills this checkout exports through the agent* scan, like any
   other fleet repo. `fleet/` is the dependency map of the whole ecosystem.
 - `tests/validate.sh` — the assertions; run it before committing.
@@ -55,6 +56,7 @@ flags, and skip-versus-fail semantics are load-bearing:
 
   - Claude Code, Codex, and Pi, by their official installers;
   - Zig (an intentional duplicate of the machine's Brewfile) and `llm`;
+  - Tinty, its Herdr templates, and the generated live Herdr config;
   - the pinned `@native-sdk/cli` and `agent-browser` npm globals;
   - the shadcn MCP registration for Codex and Claude Code;
   - the `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md` guidance links, and
@@ -78,6 +80,21 @@ flags, and skip-versus-fail semantics are load-bearing:
   here.
 AI desktop applications are not here by design: the claude and chatgpt casks
 belong to the machine layer, as does the `gh` credential migration.
+
+## Herdr themes
+
+AgentStart owns Herdr's behavior config and composes it with the last palette
+Tinty applied. The live `~/.config/herdr/config.toml` is generated and checked
+with `herdr config check` before replacement; the palette itself stays under
+`~/.local/state/agentstart`, and the hundreds of built theme files stay under
+`~/.local/share/agentstart`. Neither belongs in Git.
+
+Inside Herdr, `prefix+[` applies the previous theme and `prefix+]` the next,
+wrapping across every Base16, Base24, and Tinted8 scheme from `tinty list`.
+The same operations are available as `herdr-tinty previous` and
+`herdr-tinty next`. Use `tinty gallery` to browse visually or
+`tinty apply <scheme-id>` to jump directly; Tinty's hook validates, rewrites,
+and live-reloads Herdr without changing Herdr itself.
 
 ## Working on it
 

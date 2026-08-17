@@ -43,6 +43,12 @@ the scheduled updater runs every six hours — the participant scan, no
 downloads beyond the skills tool, no elevation, no uninstalls, no restarts.
 _Avoid_: update, upgrade (binaries never move on this path).
 
+**The Herdr theme config** — the live `~/.config/herdr/config.toml` rendered by
+AgentStart from its tracked behavior config plus the last Tinty palette. Tinty
+changes generated palette state; `herdr-tinty` validates and replaces the live
+composition, so neither checkout becomes program-written state.
+_Avoid_: dotfile, Tinty config (that names only Tinty's own input file).
+
 **Participant** — an `agent*` checkout that exports
 `skills/<name>/SKILL.md` and is therefore discovered by the scan. A
 checkout without one is not misconfigured; it is simply not a participant.

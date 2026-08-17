@@ -42,11 +42,16 @@ flowchart LR
     wiki[agentwiki]
     chats[cass / agentchats]
     herdr[herdr — the surface]
+    tinty[tinty]
+    herdrTinty[agentstart / herdr-tinty]
     surface[agentsurface]
 
     surface -->|x-catalog --x-json, slug completions| launch
     surface -->|workspace/worktree create, agent start, tab rename| herdr
     herdr -.->|plugin hook: pane.agent_detected → name-tab| surface
+    herdrTinty -->|list, current, apply| tinty
+    tinty -->|item hook: generated palette| herdrTinty
+    herdrTinty -->|config check, reload-config| herdr
     launch -->|balance claude/codex --json| usage
     launch -->|run --share-history| claudeSwap
     launch -->|run / resume / pi run --claim| swap
@@ -79,6 +84,7 @@ flowchart LR
     machine ==>|scripts/install.sh --install, sync-skills| start
     start ==>|official installers| harnesses[Claude Code / Codex / Pi]
     start ==>|brew formula + harness integrations + binary-rendered skill| herdrInstall[herdr]
+    start ==>|upstream tap + formula + local templates| tinty[tinty]
     start ==>|npm pin| browser[agent-browser]
     start ==>|checkout contracts| fleet[agentvoice / agentwiki / agentboard / agentsearch / agentkeys / agentweb / agentscrape / agentbrain / codex-swap / agentusage / agentlaunch / agentsurface / cass]
     start ==>|skills scan + post-sync hooks| skills[all agent skills, agentguidance rendered]
@@ -158,6 +164,9 @@ sentence around the match, never from the name alone.
 | agentvoice | agentusage → codex-swap | `agentusage balance codex`, falling back to `codex-swap select`, consulted by the resident wrapper at every spawn (`pick-home`) and by the console's rotation check | `agentvoice/src/core/accounts.ts` (`selectAccount`), `src/resident/install.ts` (`runPickHome`), `src/core/runtime.ts` (`maybeRotate`) |
 | agentvoice | herdr | unix-socket IPC, not a spawn: with `surface.events` on, the console holds an `events.subscribe` NDJSON stream on herdr's socket and reconciles via one-shot `agent.list` calls; pane lifecycle events for token-tagged placed workers become `<surface_report>` turns at the orchestrator | `agentvoice/src/core/surface.ts` (`HerdrSurface`), `src/core/runtime.ts` (surface wiring); enabled by `agentstart/prompts/agentvoice/server.json` |
 | agentstart | herdr | `scripts/update-herdr` (the one update path: fast-forward the clean `~/src/herdr` checkout at upstream master, build with the pinned `zig@0.15`, install to `~/.local/bin/herdr`, notify instead of forcing a blocked checkout), `herdr integration install claude\|codex\|pi` every run, `herdr plugin link` of agentsurface's plugin directory (registration by checkout path, so relinking converges), and the surface skill rendered from `herdr --skill` into a managed pack and shipped through `skills add` — the skill converges with the installed build. The homebrew-core formula is retired and uninstalled by the full installer | `agentstart/scripts/update-herdr`, `agentstart/scripts/install.sh` (`install_herdr_integrations`, `install_herdr_skill`), asserted by `agentstart/tests/validate.sh` |
+| agentstart (`herdr-tinty`) | tinty | installs from Tinted Theming's Homebrew tap, syncs the catalog, builds AgentStart's local Base16/Base24/Tinted8 Herdr templates, and uses `list` / `current` / `apply` for bidirectional all-catalog cycling | `agentstart/scripts/install.sh`; `agentstart/scripts/herdr-tinty`; `agentstart/config/tinty/` |
+| tinty | agentstart (`herdr-tinty`) | the configured `tinted-herdr` item calls `herdr-tinty apply-theme "$TINTY_THEME_FILE_PATH"` after `apply` or `init`; generated themes and the last palette remain outside Git | `agentstart/config/tinty/config.toml`; `agentstart/scripts/herdr-tinty` (`apply_theme`) |
+| agentstart (`herdr-tinty`) | herdr | validates every composed candidate through `HERDR_CONFIG_PATH=<temp> herdr config check`, atomically replaces the managed live config, then calls `herdr server reload-config`; a missing server is nonfatal because the next start reads the validated file | `agentstart/scripts/herdr-tinty` (`render_candidate`) |
 | agentbrain | agentscrape | evidence pipeline in four argv shapes — `fetch-markdown --markdown`, `fetch-markdown --envelope --allow-private-network --max-content-bytes`, `discover-feed`, `fetch-links --preset x-timeline --limit --max-scrolls` — plus a doctor check; a flag change breaks each shape separately | `agentbrain/src/agentscrape.ts:642,1298-1306,2038,2121-2129`, `src/jobs.ts:736` |
 | agentscrape | agentweb | unix-socket IPC, not a spawn: before navigating, asks the daemon `POST /v1/sessions/resolve` whether the origin has a stored signed-in session, via `AGENTSCRAPE_CONDUIT_SOCKET`/`_TOKEN_FILE`; degrades silently to unauthenticated fetching by contract, so it never surfaces in an error path | `agentscrape/src/conduit.ts:10-21,107-110`; served by `agentweb/src/ipc.ts:442-453` |
 | agentscrape | agent-browser | resolves `~/.local/bin/agent-browser` first, then PATH | `agentscrape/src/browser.ts:386-391` |
@@ -180,7 +189,7 @@ sentence around the match, never from the name alone.
 | agentboard, agentchats | each other's CLIs | the shared "agent* state dump" bearings convention: one cross-tool contract for state dumps, with a common ~4-chars-per-token budget | `agentboard/src/help.ts:367`, `agentchats/bin/agentchats:13`, `agentboard/src/brief.ts:140` |
 | agentstart statusline | claude-swap | the claude renderer names the balanced account by reading `CLAUDE_CONFIG_DIR`, whose basename claude-swap spells `<n>-<slugified-email>`; renaming that profile directory silently drops the account segment. No counterpart for codex or pi — codex-swap pins an account by swapping auth in place and exports nothing naming it | `agentstart/config/statusline/claude-statusline.sh` (balanced-account segment); `claude-swap/src/claude_swap/session.py:161-167` |
 | agentguidance | agentvoice (via agentstart) | the voice orchestrator doctrine is rendered doctrine: `agentguidance/prompts/agentvoice/` templates splice the shared orchestrator fragments to `~/.agents/prompts/agentvoice/`, agentstart links the result into `~/.config/agentvoice` after sync-skills (keeping only `server.json` as its own source), and agentvoice discovers the files by name at console start | `agentguidance/scripts/render`; `agentstart/scripts/install.sh` (`link_agentvoice_config`); `agentvoice/src/core/config.ts` (`PROMPT_FILES`) |
-| funk | agentsurface | the launcher's entry point: herdr's config.toml (stowed by funk, herdr's config owner) binds `prefix+l` to a `type = "popup"` command running `agentsurface launch`, so the whole launch flow lives in a popup over the current workspace | `funk/herdr/.config/herdr/config.toml` |
+| agentstart | herdr, agentsurface, tinty | owns Herdr's live `config.toml` as a generated composition of tracked behavior and the last Tinty palette. The behavior retains the `prefix+l` AgentSurface popup and adds `prefix+[` / `prefix+]` theme cycling; Funk retains only the machine-owned `agent-mem.sh` referenced by the config | `agentstart/config/herdr/config.toml`; `agentstart/scripts/herdr-tinty`; `funk/herdr/.config/herdr/agent-mem.sh` |
 | herdr | agentsurface | the plugin hook: the linked `agentsurface` plugin (registered by agentstart's installer via `herdr plugin link`, manifest in `agentsurface/plugin/`) makes herdr run `agentsurface name-tab` on every `pane.agent_detected`, with the event as `HERDR_PLUGIN_EVENT_JSON` and its state under `HERDR_PLUGIN_STATE_DIR` — the hook names the pane's tab after its conversation, once per tab | `agentsurface/plugin/herdr-plugin.toml`; `agentstart/scripts/install.sh` (`install_herdr_plugins`) |
 
 ### pins
@@ -272,3 +281,7 @@ runs metadata completions through `agentlaunch --x-level <metadata_level>`
 names tabs from `pane.agent_detected` hooks, agentstart links that plugin
 and adopts the agentsurface checkout contract, and the retired-integration
 cleanup stops treating the reborn `agentsurface` command link as retired.
+Updated again 2026-08-16 for AgentStart's Tinty/Herdr integration: AgentStart
+replaces Funk as the live Herdr config owner, Tinty hooks feed generated
+palettes into `herdr-tinty`, and the helper calls both Tinty and Herdr for safe
+all-catalog cycling and live reload.
