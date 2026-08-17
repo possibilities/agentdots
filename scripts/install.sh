@@ -270,7 +270,7 @@ Agent guidance:
   ln -sfn ~/.agents/prompts/agentvoice/{ORCHESTRATOR.md,ORCHESTRATOR_SESSION_START.md} into ~/.config/agentvoice  # the voice orchestrator's doctrine; agentguidance renders it, so this links after sync-skills
   remove AgentStart-owned ~/Library/Application Support/io.datasette.llm/extra-openai-models.yaml symlink  # its extra model records are obsolete
   remove ownership-verified AgentSurface, AgentBus, and Orca harness integrations
-  npx --yes skills remove --global --yes bus orca-cli orchestration computer-use  # retired skills; full install only
+  npx --yes skills remove --global --yes orca-cli orchestration computer-use  # retired skills; full install only
 
 Agent skills:
   npx --yes skills add https://github.com/vercel-labs/skills --agent codex claude-code pi --skill find-skills --global --yes
@@ -610,10 +610,12 @@ fi
 
 # This uninstall belongs only to the explicit full installer. sync-skills is
 # the six-hour unattended path and remains additive: it never uninstalls a
-# skill that may be in use by a live session.
-printf 'Removing the retired AgentBus and Orca skills.\n'
+# skill that may be in use by a live session. The `bus` name is no longer
+# removed: it returned to service 2026-08-17 as agentsurface's message-bus
+# skill, which the scan above ships.
+printf 'Removing the retired Orca skills.\n'
 npx --yes skills remove --global --yes \
-    bus orca-cli orchestration computer-use
+    orca-cli orchestration computer-use
 
 # The fleet statusline is harness configuration in each CLI's own idiom, so
 # it converges here rather than from a launcher. It runs after the three CLIs

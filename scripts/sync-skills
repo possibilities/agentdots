@@ -60,9 +60,13 @@ code_root="${AGENTSTART_CODE_ROOT:-$HOME/code}"
 # Skills retired by AgentStart but possibly still present in old local
 # checkouts. The unattended sync path is additive — it never uninstalls — so
 # filtering here is what keeps a full install's explicit removal from being
-# immediately undone on the same run or six hours later.
+# immediately undone on the same run or six hours later. The `bus` name
+# returned to service 2026-08-17 as agentsurface's message-bus skill, so it
+# is deliberately not on this list anymore.
 retired_skill_names=(
-    bus
+    orca-cli
+    orchestration
+    computer-use
 )
 
 skill_is_retired() {
