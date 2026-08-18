@@ -12,12 +12,14 @@ move_tab_previous = "alt+3"
 move_tab_next = "alt+4"
 
 # The divider you get, not the axis you cut along: | puts panes side by side
-# and - stacks them, which is what tmux's | and _ mean here too. Pinned rather
-# than left to herdr's defaults (prefix+v, prefix+minus) because the binary is
-# an untagged master build and a default can move under us. Taking
-# split_vertical off prefix+v is what frees it for the voice console.
+# and _ stacks them. Both shifted, because a pair the hand learns as one thing
+# should not change grip between halves — and they are tmux's own | and _.
+# Herdr's names invert tmux's: split_vertical is tmux's `split-window -h`.
+# Pinned rather than left to herdr's defaults (prefix+v, prefix+minus) because
+# the binary is an untagged master build and a default can move under us.
+# Taking split_vertical off prefix+v is what frees it for the voice console.
 split_vertical = "prefix+|"
-split_horizontal = "prefix+-"
+split_horizontal = "prefix+_"
 
 # Direct, not prefix+hjkl: pane focus is a repeated motion, and a prefix in
 # front of every step breaks the grip. Mirrors tmux's alt+hjkl, the sibling
