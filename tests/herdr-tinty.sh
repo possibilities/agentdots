@@ -66,7 +66,7 @@ rows = [[
   "state_icon",
   { token = "$project", fg = "#121212", bold = true, dim = false },
 ], [
-  { token = "tab", fg = "#080808", dim = false },
+  { token = "$conversation", fg = "#080808", dim = false },
 ]]
 EOF
 sed -e 's/Fixture One (fixture-one)/Fixture Two (fixture-two)/' \
@@ -195,8 +195,8 @@ done
 grep -Fqx "  { token = \"\$project\", fg = \"#121212\", bold = true, dim = false }," \
     "$config_target" \
     || fail "generated Herdr config is missing the styled AgentSurface project token"
-grep -Fqx '  { token = "tab", fg = "#080808", dim = false },' "$config_target" \
-    || fail "generated Herdr config is missing the undimmed branch-grey tab token"
+grep -Fqx "  { token = \"\$conversation\", fg = \"#080808\", dim = false }," "$config_target" \
+    || fail "generated Herdr config is missing the undimmed branch-grey conversation token"
 
 # Reapplying or changing the palette reloads Herdr without sending a theme
 # notification.

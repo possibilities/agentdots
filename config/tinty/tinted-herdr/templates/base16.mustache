@@ -25,11 +25,14 @@ peach = "#{{base09-hex}}"
 # AgentSurface publishes $project as the workspace label, or the root repository
 # name plus worktree branch for a linked worktree. One token keeps that first
 # line contiguous and gives it the standard inactive workspace-name treatment.
-# The conversation tab on row two uses branch grey without the extra dim.
+# Row two is AgentSurface's $conversation token, not herdr's builtin tab name:
+# the builtin elides a single unnamed tab, while the plugin holds "untitled
+# agent" until naming lands, so the row never goes blank. It keeps branch grey
+# without the extra dim.
 [ui.sidebar.agents]
 rows = [[
   "state_icon",
   { token = "$project", fg = "#{{base04-hex}}", bold = true, dim = false },
 ], [
-  { token = "tab", fg = "#{{base03-hex}}", dim = false },
+  { token = "$conversation", fg = "#{{base03-hex}}", dim = false },
 ]]
