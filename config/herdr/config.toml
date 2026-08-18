@@ -5,6 +5,17 @@ next_tab = ["prefix+n", "alt+2"]
 next_workspace = "alt+5"
 previous_workspace = "alt+6"
 
+# Direct, not prefix+hjkl: pane focus is a repeated motion, and a prefix in
+# front of every step breaks the grip. Mirrors tmux's alt+hjkl, the sibling
+# layer, so one set of fingers works in either multiplexer. Karabiner remaps
+# *right* option + hjkl to arrows, so these are left-option chords — the same
+# constraint tmux already lives under here. Keeping focus off prefix+l is what
+# lets the agent launcher hold it.
+focus_pane_left = "alt+h"
+focus_pane_down = "alt+j"
+focus_pane_up = "alt+k"
+focus_pane_right = "alt+l"
+
 # Herdr 0.8.0 has no move_tab_previous/move_tab_next keybind action yet; the
 # helper drives the tab.move API instead. Swap both for the native action once
 # the next release lands.
