@@ -11,6 +11,12 @@ previous_workspace = "alt+6"
 move_tab_previous = "alt+3"
 move_tab_next = "alt+4"
 
+# The session navigator, on tmux's key for the same picker (M-7 choose-session)
+# and completing the alt+5/6/7 set already mirrored. Not prefix+7: that is
+# switch_tab's seventh slot, and herdr drops a default that collides with a
+# user binding without saying so. prefix+g stays as the in-prefix route.
+goto = ["prefix+g", "alt+7"]
+
 # The divider you get, not the axis you cut along: | puts panes side by side
 # and _ stacks them. Both shifted, because a pair the hand learns as one thing
 # should not change grip between halves — and they are tmux's own | and _.
