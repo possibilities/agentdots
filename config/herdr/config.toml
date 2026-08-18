@@ -5,8 +5,9 @@ next_tab = ["prefix+n", "alt+2"]
 next_workspace = "alt+5"
 previous_workspace = "alt+6"
 
-# Native since this build; the herdr-move-tab helper that drove the tab.move
-# API is retired. alt+3/alt+4 keep tmux's mirrored positions.
+# These actions postdate the v0.8.0 tag the binary still reports, so they work
+# only because it is built from master. alt+3/alt+4 keep tmux's mirrored
+# positions.
 move_tab_previous = "alt+3"
 move_tab_next = "alt+4"
 
