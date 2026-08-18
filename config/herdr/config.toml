@@ -5,6 +5,19 @@ next_tab = ["prefix+n", "alt+2"]
 next_workspace = "alt+5"
 previous_workspace = "alt+6"
 
+# Native since this build; the herdr-move-tab helper that drove the tab.move
+# API is retired. alt+3/alt+4 keep tmux's mirrored positions.
+move_tab_previous = "alt+3"
+move_tab_next = "alt+4"
+
+# The divider you get, not the axis you cut along: | puts panes side by side
+# and - stacks them, which is what tmux's | and _ mean here too. Pinned rather
+# than left to herdr's defaults (prefix+v, prefix+minus) because the binary is
+# an untagged master build and a default can move under us. Taking
+# split_vertical off prefix+v is what frees it for the voice console.
+split_vertical = "prefix+|"
+split_horizontal = "prefix+-"
+
 # Direct, not prefix+hjkl: pane focus is a repeated motion, and a prefix in
 # front of every step breaks the grip. Mirrors tmux's alt+hjkl, the sibling
 # layer, so one set of fingers works in either multiplexer. Karabiner remaps
@@ -15,21 +28,6 @@ focus_pane_left = "alt+h"
 focus_pane_down = "alt+j"
 focus_pane_up = "alt+k"
 focus_pane_right = "alt+l"
-
-# Herdr 0.8.0 has no move_tab_previous/move_tab_next keybind action yet; the
-# helper drives the tab.move API instead. Swap both for the native action once
-# the next release lands.
-[[keys.command]]
-key = "alt+3"
-type = "shell"
-command = "herdr-move-tab left"
-description = "move tab left"
-
-[[keys.command]]
-key = "alt+4"
-type = "shell"
-command = "herdr-move-tab right"
-description = "move tab right"
 
 # Herdr 0.8.0 has no keybind action that creates a tab and starts a harness in
 # it; the helper chains tab create + agent start. Tabs keep the default numeric
@@ -63,11 +61,11 @@ description = "usage"
 
 # The voice pane runs `agentvoice remote` bare — the remote control for the
 # console already running on this machine. Its manifest carries no
-# escape-to-quit because that TUI spends esc on its own ctrl+k palette. `t` for
-# talk, because `prefix+v` is Herdr's own split_vertical and a fleet popup
-# never displaces a surface primitive.
+# escape-to-quit because that TUI spends esc on its own ctrl+k palette. `v` for
+# voice: split_vertical moved to prefix+| deliberately, so this displaces
+# nothing.
 [[keys.command]]
-key = "prefix+t"
+key = "prefix+v"
 type = "shell"
 command = '"$HERDR_BIN_PATH" plugin pane open --plugin agentsurface --entrypoint voice'
 description = "voice console"
