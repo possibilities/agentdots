@@ -108,18 +108,6 @@ type = "shell"
 command = '"$HERDR_BIN_PATH" plugin pane open --plugin agentsurface --entrypoint chats --cwd "${HERDR_ACTIVE_PANE_CWD:-$PWD}"'
 description = "resume a past session"
 
-# The diff worth reviewing: on a branch, merge-base with the repo's default
-# branch through the working tree, so an agent's commits and its uncommitted
-# work read as one diff. Delta is the git pager, and it pages through less,
-# which the escape-to-quit wrapper closes on esc.
-[[keys.command]]
-key = "prefix+d"
-type = "popup"
-command = "escape-to-quit herdr-review"
-description = "review the branch diff"
-width = "90%"
-height = "90%"
-
 # Raw, with no escape-to-quit wrapper: esc means cancel inside lazygit.
 [[keys.command]]
 key = "prefix+a"
