@@ -124,6 +124,10 @@ name = "terminal"
 auto_switch = false
 
 [ui]
+# Use shared single-line pane dividers without an outer frame.
+pane_borders = true
+pane_gaps = false
+pane_outer_borders = false
 agent_panel_sort = "priority"
 sidebar_collapsed_mode = "hidden"
 sidebar_max_width = 72
