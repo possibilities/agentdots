@@ -97,6 +97,17 @@ type = "shell"
 command = '"$HERDR_BIN_PATH" plugin pane open --plugin agentsurface --entrypoint launch --cwd "${HERDR_ACTIVE_PANE_CWD:-$PWD}"'
 description = "launch an agent"
 
+# The session history picker: agentchats search in AgentSurface's popup, from
+# the active pane's cwd so the picker opens scoped to that project. Each pick
+# resumes that session on the surface; the picker quits on esc itself and
+# needs no escape-to-quit wrapper. `h` for history — s, r, and c are herdr's
+# own settings, resize_mode, and new_tab.
+[[keys.command]]
+key = "prefix+h"
+type = "shell"
+command = '"$HERDR_BIN_PATH" plugin pane open --plugin agentsurface --entrypoint chats --cwd "${HERDR_ACTIVE_PANE_CWD:-$PWD}"'
+description = "resume a past session"
+
 # The diff worth reviewing: on a branch, merge-base with the repo's default
 # branch through the working tree, so an agent's commits and its uncommitted
 # work read as one diff. Delta is the git pager, and it pages through less,
