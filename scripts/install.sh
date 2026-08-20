@@ -242,6 +242,7 @@ Command-line tools:
   curl -fsSL https://claude.ai/install.sh | bash
   curl -fsSL https://chatgpt.com/codex/install.sh | CODEX_NON_INTERACTIVE=1 sh
   curl -fsSL https://pi.dev/install.sh | sh  # in its own session, no controlling terminal
+  curl -fsSL https://fx.sh/setup.sh | bash  # FX_INSTALL_DIR and PATH pinned to ~/.local/bin, so its rc-file branch never edits the zsh package's ~/.zshrc
   brew install or upgrade zig  # AgentVoice's native duplex audio path builds against it
   brew install or upgrade llm  # an AI CLI, so AgentStart's outright — moved out of the machine's Brewfile
   brew install or upgrade zig@0.15  # herdr's vendored libghostty-vt pins the 0.15 line; keg-only beside the tracked zig
@@ -348,6 +349,18 @@ fi
 printf 'Installing Pi with its official installer.\n'
 /usr/bin/curl -fsSL https://pi.dev/install.sh \
     | run_without_controlling_terminal /bin/sh
+
+# fx is Vercel Labs' experimental Zig harness: its installer downloads one
+# static binary from the release CDN into FX_INSTALL_DIR and is rerunnable,
+# upgrading in place. Both variables are passed deliberately rather than
+# left to the script's defaults: the destination is ours to name, and a PATH
+# already holding it suppresses the installer's rc-file branch, which would
+# otherwise append an export line to ~/.zshrc — a file the machine's zsh
+# package owns as a symlink into its repository. Piped stdin also keeps the
+# script off its interactive prompts.
+printf 'Installing fx with its official installer.\n'
+/usr/bin/curl -fsSL https://fx.sh/setup.sh \
+    | FX_INSTALL_DIR="$HOME/.local/bin" PATH="$HOME/.local/bin:$PATH" /bin/bash
 
 # Zig builds Native SDK applications and AgentVoice's opt-in native duplex
 # audio device, and the machine's Brewfile alone cannot guarantee it is
