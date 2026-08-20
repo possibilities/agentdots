@@ -43,11 +43,12 @@ the scheduled updater runs every six hours — the participant scan, no
 downloads beyond the skills tool, no elevation, no uninstalls, no restarts.
 _Avoid_: update, upgrade (binaries never move on this path).
 
-**The Herdr theme config** — the live `~/.config/herdr/config.toml` rendered by
-AgentStart from its tracked behavior config plus Tinted Theming's fixed Base16
-Chalk palette. `herdr-tinty` validates and replaces the live composition, so
-neither checkout becomes program-written state.
-_Avoid_: dotfile, Tinty config (that names only Tinty's own input file).
+**The Herdr config render** — the live `~/.config/herdr/config.toml` rendered
+by AgentStart from its tracked behavior config, which carries no palette.
+`herdr-config` validates and replaces the live file, so neither checkout
+becomes program-written state; it is rendered rather than linked because Herdr
+writes its own keys into it.
+_Avoid_: dotfile, theme config (the render sets no colors at all).
 
 **Participant** — an `agent*` checkout that exports
 `skills/<name>/SKILL.md` and is therefore discovered by the scan. A

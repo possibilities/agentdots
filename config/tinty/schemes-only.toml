@@ -1,3 +1,0 @@
-# Used by herdr-tinty to update Tinty's built-in schemes without asking Tinty
-# 0.34.x to Git-update the local AgentStart template directory.
-shell = "sh -c '{}'"

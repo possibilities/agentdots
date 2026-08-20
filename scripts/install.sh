@@ -244,13 +244,12 @@ Command-line tools:
   curl -fsSL https://pi.dev/install.sh | sh  # in its own session, no controlling terminal
   brew install or upgrade zig  # AgentVoice's native duplex audio path builds against it
   brew install or upgrade llm  # an AI CLI, so AgentStart's outright — moved out of the machine's Brewfile
-  brew tap + trust tinted-theming/tinted, then install or upgrade tinty  # builds the Herdr palettes AgentStart manages
   brew install or upgrade zig@0.15  # herdr's vendored libghostty-vt pins the 0.15 line; keg-only beside the tracked zig
   scripts/update-herdr  # herdr from the bound ~/src/herdr checkout: fast-forward clean master, build, install to ~/.local/bin; blocked checkouts notify instead of forcing
   brew uninstall herdr if the formula lingers  # retired: it would shadow the checkout build on PATH
   herdr integration install claude, codex, and pi  # Codex is pinned to canonical ~/.codex and stale multi-auth shadow hooks are pruned
   herdr plugin link ~/code/agentsurface/plugin  # the fleet popup panes + tab-naming plugin; a link registers the checkout path, so relinking is a safe converge
-  scripts/herdr-tinty install  # apply Base16 Chalk to generated Herdr and Ghostty configs, then reload both
+  scripts/herdr-config install  # render, validate, and activate the generated Herdr config, then reload it
   npm install --global @native-sdk/cli@0.7  # the line the native-sdk skill documents
   npm install --global agent-browser@0.33.2  # Agentweb's config.json digest-locks this exact build
   ln -sfn "$(command -v agent-browser)" ~/.local/bin/agent-browser  # the candidate Agentscrape resolves before PATH
@@ -361,15 +360,6 @@ install_or_upgrade_formula zig
 # machine's Brewfile rather than duplicated from it.
 printf 'Installing or upgrading the llm CLI.\n'
 install_or_upgrade_formula llm
-
-# Tinty builds and selects the palette Herdr uses. Although Homebrew itself is
-# machine-owned, this formula is deeply related to the fleet and is installed
-# here for the same standalone-convergence reason as Zig and llm. Tinty lives
-# in its upstream tap rather than homebrew-core.
-printf 'Installing or upgrading Tinty for Herdr themes.\n'
-"$brew_bin" tap tinted-theming/tinted
-"$brew_bin" trust --tap tinted-theming/tinted
-install_or_upgrade_formula tinty
 
 # herdr's vendored libghostty-vt pins the Zig 0.15 line, which the tracked
 # `zig` formula above has moved past, and the official 0.15 tarball cannot
@@ -538,13 +528,13 @@ install_herdr_plugins() {
 
 install_herdr_plugins
 
-# The Herdr configuration is a generated composition: AgentStart's tracked
-# behavior plus Tinted Theming's Base16 Chalk palette. The helper owns the
-# migration from Funk's former Stow link, validates candidates before an atomic
-# replacement, and reloads running Herdr and Ghostty instances. Generated
-# themes stay outside both checkouts.
-printf 'Applying the AgentStart-owned Base16 Chalk theme to Herdr and Ghostty.\n'
-"$script_dir/herdr-tinty" install
+# Herdr's live configuration is rendered rather than linked, because Herdr
+# writes its own keys into it and neither checkout may become program-written
+# state. The helper validates the candidate before an atomic replacement and
+# reloads a running server. It carries no palette: Herdr's `terminal` theme
+# follows the terminal, which runs its own default colors.
+printf "Rendering AgentStart's Herdr configuration.\n"
+"$script_dir/herdr-config" install
 
 command -v npm >/dev/null 2>&1 || die "npm is required to install the Native SDK CLI"
 

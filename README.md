@@ -37,7 +37,7 @@ believing any of this.
   - `AGENTS.md` — the deliberately empty harness guidance source, linked
     directly into the Claude Code, Codex, and Pi global slots. Advice belongs
     in the extension prompts.
-- `config/` — harness configuration, the Herdr/Tinty theme integration, and
+- `config/` — harness configuration, the generated Herdr config, and
   the launchd templates for fleet services AgentStart owns.
 - `skills/` — skills this checkout exports through the agent* scan, like any
   other fleet repo. `fleet/` is the dependency map of the whole ecosystem.
@@ -56,7 +56,7 @@ flags, and skip-versus-fail semantics are load-bearing:
 
   - Claude Code, Codex, and Pi, by their official installers;
   - Zig (an intentional duplicate of the machine's Brewfile) and `llm`;
-  - Tinty, its Herdr templates, and the generated live Herdr config;
+  - the generated live Herdr config;
   - the pinned `@native-sdk/cli` and `agent-browser` npm globals;
   - the shadcn MCP registration for Codex and Claude Code;
   - the `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md` guidance links, and
@@ -81,19 +81,18 @@ flags, and skip-versus-fail semantics are load-bearing:
 AI desktop applications are not here by design: the claude and chatgpt casks
 belong to the machine layer, as does the `gh` credential migration.
 
-## Herdr and Ghostty theme
+## Herdr and Ghostty color
 
-AgentStart fixes Herdr and Ghostty to Tinted Theming's Base16 Chalk scheme.
-`scripts/herdr-tinty install` builds the Tinty templates and explicitly applies
-`base16-chalk`; there are no theme-cycle commands or Herdr keybindings.
+There is no theme manager. Ghostty runs its built-in default colors, Herdr's
+`terminal` theme follows whatever the terminal shows, and tmux styles its
+chrome with ANSI indices that resolve the same way. No layer names a color of
+its own, so the terminal is the only place a palette could ever be set.
 
-Tinty's Herdr hook composes the generated Chalk palette with AgentStart's
-tracked behavior config, checks the candidate with `herdr config check`,
-atomically replaces `~/.config/herdr/config.toml`, and asks a running server to
-reload. Tinted Theming's official Ghostty hook writes the same scheme to
-`~/.config/ghostty/themes/tinted-theming` and signals running Ghostty instances
-to reload. Funk's tracked Ghostty config selects that stable generated name.
-The rendered palettes remain untracked machine state.
+`scripts/herdr-config install` renders AgentStart's tracked behavior config
+into `~/.config/herdr/config.toml`, checks the candidate with `herdr config
+check`, atomically replaces the live file, and asks a running server to reload.
+It is rendered rather than linked because Herdr writes its own keys into that
+file, and neither checkout may become program-written state.
 
 ## Working on it
 
