@@ -671,7 +671,7 @@ for required_install in \
     'brew install or upgrade zig@0.15  # herdr'"'"'s vendored libghostty-vt pins the 0.15 line; keg-only beside the tracked zig' \
     'scripts/update-herdr  # herdr from the bound ~/src/herdr checkout: fast-forward clean master, build, install to ~/.local/bin; blocked checkouts notify instead of forcing' \
     'brew uninstall herdr if the formula lingers  # retired: it would shadow the checkout build on PATH' \
-    'herdr integration install claude, codex, and pi  # Codex is pinned to canonical ~/.codex and stale multi-auth shadow hooks are pruned' \
+    'herdr integration install claude, codex, and pi  # Claude and Codex are pinned to canonical ~/.claude and ~/.codex, and stale swap-session hooks are pruned' \
     'scripts/herdr-config install  # render, validate, and activate the generated Herdr config, then reload it' \
     'remove AgentStart-owned ~/Library/Application Support/io.datasette.llm/extra-openai-models.yaml symlink  # its extra model records are obsolete' \
     'remove ownership-verified AgentSurface, AgentBus, and Orca harness integrations' \
@@ -711,6 +711,13 @@ grep -F 'CODEX_HOME="$HOME/.codex" herdr integration install "$harness"' \
 grep -F "codex-multi-auth-runtime-home-[^/']+/herdr-agent-state\\.sh" \
     scripts/install.sh >/dev/null \
     || fail "installer does not prune stale Codex multi-auth Herdr hook definitions"
+# shellcheck disable=SC2016 # Assert the literal environment pin in the installer.
+grep -F 'CLAUDE_CONFIG_DIR="$HOME/.claude" herdr integration install "$harness"' \
+    scripts/install.sh >/dev/null \
+    || fail "Herdr's Claude integration can inherit a claude-swap session CLAUDE_CONFIG_DIR"
+grep -F "/\\.claude-swap-backup/sessions/" \
+    scripts/install.sh >/dev/null \
+    || fail "installer does not prune stale Claude swap-session Herdr hook definitions"
 if printf '%s\n' "$install_plan" | grep -qi 'livekit'; then
     fail "installation plan still includes LiveKit setup"
 fi

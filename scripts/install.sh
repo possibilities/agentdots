@@ -248,7 +248,7 @@ Command-line tools:
   brew install or upgrade zig@0.15  # herdr's vendored libghostty-vt pins the 0.15 line; keg-only beside the tracked zig
   scripts/update-herdr  # herdr from the bound ~/src/herdr checkout: fast-forward clean master, build, install to ~/.local/bin; blocked checkouts notify instead of forcing
   brew uninstall herdr if the formula lingers  # retired: it would shadow the checkout build on PATH
-  herdr integration install claude, codex, and pi  # Codex is pinned to canonical ~/.codex and stale multi-auth shadow hooks are pruned
+  herdr integration install claude, codex, and pi  # Claude and Codex are pinned to canonical ~/.claude and ~/.codex, and stale swap-session hooks are pruned
   herdr plugin link ~/code/agentsurface/plugin  # the fleet popup panes + tab-naming plugin; a link registers the checkout path, so relinking is a safe converge
   scripts/herdr-config install  # render, validate, and activate the generated Herdr config, then reload it
   npm install --global @native-sdk/cli@0.7  # the line the native-sdk skill documents
@@ -499,12 +499,105 @@ print(f"Removed {removed} stale Codex multi-auth Herdr hook(s) from {hooks_path}
 PYTHON
 }
 
+prune_swap_claude_herdr_hooks() {
+    local settings_path="$HOME/.claude/settings.json"
+
+    [ -f "$settings_path" ] || return 0
+
+    /usr/bin/python3 - "$settings_path" <<'PYTHON' \
+        || die "failed to prune stale herdr hooks from $settings_path"
+import json
+import os
+import re
+import stat
+import sys
+import tempfile
+
+settings_path = sys.argv[1]
+with open(settings_path, encoding="utf-8") as source:
+    document = json.load(source)
+
+session_start = document.get("hooks", {}).get("SessionStart")
+if not isinstance(session_start, list):
+    raise SystemExit(0)
+
+swap_command = re.compile(
+    r"^bash '.*?/\.claude-swap-backup/sessions/"
+    r"[^/']+/hooks/herdr-agent-state\.sh' session$"
+)
+removed = 0
+groups = []
+
+for group in session_start:
+    if not isinstance(group, dict) or not isinstance(group.get("hooks"), list):
+        groups.append(group)
+        continue
+
+    handlers = []
+    for handler in group["hooks"]:
+        generated_swap_hook = (
+            isinstance(handler, dict)
+            and handler.get("type") == "command"
+            and isinstance(handler.get("command"), str)
+            and swap_command.fullmatch(handler["command"]) is not None
+        )
+        if generated_swap_hook:
+            removed += 1
+        else:
+            handlers.append(handler)
+
+    if handlers:
+        group["hooks"] = handlers
+        groups.append(group)
+
+if removed == 0:
+    raise SystemExit(0)
+
+document["hooks"]["SessionStart"] = groups
+write_path = os.path.realpath(settings_path)
+mode = stat.S_IMODE(os.stat(write_path).st_mode)
+temporary = tempfile.NamedTemporaryFile(
+    mode="w",
+    encoding="utf-8",
+    dir=os.path.dirname(write_path),
+    prefix=f".{os.path.basename(write_path)}.",
+    suffix=".tmp",
+    delete=False,
+)
+try:
+    with temporary:
+        json.dump(document, temporary, indent=2)
+        temporary.write("\n")
+        temporary.flush()
+        os.fsync(temporary.fileno())
+    os.chmod(temporary.name, mode)
+    os.replace(temporary.name, write_path)
+except BaseException:
+    try:
+        os.unlink(temporary.name)
+    except FileNotFoundError:
+        pass
+    raise
+
+print(f"Removed {removed} stale Claude swap-session Herdr hook(s) from {settings_path}.")
+PYTHON
+}
+
 install_herdr_integrations() {
     local harness
 
     for harness in claude codex pi; do
         printf 'Installing the herdr %s integration.\n' "$harness"
-        if [ "$harness" = codex ]; then
+        if [ "$harness" = claude ]; then
+            # A claude-swap launch runs with CLAUDE_CONFIG_DIR pointed at a
+            # per-account session directory whose settings.json is a symlink to
+            # the canonical one. Left unpinned, every swapped run appends a
+            # second hook — same script, session-local path — to the one shared
+            # file. Pin the canonical home and prune any that already landed.
+            prune_swap_claude_herdr_hooks
+            CLAUDE_CONFIG_DIR="$HOME/.claude" herdr integration install "$harness" \
+                || die "herdr integration install failed: $harness"
+        elif [ "$harness" = codex ]; then
             # A Codex-swap launch runs with a disposable CODEX_HOME. Never let
             # that session-local path enter the canonical hook definition:
             # Codex trusts the definition hash, so every new path asks again.
