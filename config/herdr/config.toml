@@ -145,6 +145,20 @@ tab_bar_right = [
   { type = "text", text = " " },
 ]
 
+# AgentSurface publishes $project as the workspace label, or the root repository
+# name plus worktree branch for a linked worktree. One token keeps that first
+# line contiguous and gives it the standard inactive workspace-name treatment:
+# under the terminal theme a custom token's own grey is the same grey the
+# builtin name uses, so bold without the extra dim lands on it exactly. Row two
+# is AgentSurface's $conversation token, not herdr's builtin tab name: the
+# builtin elides a single unnamed tab, while the plugin holds "untitled agent"
+# until naming lands, so the row never goes blank.
+[ui.sidebar.agents]
+rows = [
+  ["state_icon", { token = "$project", bold = true, dim = false }],
+  ["$conversation"],
+]
+
 [ui.toast]
 # Avoid the single in-app toast slot used by config reloads. On macOS Herdr's
 # system backend prefers terminal-notifier and falls back to AppleScript.
