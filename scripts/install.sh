@@ -308,9 +308,8 @@ Command-line tools:
   curl -fsSL https://claude.ai/install.sh | bash
   curl -fsSL https://chatgpt.com/codex/install.sh | CODEX_NON_INTERACTIVE=1 sh
   curl -fsSL https://pi.dev/install.sh | sh  # in its own session, no controlling terminal
-  curl -fsSL https://fx.sh/setup.sh | bash  # bootstrap only when ~/.local/bin/fx is absent; FX_INSTALL_DIR and PATH suppress rc-file edits
-  "$HOME/.local/bin/fx" upgrade --channel dev  # track the latest CI-passing main commit and remember the dev channel
   brew install or upgrade zig  # AgentVoice's native duplex audio path builds against it
+  scripts/install-fx  # fx from published fork/integration: rebase upstream in a scratch worktree, run the ReleaseSafe gate, build, and install with auto-upgrade disabled
   brew install or upgrade llm  # an AI CLI, so AgentStart's outright — moved out of the machine's Brewfile
   brew install or upgrade hunk  # review-first diff TUI whose bundled agent skill follows the installed build
   brew install or upgrade rustup  # Terminal Control builds from crates.io with the current stable Rust toolchain
@@ -424,31 +423,20 @@ printf 'Installing Pi with its official installer.\n'
 /usr/bin/curl -fsSL https://pi.dev/install.sh \
     | run_without_controlling_terminal /bin/sh
 
-# fx is Vercel Labs' experimental Zig harness. Its dev channel is the
-# bleeding-edge build of the latest main commit whose CI passed, published as
-# an immutable, checksummed artifact. A fresh machine first needs a released
-# binary capable of selecting that channel; after that, skipping the stable
-# bootstrap avoids downloading and replacing fx twice on every convergence.
-# FX_INSTALL_DIR names our destination, and a PATH already holding it suppresses
-# the bootstrap installer's rc-file branch, which would otherwise append an
-# export line to ~/.zshrc — a file the machine's zsh package owns as a symlink
-# into its repository. Piped stdin also keeps the script off its interactive
-# prompts. The upgrade command remembers the dev channel in fx's user settings.
-fx_bin="$HOME/.local/bin/fx"
-if [ ! -x "$fx_bin" ]; then
-    printf 'Bootstrapping fx with its official installer.\n'
-    /usr/bin/curl -fsSL https://fx.sh/setup.sh \
-        | FX_INSTALL_DIR="$HOME/.local/bin" PATH="$HOME/.local/bin:$PATH" /bin/bash
-fi
-printf 'Installing or upgrading fx from its dev release channel.\n'
-"$fx_bin" upgrade --channel dev
-
 # Zig builds Native SDK applications and AgentVoice's opt-in native duplex
 # audio device, and the machine's Brewfile alone cannot guarantee it is
 # present in a session that only runs this script (intentional duplicate of
 # that Brewfile).
 printf 'Installing or upgrading Zig for Native SDK packaging (intentional duplicate of the machine'\''s Brewfile).\n'
 install_or_upgrade_formula zig
+
+# Fx is a carried public fork while its three patches are upstream: its
+# integration branch is every patch merged, the only ref the machine installs,
+# and the branch AgentStart rebases through a scratch-worktree ReleaseSafe gate
+# whenever upstream moves. The helper also disables Fx's own auto-upgrader so
+# a later dev-channel artifact cannot silently replace the bound build.
+printf 'Building and installing Fx from the bound integration branch.\n'
+"$script_dir/install-fx"
 
 # llm is an AI CLI, so it is AgentStart's outright — moved out of the
 # machine's Brewfile rather than duplicated from it.

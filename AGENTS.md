@@ -21,22 +21,23 @@
   service with two owners has them racing to render it. A fleet checkout
   ships the code; this repository decides that it is present and when it
   runs. Nothing outside this repository installs a fleet component.
-- One fleet dependency is another project the fleet carries patches on:
-  `claude-swap`, cloned to `~/src/claude-swap` under the `~/src` convention,
-  with our fork as the `fork` remote and bound at its `integration` branch —
-  every patch we carry, merged, and the only ref its installer builds. A patch
-  offered upstream lives on its own branch beside it. The binding belongs to
-  agentusage's `scripts/install-providers.sh`, which refuses a checkout whose
-  fork remote is not ours, so retiring it is an edit there and a rerun here.
-  The `fork-rebase-policy` wiki page is the contract. `codex-multi-auth` is no
-  longer a managed fork dependency: upstream merged PRs #664 and #665, so
-  codex-swap installs the exact stock npm pin instead. Its installer keeps the
-  fork behind `NDY_FORK_ACTIVE=0` — dormant rather than deleted, which is what
-  makes reviving it an edit rather than a rewrite. `claude-swap` is the one
-  fork still carried, and it is not in the `install-agent-clis` loop, arriving
-  through agentusage's installer, which is why that loop runs agentusage
-  before agentlaunch. `herdr` is the other bound outside checkout —
-  `~/src/herdr` at upstream `master`, no patches carried — and
+- Two outside projects are managed fork dependencies, each under the `~/src`
+  convention with our fork as the `fork` remote and bound at its `integration`
+  branch — every patch carried, merged, and the only ref an installer builds.
+  A patch offered upstream lives on its own branch beside it. `claude-swap` is
+  owned by agentusage's `scripts/install-providers.sh`; it is not in the
+  `install-agent-clis` loop, which is why that loop runs agentusage before
+  agentlaunch. Fx is owned directly here by `scripts/install-fx`, which carries
+  the external-editor, transcript-resume, and Codex-capacity PRs, runs the
+  ReleaseSafe gate before publishing a rebase, installs the source build to
+  `~/.local/bin/fx`, and disables Fx's independent auto-updater. Both refuse a
+  checkout whose fork remote is not ours. The `fork-rebase-policy` wiki page is
+  the contract. `codex-multi-auth` is no longer a managed fork dependency:
+  upstream merged PRs #664 and #665, so codex-swap installs the exact stock npm
+  pin instead. Its installer keeps the fork behind `NDY_FORK_ACTIVE=0` —
+  dormant rather than deleted, which is what makes reviving it an edit rather
+  than a rewrite. `herdr` is the other bound outside checkout — `~/src/herdr`
+  at upstream `master`, no patches carried — and
   `scripts/update-herdr` owns that binding: it only ever fast-forwards a
   clean checkout and reports anything else with a notification, and it is
   herdr's one update path now that the homebrew-core formula is retired.

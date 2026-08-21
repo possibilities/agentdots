@@ -84,6 +84,7 @@ flowchart LR
 
     machine ==>|scripts/install.sh --install, sync-skills| start
     start ==>|official installers| harnesses[Claude Code / Codex / Pi]
+    start ==>|published integration checkout + ReleaseSafe source build| fx[Fx]
     start ==>|Homebrew stable + binary-bundled review skill| hunk[Hunk]
     start ==>|brew formula + harness integrations + binary-rendered skill| herdrInstall[herdr]
     start ==>|npm pin| browser[agent-browser]
@@ -161,6 +162,7 @@ sentence around the match, never from the name alone.
 | agentstart | codex-swap | `install-agent-clis` invokes `scripts/install.sh --install`, which writes the `codex-swap` command as a source shim into the checkout and installs the exact stock codex-multi-auth npm pin | `agentstart/scripts/install-agent-clis`; `codex-swap/scripts/install.sh` |
 | agentstart | agentlaunch | `install-agent-clis` invokes `scripts/install.sh --install` after `agentusage`; `scripts/install-agentlaunch-shims` is the external shim contract for bare `claude`/`codex`/`pi` | `agentstart/scripts/install-agent-clis`; `agentstart/scripts/install-agentlaunch-shims` |
 | agentstart | Claude Code / Codex / Pi | builds one skill tree under the private `agentstart-core` marketplace, refreshes the local Claude Code and Codex plugin installs, and links Pi's harness-only skill entries to that tree. The full installer removes only AgentStart-managed entries from the Fx-visible compatibility roots; the six-hour sync does not uninstall there | `agentstart/scripts/sync-skills`; `agentstart/scripts/install-core-plugin`; `agentstart/config/core-plugin/*`; `agentstart/docs/adr/0001-keep-core-skills-out-of-compatibility-roots.md` |
+| agentstart | Fx | `scripts/install-fx` binds `~/src/fx` to the published `fork/integration` branch carrying the external-editor, transcript-resume, and Codex-capacity patches; it rebases onto upstream in a scratch worktree, publishes only after Fx's ReleaseSafe gate passes, builds the bound source, atomically installs `~/.local/bin/fx`, and disables Fx's independent auto-upgrader so the dev channel cannot replace it | `agentstart/scripts/install-fx`; invoked by `agentstart/scripts/install.sh`, asserted by `agentstart/tests/validate.sh` |
 | agentstart | Hunk | installs or upgrades the Homebrew formula, resolves the version-matched `hunk-review` skill through `hunk skill path hunk-review`, and copies that bundled skill into the private core plugin. It deliberately never installs the skill from GitHub head, which could teach a newer session API than the local binary accepts | `agentstart/scripts/install.sh` (`install_hunk_skill`), asserted by `agentstart/tests/validate.sh`; `hunk/src/core/run/paths.ts` (`resolveBundledSkillPath`) |
 | agentsurface plugin | agentusage | the shared Herdr plugin's `usage` pane entrypoint runs `escape-to-quit agentusage` in a titled 80% popup. AgentStart's `prefix+u` binding opens the entrypoint instead of duplicating an untitled generic popup | `agentsurface/plugin/herdr-plugin.toml`; `agentstart/config/herdr/config.toml` |
 | agentsurface plugin | agentvoice | the same plugin's `voice` pane entrypoint runs `agentvoice remote` in a titled 80% popup, opened by AgentStart's `prefix+t` binding. Bare, with no escape-to-quit wrapper — that TUI spends esc on its own ctrl+k palette and quits on `q`. The remote attaches to the console already running on this machine over its own socket; the popup never starts a second audio session | `agentsurface/plugin/herdr-plugin.toml`; `agentstart/config/herdr/config.toml`; `agentvoice/src/console/remote-ui.ts` |
@@ -212,6 +214,7 @@ sentence around the match, never from the name alone.
 | @native-sdk/cli | 0.7 line | the native-sdk skill documents 0.7 and its agent helpers are version-matched | `agentstart/scripts/install.sh` (`native_sdk_version`) |
 | zig | Brewfile-tracked, duplicated in the installer | AgentVoice's native duplex audio path and Native SDK packaging build against it | `agentstart/scripts/install.sh` |
 | zig@0.15 | 0.15 line, keg-only | herdr's vendored libghostty-vt pins 0.15 and herdr's release CI builds with this same formula; the official 0.15 tarball cannot link against current macOS SDKs. update-herdr refuses with a notification when the vendored pin drifts off 0.15 | `agentstart/scripts/install.sh`, `agentstart/scripts/update-herdr` (drift gate) |
+| Fx | `~/src/fx` at published `fork/integration` | a managed-fork checkout binding: every carried patch is merged on `integration`, and AgentStart alone rebases, gates, builds, installs, and disables the binary's independent auto-updater | `agentstart/scripts/install-fx`, receipt at `~/.local/state/agentstart/fx-built-commit` |
 | herdr | `~/src/herdr` at `origin/master` | a checkout binding, not a version pin: the operator runs the head because releases trail master by weeks. update-herdr only ever fast-forwards a clean checkout — a dirty tree or diverged master is reported by notification and left untouched | `agentstart/scripts/update-herdr`, receipt at `~/.local/state/agentstart/herdr-built-commit` |
 
 The managed claude-swap fork rebases its **`integration` branch** onto upstream on every
@@ -231,6 +234,7 @@ install, which is how the codex-multi-auth one was lost once. The
 | Fork | Integration branch | Owner | Gate |
 | --- | --- | --- | --- |
 | `~/src/claude-swap` | `integration` | `agentusage/scripts/install-providers.sh` | `uv sync --locked && uv run pytest` |
+| `~/src/fx` | `integration` | `agentstart/scripts/install-fx` | `zig fmt --check src/`, public-surface audit, ReleaseSafe build and unit tests |
 
 Codex-swap no longer binds `~/src/codex-multi-auth`: it uses the exact stock
 npm pin. Open upstream PRs #664 and #665 address helper cleanup for the retired
@@ -348,3 +352,7 @@ Updated 2026-08-21 for Hunk: AgentStart installs the Homebrew-stable review TUI
 and copies its bundled `hunk-review` skill into the private core plugin from
 `hunk skill path`, keeping the agent session commands matched to the installed
 binary instead of independently tracking GitHub head.
+Updated again 2026-08-21 for the managed Fx fork: PRs #242, #244, and #245
+coexist on published `integration`; AgentStart rebases and gates that one ref,
+builds the system binary from it, and disables Fx's separate dev-channel
+auto-updater so the binding remains authoritative.

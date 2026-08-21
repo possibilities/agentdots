@@ -12,6 +12,7 @@ fail() {
 
 shell_files="
 scripts/install.sh
+scripts/install-fx
 scripts/sync-skills
 scripts/install-agent-clis
 scripts/install-agentlaunch-shims
@@ -34,7 +35,7 @@ if command -v shellcheck >/dev/null 2>&1; then
     shellcheck --shell=bash $shell_files
 fi
 
-for script in scripts/install.sh scripts/sync-skills scripts/install-agent-clis \
+for script in scripts/install.sh scripts/install-fx scripts/sync-skills scripts/install-agent-clis \
     scripts/install-agentlaunch-shims scripts/install-core-plugin scripts/install-launchagents \
     scripts/install-agentvoice-cli scripts/remove-retired-integrations \
     scripts/herdr-config; do
@@ -696,9 +697,8 @@ for required_install in \
     'curl -fsSL https://claude.ai/install.sh | bash' \
     'curl -fsSL https://chatgpt.com/codex/install.sh | CODEX_NON_INTERACTIVE=1 sh' \
     'curl -fsSL https://pi.dev/install.sh | sh  # in its own session, no controlling terminal' \
-    'curl -fsSL https://fx.sh/setup.sh | bash  # bootstrap only when ~/.local/bin/fx is absent; FX_INSTALL_DIR and PATH suppress rc-file edits' \
-    '"$HOME/.local/bin/fx" upgrade --channel dev  # track the latest CI-passing main commit and remember the dev channel' \
     'brew install or upgrade zig  # AgentVoice'"'"'s native duplex audio path builds against it' \
+    'scripts/install-fx  # fx from published fork/integration: rebase upstream in a scratch worktree, run the ReleaseSafe gate, build, and install with auto-upgrade disabled' \
     'brew install or upgrade llm  # an AI CLI, so AgentStart'"'"'s outright — moved out of the machine'"'"'s Brewfile' \
     'brew install or upgrade hunk  # review-first diff TUI whose bundled agent skill follows the installed build' \
     'brew install or upgrade rustup  # Terminal Control builds from crates.io with the current stable Rust toolchain' \
@@ -744,6 +744,44 @@ for required_install in \
     printf '%s\n' "$install_plan" | grep -F "$required_install" >/dev/null \
         || fail "installation plan is missing: $required_install"
 done
+
+# Fx is a live managed fork while its three patches are upstream. One
+# published integration branch is the only install source; per-PR branches
+# never move here, and the official dev channel must not remain as a second
+# updater that can overwrite the source build.
+# shellcheck disable=SC2016 # Match the literal helper invocation in the installer.
+grep -F '"$script_dir/install-fx"' scripts/install.sh >/dev/null \
+    || fail "installer does not converge Fx from the bound integration branch"
+[ -x scripts/install-fx ] \
+    || fail "install-fx is missing or not executable"
+grep -F 'fx_branch=integration' scripts/install-fx >/dev/null \
+    || fail "Fx installer does not bind the fleet integration branch"
+grep -F 'worktree add --quiet' scripts/install-fx >/dev/null \
+    || fail "Fx installer does not isolate rebases in a scratch worktree"
+grep -F "notify_fork 'Fx Rebase Deferred'" scripts/install-fx >/dev/null \
+    || fail "Fx installer does not notify when its upstream refresh is deferred"
+grep -F "notify_fork 'Fx Rebase Blocked'" scripts/install-fx >/dev/null \
+    || fail "Fx installer does not notify when its rebase or gate is blocked"
+grep -F 'rebase_onto_upstream || true' scripts/install-fx >/dev/null \
+    || fail "Fx installer does not retain the published working version after a rebase failure"
+# shellcheck disable=SC2016 # Match the literal lease variables in the helper.
+grep -F -- '--force-with-lease=refs/heads/$fx_branch:$old_fork_tip' \
+    scripts/install-fx >/dev/null \
+    || fail "Fx installer can publish a rebase without an exact force-with-lease"
+grep -F 'build test -Doptimize=ReleaseSafe' scripts/install-fx >/dev/null \
+    || fail "Fx integration rebase is not gated by ReleaseSafe unit tests"
+for marker in native_external_editor.zig layoutForTranscriptProjection gateway_generation_expected; do
+    grep -F "$marker" scripts/install-fx >/dev/null \
+        || fail "Fx installer does not guard the carried patch marker: $marker"
+done
+grep -F "jq '.auto_upgrade = false'" scripts/install-fx >/dev/null \
+    || fail "Fx installer does not disable the binary's independent updater"
+if grep -F 'https://fx.sh/setup.sh' scripts/install.sh >/dev/null; then
+    fail "installer retains the official Fx bootstrap beside the integration build"
+fi
+if grep -F 'upgrade --channel dev' scripts/install.sh >/dev/null; then
+    fail "installer retains the Fx dev channel beside the integration build"
+fi
 # shellcheck disable=SC2016 # Assert the literal environment pin in the installer.
 grep -F 'CODEX_HOME="$HOME/.codex" herdr integration install "$harness"' \
     scripts/install.sh >/dev/null \

@@ -20,7 +20,7 @@ extension prompts, and every skill in the private core plugin. The AI *desktop
 applications* are not toolchain; they are Homebrew casks, and the machine's.
 _Avoid_: stack, setup.
 
-**Harness** — an agent CLI a session runs inside: Claude Code, Codex, Pi.
+**Harness** — an agent CLI a session runs inside: Claude Code, Codex, Pi, Fx.
 Skills install into harnesses; AgentLaunch shims balance their bare
 launches. _Avoid_: agent (ambiguous with the fleet apps), IDE.
 

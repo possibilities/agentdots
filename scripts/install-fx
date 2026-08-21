@@ -1,0 +1,266 @@
+#!/bin/bash
+
+set -euo pipefail
+
+# Fx is bound to the public fork's integration branch: every patch this
+# machine carries, merged, and the only ref AgentStart builds and installs.
+# Per-PR branches remain review context and are never moved here. When
+# upstream advances, the integration branch is rebased in a scratch worktree,
+# gated, and published before the bound checkout or installed binary moves.
+
+die() {
+    printf 'AgentStart Fx installer: %s\n' "$*" >&2
+    exit 1
+}
+
+[ "$#" -eq 0 ] || {
+    printf 'Usage: install-fx\n' >&2
+    exit 64
+}
+
+[ "$(uname -s)" = Darwin ] || die "macOS is required"
+[ "$(id -u)" -ne 0 ] || die "run as the target user, not root"
+
+fx_checkout="${AGENTSTART_FX_CHECKOUT:-$HOME/src/fx}"
+fx_branch=integration
+fx_fork_url="${AGENTSTART_FX_FORK_URL:-https://github.com/possibilities/fx.git}"
+fx_upstream_url="${AGENTSTART_FX_UPSTREAM_URL:-https://github.com/vercel-labs/fx.git}"
+fx_upstream_remote=origin
+fx_upstream_branch=main
+fx_bin="${AGENTSTART_FX_BIN:-$HOME/.local/bin/fx}"
+fx_settings="${AGENTSTART_FX_SETTINGS:-$HOME/.fx/settings.json}"
+state_dir="${AGENTSTART_FX_STATE_DIR:-$HOME/.local/state/agentstart}"
+fork_log="${AGENTSTART_FX_FORK_LOG:-$state_dir/fx-fork-rebase.log}"
+commit_receipt="$state_dir/fx-built-commit"
+digest_receipt="$state_dir/fx-built-sha256"
+zig_bin="${AGENTSTART_FX_ZIG_BIN:-$(command -v zig || true)}"
+
+[ -n "$zig_bin" ] && [ -x "$zig_bin" ] \
+    || die "zig is required; run scripts/install.sh --install to provision it"
+command -v git >/dev/null 2>&1 || die "git is required"
+command -v jq >/dev/null 2>&1 || die "jq is required"
+
+remote_matches() {
+    local actual="$1" expected_https="$2" expected_ssh="$3"
+    case "$actual" in
+        "$expected_https" | "${expected_https%.git}" | "$expected_ssh") return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+notify_fork() {
+    local title="$1" message="$2" notifier=""
+    printf '%s: %s\n' "$title" "$message" >&2
+    mkdir -p "$(dirname "$fork_log")"
+    printf '%s  %s: %s\n' \
+        "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$title" "$message" >>"$fork_log"
+
+    if [ -n "${AGENTSTART_TERMINAL_NOTIFIER_BIN:-}" ] \
+        && [ -x "$AGENTSTART_TERMINAL_NOTIFIER_BIN" ]; then
+        notifier="$AGENTSTART_TERMINAL_NOTIFIER_BIN"
+    elif command -v terminal-notifier >/dev/null 2>&1; then
+        notifier=$(command -v terminal-notifier)
+    fi
+    [ -n "$notifier" ] || return 0
+    "$notifier" -title "$title" -message "$message" -ignoreDnD \
+        -group agentstart.fx-fork-rebase >/dev/null 2>&1 || true
+}
+
+patch_markers_present() {
+    local checkout="$1"
+    [ -f "$checkout/src/core/hosts/native_external_editor.zig" ] \
+        || {
+            printf 'AgentStart Fx installer: %s lost the external-editor patch marker.\n' \
+                "$fx_branch" >&2
+            return 1
+        }
+    grep -F 'layoutForTranscriptProjection' "$checkout/src/ui/transcript/runtime.zig" >/dev/null \
+        || {
+            printf 'AgentStart Fx installer: %s lost the transcript-resume patch marker.\n' \
+                "$fx_branch" >&2
+            return 1
+        }
+    grep -F 'gateway_generation_expected' "$checkout/src/core/shared/types.zig" >/dev/null \
+        || {
+            printf 'AgentStart Fx installer: %s lost the Codex-capacity patch marker.\n' \
+                "$fx_branch" >&2
+            return 1
+        }
+}
+
+verify_patch_markers() {
+    patch_markers_present "$1" || die "$fx_branch is missing a carried patch"
+}
+
+run_rebase_gate() {
+    local checkout="$1" fx_zdotdir
+    (
+        cd "$checkout"
+        "$zig_bin" fmt --check src/
+        ./scripts/check-public-surface.sh
+        "$zig_bin" build -Doptimize=ReleaseSafe
+        fx_zdotdir=$(mktemp -d "${TMPDIR:-/tmp}/fx-zdotdir.XXXXXX")
+        trap 'rmdir "$fx_zdotdir" || true' EXIT
+        ZDOTDIR="$fx_zdotdir" "$zig_bin" build test -Doptimize=ReleaseSafe
+    )
+}
+
+# Rebase only in a scratch worktree. A conflict, failed gate, or failed push
+# leaves the previously published checkout and installed binary untouched.
+rebase_onto_upstream() {
+    local upstream_ref="$fx_upstream_remote/$fx_upstream_branch"
+    if ! git -C "$fx_checkout" remote get-url "$fx_upstream_remote" >/dev/null 2>&1; then
+        notify_fork 'Fx Rebase Deferred' \
+            "No $fx_upstream_remote remote is available; the previous Fx binary remains installed."
+        return 0
+    fi
+    if ! git -C "$fx_checkout" fetch --quiet "$fx_upstream_remote" "$fx_upstream_branch"; then
+        notify_fork 'Fx Rebase Deferred' \
+            "Could not fetch $upstream_ref; the previous Fx binary remains installed."
+        return 0
+    fi
+    if git -C "$fx_checkout" merge-base --is-ancestor "$upstream_ref" "$fx_branch"; then
+        printf 'AgentStart Fx installer: integration already carries %s.\n' "$upstream_ref"
+        return 0
+    fi
+
+    local scratch work_branch old_fork_tip failure=""
+    scratch=$(mktemp -d "${TMPDIR:-/tmp}/fx-rebase.XXXXXX")
+    work_branch="rebase/fx-$$"
+    old_fork_tip=$(git -C "$fx_checkout" rev-parse "fork/$fx_branch")
+    rmdir "$scratch"
+    if ! git -C "$fx_checkout" worktree add --quiet -b "$work_branch" \
+        "$scratch" "$fx_branch"; then
+        notify_fork 'Fx Rebase Blocked' \
+            'Could not create the scratch worktree; the previous Fx binary remains installed.'
+        return 1
+    fi
+
+    if ! git -C "$scratch" rebase --quiet "$upstream_ref"; then
+        git -C "$scratch" rebase --abort >/dev/null 2>&1 || true
+        failure="conflicts with $upstream_ref and needs a hand"
+    elif ! patch_markers_present "$scratch"; then
+        failure="rebased but lost a carried patch marker"
+    elif ! run_rebase_gate "$scratch"; then
+        failure="rebased onto $upstream_ref but its ReleaseSafe gate failed"
+    elif ! git -C "$scratch" push --quiet \
+        "--force-with-lease=refs/heads/$fx_branch:$old_fork_tip" \
+        fork "HEAD:$fx_branch"; then
+        failure="passed its gate but could not publish to fork/$fx_branch"
+    fi
+
+    git -C "$fx_checkout" worktree remove --force "$scratch" >/dev/null 2>&1 || true
+    git -C "$fx_checkout" branch -D "$work_branch" >/dev/null 2>&1 || true
+
+    if [ -n "$failure" ]; then
+        notify_fork 'Fx Rebase Blocked' \
+            "Integration $failure. Nothing was published; the previous Fx binary remains installed."
+        return 1
+    fi
+
+    git -C "$fx_checkout" fetch --quiet fork "$fx_branch" || return 1
+    git -C "$fx_checkout" reset --quiet --hard "fork/$fx_branch" || return 1
+    printf 'AgentStart Fx installer: integration rebased onto %s and published.\n' \
+        "$upstream_ref"
+}
+
+disable_auto_upgrade() {
+    local settings_dir tmp_settings
+    settings_dir=$(dirname "$fx_settings")
+    mkdir -p "$settings_dir"
+    tmp_settings="$settings_dir/.settings.json.new.$$"
+    umask 077
+    if [ -f "$fx_settings" ]; then
+        jq '.auto_upgrade = false' "$fx_settings" >"$tmp_settings" \
+            || die "Fx settings are not valid JSON: $fx_settings"
+    else
+        printf '{"auto_upgrade":false}\n' >"$tmp_settings"
+    fi
+    chmod 0600 "$tmp_settings"
+    mv "$tmp_settings" "$fx_settings"
+}
+
+if [ ! -e "$fx_checkout" ]; then
+    printf 'AgentStart Fx installer: cloning fork/integration into %s.\n' "$fx_checkout"
+    mkdir -p "$(dirname "$fx_checkout")"
+    git clone --quiet --origin fork --branch "$fx_branch" "$fx_fork_url" "$fx_checkout" \
+        || die "could not clone fork/$fx_branch into $fx_checkout"
+    git -C "$fx_checkout" remote add "$fx_upstream_remote" "$fx_upstream_url" \
+        || die "could not add the Fx upstream remote"
+fi
+
+git -C "$fx_checkout" rev-parse --is-inside-work-tree >/dev/null 2>&1 \
+    || die "$fx_checkout is not a git worktree"
+
+fork_url=$(git -C "$fx_checkout" remote get-url fork 2>/dev/null || true)
+if [ -z "$fork_url" ]; then
+    git -C "$fx_checkout" remote add fork "$fx_fork_url" \
+        || die "could not add the Fx fork remote"
+elif [ "$fork_url" != "$fx_fork_url" ] && ! remote_matches "$fork_url" \
+    'https://github.com/possibilities/fx.git' 'git@github.com:possibilities/fx.git'; then
+    die "$fx_checkout remote fork points at $fork_url, not the possibilities fork"
+fi
+
+upstream_url=$(git -C "$fx_checkout" remote get-url "$fx_upstream_remote" 2>/dev/null || true)
+if [ -z "$upstream_url" ]; then
+    git -C "$fx_checkout" remote add "$fx_upstream_remote" "$fx_upstream_url" \
+        || die "could not add the Fx upstream remote"
+elif [ "$upstream_url" != "$fx_upstream_url" ] && ! remote_matches "$upstream_url" \
+    'https://github.com/vercel-labs/fx.git' 'git@github.com:vercel-labs/fx.git'; then
+    die "$fx_checkout remote $fx_upstream_remote points at $upstream_url, not vercel-labs/fx"
+fi
+
+git -C "$fx_checkout" fetch --quiet fork "$fx_branch" \
+    || die "could not fetch fork/$fx_branch"
+[ -z "$(git -C "$fx_checkout" status --porcelain)" ] \
+    || die "$fx_checkout has local changes; refusing to install them"
+
+if ! git -C "$fx_checkout" rev-parse --verify --quiet "refs/heads/$fx_branch" >/dev/null; then
+    git -C "$fx_checkout" branch --quiet "$fx_branch" "fork/$fx_branch" \
+        || die "could not create the local integration branch"
+fi
+current_branch=$(git -C "$fx_checkout" rev-parse --abbrev-ref HEAD)
+if [ "$current_branch" != "$fx_branch" ]; then
+    git -C "$fx_checkout" checkout --quiet "$fx_branch" \
+        || die "could not check out integration (was on $current_branch)"
+fi
+git -C "$fx_checkout" merge --quiet --ff-only "fork/$fx_branch" \
+    || die "$fx_branch cannot fast-forward to fork/$fx_branch; reconcile it by hand"
+
+verify_patch_markers "$fx_checkout"
+rebase_onto_upstream || true
+verify_patch_markers "$fx_checkout"
+
+[ "$(git -C "$fx_checkout" rev-parse HEAD)" = \
+    "$(git -C "$fx_checkout" rev-parse "fork/$fx_branch")" ] \
+    || die "$fx_checkout@$fx_branch has unpublished commits; refusing to install them"
+
+head=$(git -C "$fx_checkout" rev-parse HEAD)
+short=$(git -C "$fx_checkout" rev-parse --short HEAD)
+if [ -x "$fx_bin" ] && [ -f "$commit_receipt" ] && [ -f "$digest_receipt" ] \
+    && [ "$(cat "$commit_receipt")" = "$head" ] \
+    && [ "$(shasum -a 256 "$fx_bin" | awk '{print $1}')" = "$(cat "$digest_receipt")" ]; then
+    disable_auto_upgrade
+    printf 'Fx integration already installed at %s.\n' "$short"
+    exit 0
+fi
+
+printf 'Building Fx integration at %s.\n' "$short"
+(
+    cd "$fx_checkout"
+    "$zig_bin" build -Doptimize=ReleaseSafe
+)
+built_bin="$fx_checkout/zig-out/bin/fx"
+[ -x "$built_bin" ] || die "Fx build did not produce $built_bin"
+
+mkdir -p "$(dirname "$fx_bin")" "$state_dir"
+tmp_bin="$fx_bin.new.$$"
+cp "$built_bin" "$tmp_bin"
+chmod 0755 "$tmp_bin"
+mv "$tmp_bin" "$fx_bin"
+printf '%s\n' "$head" >"$commit_receipt"
+shasum -a 256 "$fx_bin" | awk '{print $1}' >"$digest_receipt"
+disable_auto_upgrade
+
+printf 'Fx integration %s installed to %s; auto-upgrade is disabled.\n' \
+    "$short" "$fx_bin"
