@@ -121,10 +121,11 @@ Where things go:
 ## Skills
 
 This checkout participates in the same convention it administers: skills
-under `skills/<name>/SKILL.md` ship globally through the scan in
-`scripts/sync-skills`. The `fleet` skill is the dependency map of the
-ecosystem; its `MAP.md` claims to be current, so a stale edge there is a
-bug, not a doc nit.
+under `skills/<name>/SKILL.md` ship through the private `agentstart-core`
+plugin via `scripts/sync-skills`. Claude Code and Codex expose plugin skills
+with the `agentstart-core` namespace; Pi uses the plain name. The `fleet`
+skill is the dependency map of the ecosystem; its `MAP.md` claims to be
+current, so a stale edge there is a bug, not a doc nit.
 
 ## Validation
 

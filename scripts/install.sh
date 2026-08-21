@@ -12,6 +12,9 @@ repo_root=$(cd -P -- "$script_dir/.." && pwd)
 # from, and a worktree run must still find the real fleet rather than silently
 # skipping every tool.
 code_root="${AGENTSTART_CODE_ROOT:-$HOME/code}"
+core_marketplace_root="${AGENTSTART_CORE_MARKETPLACE_ROOT:-$HOME/.local/share/agentstart/core-marketplace}"
+core_plugin_root="$core_marketplace_root/plugins/agentstart-core"
+core_skills_state_root="$core_marketplace_root/skills-state"
 
 usage() {
     cat <<'EOF'
@@ -54,6 +57,68 @@ install_official() {
 
     printf 'Installing %s with its official installer.\n' "$name"
     /usr/bin/curl -fsSL "$url" | "$interpreter" "$@"
+}
+
+install_private_skill_pack() {
+    local source="$1"
+    shift
+
+    mkdir -p "$core_plugin_root" "$core_skills_state_root"
+    CLAUDE_CONFIG_DIR="$core_plugin_root" XDG_STATE_HOME="$core_skills_state_root" \
+        npx --yes skills add "$source" \
+        --agent claude-code \
+        --skill "$@" \
+        --global --copy --yes
+}
+
+remove_legacy_global_skills() {
+    local names=(
+        find-skills
+        frontend-design
+        web-design-guidelines
+        vercel-react-best-practices
+        ai-sdk
+        ai-elements
+        shadcn
+        native-sdk
+        herdr
+        livekit-simulations
+        orca-cli
+        orchestration
+        computer-use
+    )
+    local project skill_dir skill_name previous_names pi_target pi_link
+
+    for project in "$code_root"/agent*/; do
+        [ -d "$project" ] || continue
+        for skill_dir in "$project"/skills/*/; do
+            [ -f "$skill_dir/SKILL.md" ] || continue
+            skill_dir=${skill_dir%/}
+            names+=("${skill_dir##*/}")
+        done
+    done
+
+    previous_names="$core_marketplace_root/managed-skills.txt"
+    if [ -f "$previous_names" ]; then
+        while IFS= read -r skill_name; do
+            [ -n "$skill_name" ] && names+=("$skill_name")
+        done <"$previous_names"
+    fi
+
+    # The private plugin may already have been synchronized before the first
+    # full migration run. Detach only its Pi links before asking the generic
+    # skills CLI to remove legacy installs, so that tool can never mistake a
+    # link into the private canonical tree for content it owns.
+    for skill_name in "${names[@]}"; do
+        pi_target="$HOME/.pi/agent/skills/$skill_name"
+        [ -L "$pi_target" ] || continue
+        pi_link=$(readlink "$pi_target")
+        case "$pi_link" in
+            "$core_plugin_root"/skills/*) unlink "$pi_target" ;;
+        esac
+    done
+
+    npx --yes skills remove --global --yes "${names[@]}"
 }
 
 # Pi's installer reads its prompts from /dev/tty instead of stdin, so redirecting
@@ -271,19 +336,19 @@ Agent guidance:
   ln -sfn ~/.agents/prompts/agentvoice/{ORCHESTRATOR.md,ORCHESTRATOR_SESSION_START.md} into ~/.config/agentvoice  # the voice orchestrator's doctrine; agentguidance renders it, so this links after sync-skills
   remove AgentStart-owned ~/Library/Application Support/io.datasette.llm/extra-openai-models.yaml symlink  # its extra model records are obsolete
   remove ownership-verified AgentSurface, AgentBus, and Orca harness integrations
-  npx --yes skills remove --global --yes orca-cli orchestration computer-use  # retired skills; full install only
+  remove AgentStart-managed skills from Fx-visible compatibility roots, including retired livekit-simulations  # full install only; independent occupants are preserved
 
-Agent skills:
-  npx --yes skills add https://github.com/vercel-labs/skills --agent codex claude-code pi --skill find-skills --global --yes
-  npx --yes skills add https://github.com/anthropics/skills --agent codex claude-code pi --skill frontend-design --global --yes
-  npx --yes skills add https://github.com/vercel-labs/agent-skills --agent codex claude-code pi --skill web-design-guidelines --global --yes
-  npx --yes skills add https://github.com/vercel-labs/agent-skills --agent codex claude-code pi --skill vercel-react-best-practices --global --yes
-  npx --yes skills add https://github.com/vercel/ai --agent codex claude-code pi --skill ai-sdk --global --yes
-  npx --yes skills add https://github.com/vercel/ai-elements --agent codex claude-code pi --skill ai-elements --global --yes
-  npx --yes skills add https://github.com/shadcn/ui --agent codex claude-code pi --skill shadcn --global --yes
-  npx --yes skills add https://github.com/vercel-labs/native --agent codex claude-code pi --skill native-sdk --global --yes
+Agent core plugin:
+  install external skill packs with --copy into ~/.local/share/agentstart/core-marketplace/plugins/agentstart-core/skills
+  https://github.com/vercel-labs/skills: find-skills
+  https://github.com/anthropics/skills: frontend-design
+  https://github.com/vercel-labs/agent-skills: web-design-guidelines, vercel-react-best-practices
+  https://github.com/vercel/ai: ai-sdk
+  https://github.com/vercel/ai-elements: ai-elements
+  https://github.com/shadcn/ui: shadcn
+  https://github.com/vercel-labs/native: native-sdk
   herdr --skill, rendered to ~/.local/share/agentstart/herdr-skill/skills/herdr/SKILL.md  # the surface skill ships inside the binary, so it converges with the installed build, never a stale copy
-  npx --yes skills add ~/.local/share/agentstart/herdr-skill --agent codex claude-code pi --skill herdr --global --yes
+  install herdr with --copy into the private core plugin
 EOF
     "$script_dir/install-statusline" --check
     "$script_dir/install-launchagents" --check
@@ -715,14 +780,13 @@ if [ "$retired_integrations_status" -ne 0 ]; then
     exit "$retired_integrations_status"
 fi
 
-# This uninstall belongs only to the explicit full installer. sync-skills is
-# the six-hour unattended path and remains additive: it never uninstalls a
-# skill that may be in use by a live session. The `bus` name is no longer
-# removed: it returned to service 2026-08-17 as agentsurface's message-bus
-# skill, which the scan above ships.
-printf 'Removing the retired Orca skills.\n'
-npx --yes skills remove --global --yes \
-    orca-cli orchestration computer-use
+# This cleanup belongs only to the explicit full installer. sync-skills is the
+# six-hour unattended path and remains additive: it never uninstalls a skill
+# that may be in use by a live session. The exact managed set is the external
+# packs, every discovered fleet skill, and the previous install receipt;
+# independent compatibility-root occupants are preserved.
+printf 'Removing AgentStart-managed skills from Fx-visible compatibility roots.\n'
+remove_legacy_global_skills
 
 # The fleet statusline is harness configuration in each CLI's own idiom, so
 # it converges here rather than from a launcher. It runs after the three CLIs
@@ -730,49 +794,25 @@ npx --yes skills remove --global --yes \
 # installer creates.
 "$script_dir/install-statusline" --install
 
-printf 'Installing the global skill discovery helper.\n'
-npx --yes skills add https://github.com/vercel-labs/skills \
-    --agent codex claude-code pi \
-    --skill find-skills \
-    --global --yes
+printf 'Installing the private skill discovery helper.\n'
+install_private_skill_pack https://github.com/vercel-labs/skills find-skills
 
-printf 'Installing the globally managed design skills.\n'
-npx --yes skills add https://github.com/anthropics/skills \
-    --agent codex claude-code pi \
-    --skill frontend-design \
-    --global --yes
-npx --yes skills add https://github.com/vercel-labs/agent-skills \
-    --agent codex claude-code pi \
-    --skill web-design-guidelines \
-    --global --yes
+printf 'Installing the privately managed design skills.\n'
+install_private_skill_pack https://github.com/anthropics/skills frontend-design
+install_private_skill_pack https://github.com/vercel-labs/agent-skills web-design-guidelines
 
 printf 'Installing Vercel React engineering guidance.\n'
-npx --yes skills add https://github.com/vercel-labs/agent-skills \
-    --agent codex claude-code pi \
-    --skill vercel-react-best-practices \
-    --global --yes
+install_private_skill_pack https://github.com/vercel-labs/agent-skills vercel-react-best-practices
 
 printf 'Installing the official Vercel AI SDK and AI Elements skills.\n'
-npx --yes skills add https://github.com/vercel/ai \
-    --agent codex claude-code pi \
-    --skill ai-sdk \
-    --global --yes
-npx --yes skills add https://github.com/vercel/ai-elements \
-    --agent codex claude-code pi \
-    --skill ai-elements \
-    --global --yes
+install_private_skill_pack https://github.com/vercel/ai ai-sdk
+install_private_skill_pack https://github.com/vercel/ai-elements ai-elements
 
 printf 'Installing the official shadcn skill.\n'
-npx --yes skills add https://github.com/shadcn/ui \
-    --agent codex claude-code pi \
-    --skill shadcn \
-    --global --yes
+install_private_skill_pack https://github.com/shadcn/ui shadcn
 
 printf 'Installing the Native SDK discovery skill.\n'
-npx --yes skills add https://github.com/vercel-labs/native \
-    --agent codex claude-code pi \
-    --skill native-sdk \
-    --global --yes
+install_private_skill_pack https://github.com/vercel-labs/native native-sdk
 
 # The surface skill — herdr is the orchestrator doctrine's reference launch
 # surface — ships inside the herdr binary (`herdr --skill`), so the installed
@@ -780,7 +820,8 @@ npx --yes skills add https://github.com/vercel-labs/native \
 # harness integrations above, and never tracks a different head: update-herdr
 # is herdr's one update path, and the skill follows it. The rendered pack lives
 # in a managed state root shaped like a checkout (skills/herdr/) so the same
-# `skills add` mechanism ships it globally. Deliberately not advertised in
+# `skills add` mechanism ships it into the private core plugin. Deliberately
+# not advertised in
 # TOOLS.md: a role skill is named by the orchestrator doctrine, not by the
 # always-on advertisement surface (the tool-advertisement-policy wiki page).
 install_herdr_skill() {
@@ -792,10 +833,7 @@ install_herdr_skill() {
         || die "rendering the herdr skill from the installed binary failed"
     [ -s "$skill_dir/SKILL.md" ] \
         || die "the installed herdr rendered an empty skill"
-    npx --yes skills add "$pack_root" \
-        --agent codex claude-code pi \
-        --skill herdr \
-        --global --yes
+    install_private_skill_pack "$pack_root" herdr
 }
 
 printf 'Installing the herdr surface skill from the installed binary.\n'

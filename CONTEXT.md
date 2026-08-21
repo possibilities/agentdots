@@ -16,7 +16,7 @@ the rule).
 
 **The toolchain** — everything `scripts/install.sh --install` converges:
 harness CLIs, pinned npm globals, MCP registration, guidance links,
-extension prompts, and every globally managed skill. The AI *desktop
+extension prompts, and every skill in the private core plugin. The AI *desktop
 applications* are not toolchain; they are Homebrew casks, and the machine's.
 _Avoid_: stack, setup.
 
@@ -39,9 +39,18 @@ listing (an installed, unadvertised tool is still fully documented by its
 skill).
 
 **The sync path** — `scripts/sync-skills`: the unattended-safe convergence
-the scheduled updater runs every six hours — the participant scan, no
-downloads beyond the skills tool, no elevation, no uninstalls, no restarts.
-_Avoid_: update, upgrade (binaries never move on this path).
+the scheduled updater runs every six hours — the participant scan into the
+private `agentstart-core` plugin, plugin cache refresh, no elevation, no
+compatibility-root cleanup, no restarts. _Avoid_: update, upgrade (binaries
+never move on this path).
+
+**The core plugin** — the one managed skill tree under
+`~/.local/share/agentstart/core-marketplace/plugins/agentstart-core/skills`.
+Claude Code and Codex consume it as a plugin, so their names are qualified by
+`agentstart-core`; Pi links the same directories under its harness-only skill
+root and retains plain names. Fx scans none of those sources. _Avoid_: global
+skills, shared skills (those names imply the compatibility roots this design
+retired).
 
 **The Herdr config render** — the live `~/.config/herdr/config.toml` rendered
 by AgentStart from its tracked behavior config, which carries no palette.

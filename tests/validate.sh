@@ -15,6 +15,7 @@ scripts/install.sh
 scripts/sync-skills
 scripts/install-agent-clis
 scripts/install-agentlaunch-shims
+scripts/install-core-plugin
 scripts/install-agentvoice-cli
 scripts/remove-retired-integrations
 scripts/install-launchagents
@@ -34,7 +35,7 @@ if command -v shellcheck >/dev/null 2>&1; then
 fi
 
 for script in scripts/install.sh scripts/sync-skills scripts/install-agent-clis \
-    scripts/install-agentlaunch-shims scripts/install-launchagents \
+    scripts/install-agentlaunch-shims scripts/install-core-plugin scripts/install-launchagents \
     scripts/install-agentvoice-cli scripts/remove-retired-integrations \
     scripts/herdr-config; do
     [ -x "$script" ] || fail "installer script is not executable: $script"
@@ -56,6 +57,19 @@ done
     || fail "retired AgentBus adapter installer returned"
 [ ! -e scripts/install-agentsurface-shims ] \
     || fail "retired AgentSurface shim installer returned"
+
+for manifest in \
+    config/core-plugin/plugin.json \
+    config/core-plugin/codex-plugin.json \
+    config/core-plugin/claude-marketplace.json \
+    config/core-plugin/codex-marketplace.json; do
+    /usr/bin/jq -e . "$manifest" >/dev/null \
+        || fail "core plugin manifest is not valid JSON: $manifest"
+done
+/usr/bin/jq -e '.name == "agentstart-core"' config/core-plugin/plugin.json >/dev/null \
+    || fail "Claude core plugin manifest has the wrong namespace"
+/usr/bin/jq -e '.name == "agentstart-core"' config/core-plugin/codex-plugin.json >/dev/null \
+    || fail "Codex core plugin manifest has the wrong namespace"
 
 # The installer links these into ~/.config/agentguidance and agentguidance
 # renders every skill against them, so an empty or missing prompt ships
@@ -529,8 +543,10 @@ grep -F 'network_access = false' "$bad_cleanup_home/.codex/config.toml" >/dev/nu
 # everything else under the root is not. The scan must batch one invocation
 # per project naming every skill it found, and no participant is exempt.
 code_skills_root="$skip_test_dir/code-root"
+code_skills_home="$skip_test_dir/code-home"
 code_skills_log="$skip_test_dir/npx.log"
 mkdir -p \
+    "$code_skills_home" \
     "$code_skills_root/agentbus/skills/bus" \
     "$code_skills_root/agentdemo/skills/demo" \
     "$code_skills_root/agentdemo/skills/second" \
@@ -560,7 +576,7 @@ EOF
 chmod +x "$code_skills_root/agentdemo/scripts/post-sync"
 
 sync_plan=$(
-    AGENTSTART_CODE_ROOT="$code_skills_root" \
+    HOME="$code_skills_home" AGENTSTART_CODE_ROOT="$code_skills_root" \
         AGENTSTART_NPX_BIN="$root/tests/fixtures/npx" \
         AGENTSTART_TEST_NPX_LOG="$code_skills_log" \
         "$root/scripts/sync-skills" --check
@@ -568,18 +584,18 @@ sync_plan=$(
 [ ! -s "$code_skills_log" ] \
     || fail "skill sync plan invoked the skills tool instead of only printing"
 printf '%s\n' "$sync_plan" \
-    | grep -F "npx --yes skills add \"$code_skills_root/agentdemo\" --agent codex claude-code pi --skill demo second --global --yes" \
+    | grep -F "npx --yes skills add \"$code_skills_root/agentdemo\" --agent claude-code --skill demo second --global --copy --yes" \
         >/dev/null \
     || fail "skill sync plan omits the skills discovered in a participating checkout"
 printf '%s\n' "$sync_plan" \
-    | grep -F "npx --yes skills add \"$code_skills_root/agentvoice\" --agent codex claude-code pi --skill story --global --yes" \
+    | grep -F "npx --yes skills add \"$code_skills_root/agentvoice\" --agent claude-code --skill story --global --copy --yes" \
         >/dev/null \
     || fail "skill sync plan exempts AgentVoice instead of scanning it like any other participant"
 if printf '%s\n' "$sync_plan" | grep -Eq 'agentquiet|notagent'; then
     fail "skill sync plan includes a checkout that is not a participant"
 fi
 printf '%s\n' "$sync_plan" \
-    | grep -F "npx --yes skills add \"$code_skills_root/agentbus\" --agent codex claude-code pi --skill bus --global --yes" \
+    | grep -F "npx --yes skills add \"$code_skills_root/agentbus\" --agent claude-code --skill bus --global --copy --yes" \
         >/dev/null \
     || fail "skill sync plan skips the bus skill, back in service since 2026-08-17"
 # A checkout whose every skill is retired drops out of the plan entirely, which
@@ -594,20 +610,22 @@ printf '%s\n' "$sync_plan" \
 [ ! -e "$code_skills_root/agentdemo/post-sync-ran" ] \
     || fail "skill sync plan ran a post-sync hook instead of only printing"
 
-AGENTSTART_CODE_ROOT="$code_skills_root" \
+HOME="$code_skills_home" AGENTSTART_CODE_ROOT="$code_skills_root" \
     AGENTSTART_NPX_BIN="$root/tests/fixtures/npx" \
     AGENTSTART_TEST_NPX_LOG="$code_skills_log" \
+    AGENTSTART_CLAUDE_BIN=/usr/bin/true \
+    AGENTSTART_CODEX_BIN=/usr/bin/true \
     "$root/scripts/sync-skills" >/dev/null
-grep -F "npx-stub <--yes> <skills> <add> <$code_skills_root/agentdemo> <--agent> <codex> <claude-code> <pi> <--skill> <demo> <second> <--global> <--yes>" \
+grep -F "npx-stub <--yes> <skills> <add> <$code_skills_root/agentdemo> <--agent> <claude-code> <--skill> <demo> <second> <--global> <--copy> <--yes>" \
     "$code_skills_log" >/dev/null \
     || fail "skill sync did not ship both discovered skills in one invocation"
-grep -F "npx-stub <--yes> <skills> <add> <$code_skills_root/agentvoice> <--agent> <codex> <claude-code> <pi> <--skill> <story> <--global> <--yes>" \
+grep -F "npx-stub <--yes> <skills> <add> <$code_skills_root/agentvoice> <--agent> <claude-code> <--skill> <story> <--global> <--copy> <--yes>" \
     "$code_skills_log" >/dev/null \
     || fail "skill sync skipped AgentVoice instead of synchronizing it"
 if grep -E 'agentquiet|notagent' "$code_skills_log" >/dev/null; then
     fail "skill sync synchronized a checkout that is not a participant"
 fi
-grep -F "npx-stub <--yes> <skills> <add> <$code_skills_root/agentbus> <--agent> <codex> <claude-code> <pi> <--skill> <bus> <--global> <--yes>" \
+grep -F "npx-stub <--yes> <skills> <add> <$code_skills_root/agentbus> <--agent> <claude-code> <--skill> <bus> <--global> <--copy> <--yes>" \
     "$code_skills_log" >/dev/null \
     || fail "skill sync skipped the bus skill, back in service since 2026-08-17"
 if grep -E 'agentretired|orchestration' "$code_skills_log" >/dev/null; then
@@ -618,11 +636,24 @@ fi
     || fail "skill sync did not invoke the skills tool exactly once per source"
 [ -e "$code_skills_root/agentdemo/post-sync-ran" ] \
     || fail "skill sync did not run a participant's post-sync hook after its skills landed"
+fixture_plugin_root="$code_skills_home/.local/share/agentstart/core-marketplace/plugins/agentstart-core"
+[ -f "$fixture_plugin_root/skills/demo/SKILL.md" ] \
+    || fail "skill sync did not copy a participant into the private core plugin"
+[ -f "$fixture_plugin_root/.claude-plugin/plugin.json" ] \
+    || fail "skill sync did not render the Claude plugin manifest"
+[ -f "$fixture_plugin_root/.codex-plugin/plugin.json" ] \
+    || fail "skill sync did not render the Codex plugin manifest"
+[ -L "$code_skills_home/.pi/agent/skills/demo" ] \
+    || fail "skill sync did not expose the private skill to Pi"
+[ "$(readlink "$code_skills_home/.pi/agent/skills/demo")" = "$fixture_plugin_root/skills/demo" ] \
+    || fail "Pi's skill link does not resolve to the private core plugin"
+[ ! -e "$code_skills_home/.agents/skills/demo" ] \
+    || fail "skill sync leaked a managed skill into Fx's compatibility root"
 
 # A failing hook is a failing sync, and the message names the project.
 set +e
 hook_failure=$(
-    AGENTSTART_CODE_ROOT="$code_skills_root" \
+    HOME="$code_skills_home" AGENTSTART_CODE_ROOT="$code_skills_root" \
         AGENTSTART_NPX_BIN="$root/tests/fixtures/npx" \
         AGENTSTART_TEST_HOOK_EXIT=9 \
         "$root/scripts/sync-skills" 2>&1
@@ -639,7 +670,7 @@ printf '%s\n' "$hook_failure" | grep -F 'agentdemo post-sync hook failed' >/dev/
 # project: the operator is being asked to go fix that repository.
 set +e
 scan_failure=$(
-    AGENTSTART_CODE_ROOT="$code_skills_root" \
+    HOME="$code_skills_home" AGENTSTART_CODE_ROOT="$code_skills_root" \
         AGENTSTART_NPX_BIN="$root/tests/fixtures/npx" \
         AGENTSTART_TEST_NPX_LOCAL_EXIT=9 \
         "$root/scripts/sync-skills" 2>&1
@@ -659,7 +690,7 @@ fi
 
 # The installation plan embeds the skill sync's own plan, pointed at the
 # fixture tree so the asserted lines are the same on every machine.
-install_plan=$(AGENTSTART_CODE_ROOT="$code_skills_root" "$root/scripts/install.sh" --check)
+install_plan=$(HOME="$code_skills_home" AGENTSTART_CODE_ROOT="$code_skills_root" "$root/scripts/install.sh" --check)
 # shellcheck disable=SC2016 # The plan lines are asserted literally, $-signs and all.
 for required_install in \
     'curl -fsSL https://claude.ai/install.sh | bash' \
@@ -676,7 +707,7 @@ for required_install in \
     'scripts/herdr-config install  # render, validate, and activate the generated Herdr config, then reload it' \
     'remove AgentStart-owned ~/Library/Application Support/io.datasette.llm/extra-openai-models.yaml symlink  # its extra model records are obsolete' \
     'remove ownership-verified AgentSurface, AgentBus, and Orca harness integrations' \
-    'npx --yes skills remove --global --yes orca-cli orchestration computer-use  # retired skills; full install only' \
+    'remove AgentStart-managed skills from Fx-visible compatibility roots, including retired livekit-simulations  # full install only; independent occupants are preserved' \
     'npm install --global @native-sdk/cli@0.7  # the line the native-sdk skill documents' \
     'npm install --global agent-browser@0.33.2  # Agentweb'"'"'s config.json digest-locks this exact build' \
     'ln -sfn "$(command -v agent-browser)" ~/.local/bin/agent-browser  # the candidate Agentscrape resolves before PATH' \
@@ -690,17 +721,18 @@ for required_install in \
     'ln -sfn prompts/agentvoice/server.json into ~/.config/agentvoice  # the voice server configuration, read at server boot' \
     'ln -sfn ~/.agents/prompts/agentvoice/{ORCHESTRATOR.md,ORCHESTRATOR_SESSION_START.md} into ~/.config/agentvoice  # the voice orchestrator'"'"'s doctrine; agentguidance renders it, so this links after sync-skills' \
     'ln -sfn prompts/agentguidance/{SYSTEM,GUIDELINES,TOOLS}.md into ~/.config/agentguidance  # the extension prompts agentguidance renders against' \
-    'npx --yes skills add https://github.com/vercel-labs/skills --agent codex claude-code pi --skill find-skills --global --yes' \
-    'npx --yes skills add https://github.com/anthropics/skills --agent codex claude-code pi --skill frontend-design --global --yes' \
-    'npx --yes skills add https://github.com/vercel-labs/agent-skills --agent codex claude-code pi --skill web-design-guidelines --global --yes' \
-    'npx --yes skills add https://github.com/vercel-labs/agent-skills --agent codex claude-code pi --skill vercel-react-best-practices --global --yes' \
-    'npx --yes skills add https://github.com/vercel/ai --agent codex claude-code pi --skill ai-sdk --global --yes' \
-    'npx --yes skills add https://github.com/vercel/ai-elements --agent codex claude-code pi --skill ai-elements --global --yes' \
-    'npx --yes skills add https://github.com/shadcn/ui --agent codex claude-code pi --skill shadcn --global --yes' \
-    'npx --yes skills add https://github.com/vercel-labs/native --agent codex claude-code pi --skill native-sdk --global --yes' \
+    'install external skill packs with --copy into ~/.local/share/agentstart/core-marketplace/plugins/agentstart-core/skills' \
+    'https://github.com/vercel-labs/skills: find-skills' \
+    'https://github.com/anthropics/skills: frontend-design' \
+    'https://github.com/vercel-labs/agent-skills: web-design-guidelines, vercel-react-best-practices' \
+    'https://github.com/vercel/ai: ai-sdk' \
+    'https://github.com/vercel/ai-elements: ai-elements' \
+    'https://github.com/shadcn/ui: shadcn' \
+    'https://github.com/vercel-labs/native: native-sdk' \
     'herdr --skill, rendered to ~/.local/share/agentstart/herdr-skill/skills/herdr/SKILL.md  # the surface skill ships inside the binary, so it converges with the installed build, never a stale copy' \
-    'npx --yes skills add ~/.local/share/agentstart/herdr-skill --agent codex claude-code pi --skill herdr --global --yes' \
-    "npx --yes skills add \"$code_skills_root/agentdemo\" --agent codex claude-code pi --skill demo second --global --yes" \
+    'install herdr with --copy into the private core plugin' \
+    'install agentstart-core@agentstart-managed for Claude Code and Codex' \
+    "npx --yes skills add \"$code_skills_root/agentdemo\" --agent claude-code --skill demo second --global --copy --yes" \
     "\"$code_skills_root/agentdemo/scripts/post-sync\""; do
     printf '%s\n' "$install_plan" | grep -F "$required_install" >/dev/null \
         || fail "installation plan is missing: $required_install"
@@ -719,9 +751,8 @@ grep -F 'CLAUDE_CONFIG_DIR="$HOME/.claude" herdr integration install "$harness"'
 grep -F "/\\.claude-swap-backup/sessions/" \
     scripts/install.sh >/dev/null \
     || fail "installer does not prune stale Claude swap-session Herdr hook definitions"
-if printf '%s\n' "$install_plan" | grep -qi 'livekit'; then
-    fail "installation plan still includes LiveKit setup"
-fi
+printf '%s\n' "$install_plan" | grep -F 'retired livekit-simulations' >/dev/null \
+    || fail "installation plan no longer scrubs the retired LiveKit skill"
 # AgentVoice exports skills/ like the other agent tools and is scanned like
 # them; nothing about it is special to this plan.
 printf '%s\n' "$install_plan" \

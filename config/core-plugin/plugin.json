@@ -1,0 +1,8 @@
+{
+  "name": "agentstart-core",
+  "version": "1.0.0",
+  "description": "AgentStart-managed skills for the core Claude Code, Codex, and Pi harnesses.",
+  "author": {
+    "name": "AgentStart"
+  }
+}

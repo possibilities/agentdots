@@ -37,8 +37,9 @@ believing any of this.
   - `AGENTS.md` — the deliberately empty harness guidance source, linked
     directly into the Claude Code, Codex, and Pi global slots. Advice belongs
     in the extension prompts.
-- `config/` — harness configuration, the generated Herdr config, and
-  the launchd templates for fleet services AgentStart owns.
+- `config/` — harness configuration, the private core-plugin manifests, the
+  generated Herdr config, and the launchd templates for fleet services
+  AgentStart owns.
 - `skills/` — skills this checkout exports through the agent* scan, like any
   other fleet repo. `fleet/` is the dependency map of the whole ecosystem.
 - `tests/validate.sh` — the assertions; run it before committing.
@@ -61,7 +62,7 @@ flags, and skip-versus-fail semantics are load-bearing:
   - the shadcn MCP registration for Codex and Claude Code;
   - the `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md` guidance links, and
     the extension prompt links;
-  - the external skill packs;
+  - the external skill packs inside the private `agentstart-core` plugin;
   - the AgentVoice CLI, and the agentwiki, agentboard, agentsearch,
     agentkeys, codex-swap, agentusage, and agentlaunch CLIs;
   - the public `possibilities/claude-swap` fork and the codex-swap provider
@@ -73,8 +74,10 @@ flags, and skip-versus-fail semantics are load-bearing:
   The machine's installer calls this and refuses to finish without it.
   `--check` prints the plan without changing anything.
 - `scripts/sync-skills` — the cheap convergence path: the agent* checkout
-  skill scan. The scheduled updater calls this every six hours. It never
-  uninstalls skills or restarts services. `--check` prints the plan.
+  skill scan into `~/.local/share/agentstart/core-marketplace`, followed by
+  Claude Code/Codex plugin refresh and Pi links to the same skill tree. The
+  scheduled updater calls this every six hours. It never removes a skill
+  from a compatibility root or restarts services. `--check` prints the plan.
 - `scripts/install-agentlaunch-shims` — the balanced-launch shims for bare
   `claude`/`codex`/`pi`; the machine's wrapper of the same name delegates
   here.
@@ -105,8 +108,10 @@ tests/validate.sh
 ```
 
 A new fleet tool usually needs almost no edit here. Name the checkout
-`agent*` and export `skills/<name>/SKILL.md`, and the skills scan ships it.
-Only a tool with its own CLI installer joins the explicit loop in
+`agent*` and export `skills/<name>/SKILL.md`, and the skills scan ships it
+through the private core plugin. Claude Code and Codex expose it under the
+`agentstart-core` plugin namespace; Pi retains the plain name. Only a tool
+with its own CLI installer joins the explicit loop in
 `scripts/install-agent-clis`. Whether to advertise it in
 `prompts/agentguidance/TOOLS.md` is a separate decision — make it
 deliberately, per the `tool-advertisement-policy` wiki page.

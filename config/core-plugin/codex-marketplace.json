@@ -1,0 +1,20 @@
+{
+  "name": "agentstart-managed",
+  "interface": {
+    "displayName": "AgentStart Managed"
+  },
+  "plugins": [
+    {
+      "name": "agentstart-core",
+      "source": {
+        "source": "local",
+        "path": "./plugins/agentstart-core"
+      },
+      "category": "Developer Tools",
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      }
+    }
+  ]
+}

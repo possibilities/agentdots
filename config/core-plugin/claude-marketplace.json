@@ -1,0 +1,16 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "agentstart-managed",
+  "description": "Machine-local plugins managed by AgentStart.",
+  "owner": {
+    "name": "AgentStart"
+  },
+  "plugins": [
+    {
+      "name": "agentstart-core",
+      "description": "AgentStart-managed skills for the core harnesses.",
+      "source": "./plugins/agentstart-core",
+      "category": "development"
+    }
+  ]
+}

@@ -42,8 +42,8 @@ esac
     exit 64
 }
 
-# The cheap convergence path: refresh the globally managed skills without
-# touching any binary. scripts/install.sh ends with this, and the scheduled
+# The cheap convergence path: refresh the core harness plugin without touching
+# any binary. scripts/install.sh ends with this, and the scheduled
 # updater calls it directly every six hours, because a stale runbook misleads
 # a session as badly as a stale binary does. Every agent* checkout under
 # ~/code that exports skills/<name>/SKILL.md is a source.
@@ -56,6 +56,10 @@ esac
 #
 # AGENTSTART_CODE_ROOT exists so the tests can point the scan at a fixture tree.
 code_root="${AGENTSTART_CODE_ROOT:-$HOME/code}"
+script_dir=$(cd -P -- "$(dirname -- "$0")" && pwd)
+marketplace_root="${AGENTSTART_CORE_MARKETPLACE_ROOT:-$HOME/.local/share/agentstart/core-marketplace}"
+plugin_root="$marketplace_root/plugins/agentstart-core"
+skills_state_root="$marketplace_root/skills-state"
 
 # Skills retired by AgentStart but possibly still present in old local
 # checkouts. The unattended sync path is additive — it never uninstalls — so
@@ -67,6 +71,7 @@ retired_skill_names=(
     orca-cli
     orchestration
     computer-use
+    livekit-simulations
 )
 
 skill_is_retired() {
@@ -137,8 +142,8 @@ for project in "$code_root"/agent*/; do
     synchronized=$((synchronized + 1))
 
     if [ "$check_only" -eq 1 ]; then
-        printf '  npx --yes skills add "%s" --agent codex claude-code pi --skill %s --global --yes\n' \
-            "$project" "${skill_names[*]}"
+        printf '  CLAUDE_CONFIG_DIR="%s" XDG_STATE_HOME="%s" npx --yes skills add "%s" --agent claude-code --skill %s --global --copy --yes\n' \
+            "$plugin_root" "$skills_state_root" "$project" "${skill_names[*]}"
         if [ -x "$project/scripts/post-sync" ]; then
             printf '  "%s/scripts/post-sync"  # the participant'\''s post-sync hook, after its skills land\n' \
                 "$project"
@@ -152,10 +157,12 @@ for project in "$code_root"/agent*/; do
     # needs to load the runbook.
     printf 'Synchronizing the %s agent skills (%s).\n' \
         "$project_name" "${skill_names[*]}"
-    "$npx_bin" --yes skills add "$project" \
-        --agent codex claude-code pi \
+    mkdir -p "$plugin_root" "$skills_state_root"
+    CLAUDE_CONFIG_DIR="$plugin_root" XDG_STATE_HOME="$skills_state_root" \
+        "$npx_bin" --yes skills add "$project" \
+        --agent claude-code \
         --skill "${skill_names[@]}" \
-        --global --yes \
+        --global --copy --yes \
         || die "synchronizing the $project_name agent skills failed: $project"
 
     # A participant may need to post-process what the scan just shipped:
@@ -166,7 +173,8 @@ for project in "$code_root"/agent*/; do
     # stay unattended-safe, because this is the six-hour path.
     if [ -x "$project/scripts/post-sync" ]; then
         printf 'Running the %s post-sync hook.\n' "$project_name"
-        "$project/scripts/post-sync" \
+        AGENTGUIDANCE_SKILLS_ROOT="$plugin_root/skills" \
+            "$project/scripts/post-sync" \
             || die "the $project_name post-sync hook failed: $project"
     fi
 done
@@ -174,4 +182,11 @@ done
 if [ "$check_only" -eq 0 ] && [ "$synchronized" -eq 0 ]; then
     printf 'AgentStart skill sync: no agent* checkout under %s exports skills; nothing to synchronize.\n' \
         "$code_root"
+fi
+
+if [ "$check_only" -eq 1 ]; then
+    "$script_dir/install-core-plugin" --check
+elif [ "$synchronized" -gt 0 ]; then
+    "$script_dir/install-core-plugin" --install \
+        || die "installing the refreshed core harness plugin failed"
 fi

@@ -1,0 +1,27 @@
+{
+  "name": "agentstart-core",
+  "version": "1.0.0",
+  "description": "AgentStart-managed skills for the core Claude Code, Codex, and Pi harnesses.",
+  "author": {
+    "name": "AgentStart"
+  },
+  "license": "UNLICENSED",
+  "keywords": [
+    "agentstart",
+    "skills"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "AgentStart Core",
+    "shortDescription": "Core fleet skills managed by AgentStart.",
+    "longDescription": "Makes the fleet and operator skills managed by AgentStart available to Codex without publishing them through shared compatibility directories.",
+    "developerName": "AgentStart",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Skills"
+    ],
+    "defaultPrompt": [
+      "Show the AgentStart skills available in this session."
+    ]
+  }
+}

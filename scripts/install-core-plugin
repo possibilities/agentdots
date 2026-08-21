@@ -1,0 +1,120 @@
+#!/bin/bash
+
+set -euo pipefail
+
+die() {
+    printf 'AgentStart core plugin: %s\n' "$*" >&2
+    exit 1
+}
+
+usage() {
+    printf 'Usage: install-core-plugin --install|--check\n'
+}
+
+[ "$#" -eq 1 ] || {
+    usage >&2
+    exit 64
+}
+
+case "$1" in
+    --install)
+        ;;
+    --check)
+        cat <<'EOF'
+  render dual Claude/Codex plugin manifests into ~/.local/share/agentstart/core-marketplace
+  install agentstart-core@agentstart-managed for Claude Code and Codex
+  link the same private skills into ~/.pi/agent/skills
+EOF
+        exit 0
+        ;;
+    -h|--help)
+        usage
+        exit 0
+        ;;
+    *)
+        usage >&2
+        exit 64
+        ;;
+esac
+
+[ "$(uname -s)" = Darwin ] || die "macOS is required"
+[ "$(id -u)" -ne 0 ] || die "run as the target user, not root"
+
+script_dir=$(cd -P -- "$(dirname -- "$0")" && pwd)
+repo_root=$(cd -P -- "$script_dir/.." && pwd)
+template_root="$repo_root/config/core-plugin"
+marketplace_root="${AGENTSTART_CORE_MARKETPLACE_ROOT:-$HOME/.local/share/agentstart/core-marketplace}"
+plugin_root="$marketplace_root/plugins/agentstart-core"
+skills_root="$plugin_root/skills"
+pi_skills_root="$HOME/.pi/agent/skills"
+
+[ -d "$skills_root" ] || die "no synchronized skills at $skills_root"
+
+mkdir -p \
+    "$plugin_root/.claude-plugin" \
+    "$plugin_root/.codex-plugin" \
+    "$marketplace_root/.claude-plugin" \
+    "$marketplace_root/.agents/plugins" \
+    "$pi_skills_root"
+
+cp "$template_root/plugin.json" "$plugin_root/.claude-plugin/plugin.json"
+cp "$template_root/codex-plugin.json" "$plugin_root/.codex-plugin/plugin.json"
+cp "$template_root/claude-marketplace.json" "$marketplace_root/.claude-plugin/marketplace.json"
+cp "$template_root/codex-marketplace.json" "$marketplace_root/.agents/plugins/marketplace.json"
+
+managed_names="$marketplace_root/managed-skills.txt"
+next_managed_names="$marketplace_root/managed-skills.next"
+: >"$next_managed_names"
+
+for skill_dir in "$skills_root"/*/; do
+    [ -f "$skill_dir/SKILL.md" ] || continue
+    skill_dir=${skill_dir%/}
+    skill_name=${skill_dir##*/}
+    printf '%s\n' "$skill_name" >>"$next_managed_names"
+
+    pi_target="$pi_skills_root/$skill_name"
+    if [ -e "$pi_target" ] || [ -L "$pi_target" ]; then
+        if [ ! -L "$pi_target" ]; then
+            die "refusing to replace independent Pi skill directory: $pi_target"
+        fi
+        current_target=$(readlink "$pi_target")
+        case "$current_target" in
+            "$skill_dir"|../../../.agents/skills/*)
+                unlink "$pi_target"
+                ;;
+            *)
+                die "refusing to replace independent Pi skill link: $pi_target -> $current_target"
+                ;;
+        esac
+    fi
+    ln -s "$skill_dir" "$pi_target"
+done
+
+LC_ALL=C sort -u "$next_managed_names" -o "$next_managed_names"
+mv "$next_managed_names" "$managed_names"
+[ -s "$managed_names" ] || die "the synchronized core plugin contains no skills"
+
+claude_bin="${AGENTSTART_CLAUDE_BIN:-$(command -v claude || true)}"
+codex_bin="${AGENTSTART_CODEX_BIN:-$(command -v codex || true)}"
+[ -x "$claude_bin" ] || die "claude is required to install the core plugin"
+[ -x "$codex_bin" ] || die "codex is required to install the core plugin"
+
+# Both CLIs cache installed plugins. Re-registering the machine-local
+# marketplace and reinstalling the one plugin is the supported cachebuster;
+# it changes no running process, so the unattended six-hour sync remains safe.
+"$claude_bin" plugin uninstall agentstart-core@agentstart-managed --scope user >/dev/null 2>&1 || true
+"$claude_bin" plugin marketplace remove agentstart-managed >/dev/null 2>&1 || true
+"$claude_bin" plugin marketplace add "$marketplace_root" --scope user >/dev/null \
+    || die "registering the Claude Code marketplace failed"
+"$claude_bin" plugin install agentstart-core@agentstart-managed --scope user --yes >/dev/null \
+    || die "installing the Claude Code core plugin failed"
+
+"$codex_bin" plugin remove agentstart-core@agentstart-managed >/dev/null 2>&1 || true
+"$codex_bin" plugin marketplace remove agentstart-managed >/dev/null 2>&1 || true
+"$codex_bin" plugin marketplace add "$marketplace_root" >/dev/null \
+    || die "registering the Codex marketplace failed"
+"$codex_bin" plugin add agentstart-core@agentstart-managed >/dev/null \
+    || die "installing the Codex core plugin failed"
+
+printf 'Installed the AgentStart core plugin for Claude Code and Codex; linked %s skills for Pi.\n' \
+    "$(wc -l <"$managed_names" | tr -d ' ')"

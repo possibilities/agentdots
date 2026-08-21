@@ -14,6 +14,29 @@ fi
 # pack. Failing only the local form lets a test assert that scan failures name
 # the project to fix without making external skill packs part of the fixture.
 if [ "${1:-}" = "--yes" ] && [ "${2:-}" = skills ] && [ "${3:-}" = add ]; then
+    if [ -n "${CLAUDE_CONFIG_DIR:-}" ]; then
+        source_root=${4:-}
+        collect=0
+        for argument in "$@"; do
+            if [ "$argument" = "--skill" ]; then
+                collect=1
+                continue
+            fi
+            if [ "$collect" -eq 1 ]; then
+                case "$argument" in
+                    --*) collect=0 ;;
+                    *)
+                        source_skill="$source_root/skills/$argument"
+                        target_skill="$CLAUDE_CONFIG_DIR/skills/$argument"
+                        if [ -d "$source_skill" ]; then
+                            mkdir -p "$target_skill"
+                            cp -R "$source_skill/." "$target_skill/"
+                        fi
+                        ;;
+                esac
+            fi
+        done
+    fi
     case "${4:-}" in
         /*)
             exit "${AGENTSTART_TEST_NPX_LOCAL_EXIT:-${AGENTSTART_TEST_NPX_EXIT:-0}}"
