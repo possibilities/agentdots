@@ -56,7 +56,8 @@ flags, and skip-versus-fail semantics are load-bearing:
   own checkout's contract, skipping checkouts that are absent:
 
   - Claude Code, Codex, and Pi, by their official installers;
-  - Zig (an intentional duplicate of the machine's Brewfile) and `llm`;
+  - Zig (an intentional duplicate of the machine's Brewfile), `llm`, and the
+    Homebrew-installed Hunk review TUI with its version-matched bundled skill;
   - the generated live Herdr config;
   - the pinned `@native-sdk/cli` and `agent-browser` npm globals;
   - the shadcn MCP registration for Codex and Claude Code;

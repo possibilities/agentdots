@@ -84,6 +84,7 @@ flowchart LR
 
     machine ==>|scripts/install.sh --install, sync-skills| start
     start ==>|official installers| harnesses[Claude Code / Codex / Pi]
+    start ==>|Homebrew stable + binary-bundled review skill| hunk[Hunk]
     start ==>|brew formula + harness integrations + binary-rendered skill| herdrInstall[herdr]
     start ==>|npm pin| browser[agent-browser]
     start ==>|checkout contracts| fleet[agentvoice / agentwiki / agentboard / agentsearch / agentkeys / agentweb / agentscrape / agentbrain / codex-swap / agentusage / agentlaunch / agentsurface / cass / peekaboo]
@@ -160,6 +161,7 @@ sentence around the match, never from the name alone.
 | agentstart | codex-swap | `install-agent-clis` invokes `scripts/install.sh --install`, which writes the `codex-swap` command as a source shim into the checkout and installs the exact stock codex-multi-auth npm pin | `agentstart/scripts/install-agent-clis`; `codex-swap/scripts/install.sh` |
 | agentstart | agentlaunch | `install-agent-clis` invokes `scripts/install.sh --install` after `agentusage`; `scripts/install-agentlaunch-shims` is the external shim contract for bare `claude`/`codex`/`pi` | `agentstart/scripts/install-agent-clis`; `agentstart/scripts/install-agentlaunch-shims` |
 | agentstart | Claude Code / Codex / Pi | builds one skill tree under the private `agentstart-core` marketplace, refreshes the local Claude Code and Codex plugin installs, and links Pi's harness-only skill entries to that tree. The full installer removes only AgentStart-managed entries from the Fx-visible compatibility roots; the six-hour sync does not uninstall there | `agentstart/scripts/sync-skills`; `agentstart/scripts/install-core-plugin`; `agentstart/config/core-plugin/*`; `agentstart/docs/adr/0001-keep-core-skills-out-of-compatibility-roots.md` |
+| agentstart | Hunk | installs or upgrades the Homebrew formula, resolves the version-matched `hunk-review` skill through `hunk skill path hunk-review`, and copies that bundled skill into the private core plugin. It deliberately never installs the skill from GitHub head, which could teach a newer session API than the local binary accepts | `agentstart/scripts/install.sh` (`install_hunk_skill`), asserted by `agentstart/tests/validate.sh`; `hunk/src/core/run/paths.ts` (`resolveBundledSkillPath`) |
 | agentsurface plugin | agentusage | the shared Herdr plugin's `usage` pane entrypoint runs `escape-to-quit agentusage` in a titled 80% popup. AgentStart's `prefix+u` binding opens the entrypoint instead of duplicating an untitled generic popup | `agentsurface/plugin/herdr-plugin.toml`; `agentstart/config/herdr/config.toml` |
 | agentsurface plugin | agentvoice | the same plugin's `voice` pane entrypoint runs `agentvoice remote` in a titled 80% popup, opened by AgentStart's `prefix+t` binding. Bare, with no escape-to-quit wrapper — that TUI spends esc on its own ctrl+k palette and quits on `q`. The remote attaches to the console already running on this machine over its own socket; the popup never starts a second audio session | `agentsurface/plugin/herdr-plugin.toml`; `agentstart/config/herdr/config.toml`; `agentvoice/src/console/remote-ui.ts` |
 | agentlaunch | agentusage | `agentusage balance claude\|codex --json` chooses a balanced account. Real Codex/Pi launches add `--claim`; dry runs do not reserve capacity | `agentlaunch/src/balance.ts` (`balanceClaude`, `balanceCodexFamily`) |
@@ -342,3 +344,7 @@ stdout — the form renders on stderr, the host pipes and reads stdout, the
 brief life as an `x-surface` subcommand, settled back to the `--x-surface`
 flag: surface emission is a modality of agentlaunch's one job, not a
 second command.
+Updated 2026-08-21 for Hunk: AgentStart installs the Homebrew-stable review TUI
+and copies its bundled `hunk-review` skill into the private core plugin from
+`hunk skill path`, keeping the agent session commands matched to the installed
+binary instead of independently tracking GitHub head.

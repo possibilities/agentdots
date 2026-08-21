@@ -311,6 +311,7 @@ Command-line tools:
   "$HOME/.local/bin/fx" upgrade --channel dev  # track the latest CI-passing main commit and remember the dev channel
   brew install or upgrade zig  # AgentVoice's native duplex audio path builds against it
   brew install or upgrade llm  # an AI CLI, so AgentStart's outright — moved out of the machine's Brewfile
+  brew install or upgrade hunk  # review-first diff TUI whose bundled agent skill follows the installed build
   brew install or upgrade zig@0.15  # herdr's vendored libghostty-vt pins the 0.15 line; keg-only beside the tracked zig
   scripts/update-herdr  # herdr from the bound ~/src/herdr checkout: fast-forward clean master, build, install to ~/.local/bin; blocked checkouts notify instead of forcing
   brew uninstall herdr if the formula lingers  # retired: it would shadow the checkout build on PATH
@@ -347,6 +348,8 @@ Agent core plugin:
   https://github.com/vercel/ai-elements: ai-elements
   https://github.com/shadcn/ui: shadcn
   https://github.com/vercel-labs/native: native-sdk
+  hunk skill path hunk-review  # the review skill ships inside the binary and stays version-matched to it
+  install hunk-review with --copy into the private core plugin
   herdr --skill, rendered to ~/.local/share/agentstart/herdr-skill/skills/herdr/SKILL.md  # the surface skill ships inside the binary, so it converges with the installed build, never a stale copy
   install herdr with --copy into the private core plugin
 EOF
@@ -446,6 +449,12 @@ install_or_upgrade_formula zig
 # machine's Brewfile rather than duplicated from it.
 printf 'Installing or upgrading the llm CLI.\n'
 install_or_upgrade_formula llm
+
+# Hunk is a review-first diff TUI for agent-authored changesets. Homebrew owns
+# its binary and update path; the version-matched hunk-review skill is copied
+# from the installed formula later, after npx is available.
+printf 'Installing or upgrading Hunk.\n'
+install_or_upgrade_formula hunk
 
 # herdr's vendored libghostty-vt pins the Zig 0.15 line, which the tracked
 # `zig` formula above has moved past, and the official 0.15 tarball cannot
@@ -813,6 +822,38 @@ install_private_skill_pack https://github.com/shadcn/ui shadcn
 
 printf 'Installing the Native SDK discovery skill.\n'
 install_private_skill_pack https://github.com/vercel-labs/native native-sdk
+
+# Hunk ships its agent-facing review surface inside the installed binary. Use
+# `hunk skill path` as the authority instead of copying the GitHub head: the
+# skill describes the exact `hunk session` commands this build accepts. The
+# resolved package root already has the skills/<name>/SKILL.md shape consumed
+# by the common private-plugin installer. Deliberately not advertised in
+# TOOLS.md: its own trigger covers live Hunk sessions and interactive diff
+# review without spending attention in unrelated conversations (see the
+# tool-advertisement-policy wiki page).
+install_hunk_skill() {
+    local skill_file skill_dir pack_root
+
+    skill_file=$(hunk skill path hunk-review) \
+        || die "locating the bundled Hunk review skill failed"
+    [ -f "$skill_file" ] \
+        || die "the installed Hunk review skill is missing: $skill_file"
+
+    skill_dir=$(cd -P -- "$(dirname -- "$skill_file")" && pwd) \
+        || die "resolving the bundled Hunk review skill directory failed"
+    skill_file="$skill_dir/${skill_file##*/}"
+    [ "${skill_dir##*/}" = hunk-review ] \
+        || die "the installed Hunk review skill has an unexpected path: $skill_file"
+    pack_root=$(cd -P -- "$skill_dir/../.." && pwd) \
+        || die "resolving the installed Hunk skill pack failed"
+    [ "$pack_root/skills/hunk-review/SKILL.md" = "$skill_file" ] \
+        || die "the installed Hunk review skill does not match its pack root: $skill_file"
+
+    install_private_skill_pack "$pack_root" hunk-review
+}
+
+printf 'Installing the Hunk review skill from the installed binary.\n'
+install_hunk_skill
 
 # The surface skill — herdr is the orchestrator doctrine's reference launch
 # surface — ships inside the herdr binary (`herdr --skill`), so the installed

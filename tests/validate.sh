@@ -700,6 +700,7 @@ for required_install in \
     '"$HOME/.local/bin/fx" upgrade --channel dev  # track the latest CI-passing main commit and remember the dev channel' \
     'brew install or upgrade zig  # AgentVoice'"'"'s native duplex audio path builds against it' \
     'brew install or upgrade llm  # an AI CLI, so AgentStart'"'"'s outright — moved out of the machine'"'"'s Brewfile' \
+    'brew install or upgrade hunk  # review-first diff TUI whose bundled agent skill follows the installed build' \
     'brew install or upgrade zig@0.15  # herdr'"'"'s vendored libghostty-vt pins the 0.15 line; keg-only beside the tracked zig' \
     'scripts/update-herdr  # herdr from the bound ~/src/herdr checkout: fast-forward clean master, build, install to ~/.local/bin; blocked checkouts notify instead of forcing' \
     'brew uninstall herdr if the formula lingers  # retired: it would shadow the checkout build on PATH' \
@@ -729,6 +730,8 @@ for required_install in \
     'https://github.com/vercel/ai-elements: ai-elements' \
     'https://github.com/shadcn/ui: shadcn' \
     'https://github.com/vercel-labs/native: native-sdk' \
+    'hunk skill path hunk-review  # the review skill ships inside the binary and stays version-matched to it' \
+    'install hunk-review with --copy into the private core plugin' \
     'herdr --skill, rendered to ~/.local/share/agentstart/herdr-skill/skills/herdr/SKILL.md  # the surface skill ships inside the binary, so it converges with the installed build, never a stale copy' \
     'install herdr with --copy into the private core plugin' \
     'install agentstart-core@agentstart-managed for Claude Code and Codex' \
@@ -953,6 +956,21 @@ grep -F 'herdr --skill' scripts/install.sh >/dev/null \
     || fail "the herdr skill is not rendered from the installed binary"
 if grep -E 'skills add https://github.com/[^ ]*herdr' scripts/install.sh >/dev/null; then
     fail "the herdr skill tracks the GitHub head instead of the installed binary"
+fi
+# Hunk's bundled skill is generated from the same command surface as the
+# installed binary. A GitHub-sourced copy could move ahead of Homebrew and
+# teach agents flags their local Hunk does not accept.
+grep -F 'install_or_upgrade_formula hunk' scripts/install.sh >/dev/null \
+    || fail "installer does not install Hunk through its Homebrew update path"
+grep -F 'install_hunk_skill' scripts/install.sh >/dev/null \
+    || fail "installer does not converge the bundled Hunk review skill"
+grep -F 'hunk skill path hunk-review' scripts/install.sh >/dev/null \
+    || fail "installer does not resolve the review skill from the installed Hunk binary"
+# shellcheck disable=SC2016 # Match the literal pack-root variable in the installer.
+grep -F 'install_private_skill_pack "$pack_root" hunk-review' scripts/install.sh >/dev/null \
+    || fail "installer does not copy Hunk's bundled review skill into the private core plugin"
+if grep -E 'skills add https://github.com/[^ ]*modem-dev/hunk' scripts/install.sh >/dev/null; then
+    fail "the Hunk review skill tracks GitHub head instead of the installed binary"
 fi
 grep -F 'agent_browser_version=0.33.2' scripts/install.sh >/dev/null \
     || fail "installer does not pin agent-browser to the Agentweb-locked build"
