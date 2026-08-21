@@ -701,7 +701,10 @@ for required_install in \
     'brew install or upgrade zig  # AgentVoice'"'"'s native duplex audio path builds against it' \
     'brew install or upgrade llm  # an AI CLI, so AgentStart'"'"'s outright — moved out of the machine'"'"'s Brewfile' \
     'brew install or upgrade hunk  # review-first diff TUI whose bundled agent skill follows the installed build' \
+    'brew install or upgrade rustup  # Terminal Control builds from crates.io with the current stable Rust toolchain' \
     'brew install or upgrade zig@0.15  # herdr'"'"'s vendored libghostty-vt pins the 0.15 line; keg-only beside the tracked zig' \
+    '"$(brew --prefix rustup)/bin/rustup" toolchain install stable --profile minimal' \
+    'PATH="$(brew --prefix)/opt/zig@0.15/bin:$PATH" "$(brew --prefix rustup)/bin/rustup" run stable cargo install --locked --root "$HOME/.local" terminal-control' \
     'scripts/update-herdr  # herdr from the bound ~/src/herdr checkout: fast-forward clean master, build, install to ~/.local/bin; blocked checkouts notify instead of forcing' \
     'brew uninstall herdr if the formula lingers  # retired: it would shadow the checkout build on PATH' \
     'herdr integration install claude, codex, and pi  # Claude and Codex are pinned to canonical ~/.claude and ~/.codex, and stale swap-session hooks are pruned' \
@@ -730,6 +733,7 @@ for required_install in \
     'https://github.com/vercel/ai-elements: ai-elements' \
     'https://github.com/shadcn/ui: shadcn' \
     'https://github.com/vercel-labs/native: native-sdk' \
+    'anomalyco/terminal-control@v<installed termctrl version>: terminal-control' \
     'hunk skill path hunk-review  # the review skill ships inside the binary and stays version-matched to it' \
     'install hunk-review with --copy into the private core plugin' \
     'herdr --skill, rendered to ~/.local/share/agentstart/herdr-skill/skills/herdr/SKILL.md  # the surface skill ships inside the binary, so it converges with the installed build, never a stale copy' \
@@ -854,6 +858,32 @@ if grep -F '@native-sdk/cli@latest' scripts/install.sh >/dev/null; then
 fi
 grep -F 'install_or_upgrade_formula zig' scripts/install.sh >/dev/null \
     || fail "installer does not converge the Zig toolchain"
+
+# Terminal Control is built from its locked crates.io release with the exact
+# Zig line libghostty-vt requires. Its upstream skill is selected from the
+# installed binary's matching release tag and then shipped through the common
+# private core plugin to Claude Code, Codex, and Pi.
+grep -F 'install_or_upgrade_formula rustup' scripts/install.sh >/dev/null \
+    || fail "installer does not converge Rustup for Terminal Control"
+# shellcheck disable=SC2016 # Match the literal formula-owned Rustup variable.
+grep -F '"$rustup_bin" toolchain install stable --profile minimal' scripts/install.sh >/dev/null \
+    || fail "installer does not converge a current Rust toolchain for Terminal Control"
+# shellcheck disable=SC2016 # Match the literal cargo install root and Zig path.
+grep -F 'PATH="$brew_prefix/opt/zig@0.15/bin:$PATH"' scripts/install.sh >/dev/null \
+    || fail "Terminal Control is not built with the required Zig 0.15 line"
+# shellcheck disable=SC2016 # Match the literal cargo install root.
+grep -F 'cargo install --locked --root "$HOME/.local" terminal-control' scripts/install.sh >/dev/null \
+    || fail "installer does not converge the locked Terminal Control crate into ~/.local/bin"
+# shellcheck disable=SC2016 # Match the literal version variable in the skill source.
+grep -F '"anomalyco/terminal-control@v$terminal_control_version" terminal-control' \
+    scripts/install.sh >/dev/null \
+    || fail "installer does not bind the Terminal Control skill to the installed CLI release"
+# shellcheck disable=SC2016 # Backticks name the advertised skill literally.
+grep -F '`terminal-control` — real terminal applications:' \
+    prompts/agentguidance/TOOLS.md >/dev/null \
+    || fail "TOOLS.md does not advertise the Terminal Control skill"
+grep -F 'desktop, terminal-control' skills/fleet/MAP.md >/dev/null \
+    || fail "the fleet skill route map omits the Terminal Control advertisement"
 
 # herdr is bound to the ~/src/herdr checkout at upstream master and
 # update-herdr is its one update path — fast-forward a clean checkout, build

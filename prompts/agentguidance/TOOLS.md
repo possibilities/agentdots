@@ -20,6 +20,8 @@ say when.
 - `desktop` — the Mac's screen and native apps: capturing what is visible,
   verifying GUI state, clicking, typing, menus, windows — GUI work outside
   a web page. Inside a web page is `browser`.
+- `terminal-control` — real terminal applications: operating or testing a
+  TUI, REPL, interactive CLI, shell process, or OpenTUI application.
 - `wiki` — the operator's library: documents asked for or worth finding
   again by name — research, reports, decisions, designs — plus finding
   where something was written down and publishing citable artifacts.

@@ -81,6 +81,7 @@ remove_legacy_global_skills() {
         ai-elements
         shadcn
         native-sdk
+        terminal-control
         herdr
         livekit-simulations
         orca-cli
@@ -312,7 +313,10 @@ Command-line tools:
   brew install or upgrade zig  # AgentVoice's native duplex audio path builds against it
   brew install or upgrade llm  # an AI CLI, so AgentStart's outright — moved out of the machine's Brewfile
   brew install or upgrade hunk  # review-first diff TUI whose bundled agent skill follows the installed build
+  brew install or upgrade rustup  # Terminal Control builds from crates.io with the current stable Rust toolchain
   brew install or upgrade zig@0.15  # herdr's vendored libghostty-vt pins the 0.15 line; keg-only beside the tracked zig
+  "$(brew --prefix rustup)/bin/rustup" toolchain install stable --profile minimal
+  PATH="$(brew --prefix)/opt/zig@0.15/bin:$PATH" "$(brew --prefix rustup)/bin/rustup" run stable cargo install --locked --root "$HOME/.local" terminal-control
   scripts/update-herdr  # herdr from the bound ~/src/herdr checkout: fast-forward clean master, build, install to ~/.local/bin; blocked checkouts notify instead of forcing
   brew uninstall herdr if the formula lingers  # retired: it would shadow the checkout build on PATH
   herdr integration install claude, codex, and pi  # Claude and Codex are pinned to canonical ~/.claude and ~/.codex, and stale swap-session hooks are pruned
@@ -348,6 +352,7 @@ Agent core plugin:
   https://github.com/vercel/ai-elements: ai-elements
   https://github.com/shadcn/ui: shadcn
   https://github.com/vercel-labs/native: native-sdk
+  anomalyco/terminal-control@v<installed termctrl version>: terminal-control
   hunk skill path hunk-review  # the review skill ships inside the binary and stays version-matched to it
   install hunk-review with --copy into the private core plugin
   herdr --skill, rendered to ~/.local/share/agentstart/herdr-skill/skills/herdr/SKILL.md  # the surface skill ships inside the binary, so it converges with the installed build, never a stale copy
@@ -456,6 +461,18 @@ install_or_upgrade_formula llm
 printf 'Installing or upgrading Hunk.\n'
 install_or_upgrade_formula hunk
 
+# Terminal Control has no Homebrew formula or release binaries: its supported
+# CLI install builds the crates.io release. Rustup gives that build a current
+# stable compiler without changing the operator's default toolchain, and the
+# exact Zig 0.15 line below is shared with herdr because libghostty-vt requires
+# it. Cargo's install root is explicit so the binary lands on the toolchain's
+# already-managed ~/.local/bin path rather than depending on ~/.cargo/bin.
+printf 'Installing or upgrading Rustup for the Terminal Control build.\n'
+install_or_upgrade_formula rustup
+rustup_bin="$brew_prefix/opt/rustup/bin/rustup"
+[ -x "$rustup_bin" ] \
+    || die "Homebrew's keg-only Rustup executable is missing: $rustup_bin"
+
 # herdr's vendored libghostty-vt pins the Zig 0.15 line, which the tracked
 # `zig` formula above has moved past, and the official 0.15 tarball cannot
 # link against current macOS SDKs — herdr's own release CI builds with this
@@ -463,6 +480,19 @@ install_or_upgrade_formula hunk
 # update-herdr refuses with a notification if the vendored pin drifts.
 printf 'Installing or upgrading Zig 0.15 for the herdr build (keg-only, beside the tracked zig).\n'
 install_or_upgrade_formula zig@0.15
+
+printf 'Installing the stable Rust toolchain for Terminal Control.\n'
+"$rustup_bin" toolchain install stable --profile minimal
+
+printf 'Building and installing Terminal Control from its locked crates.io release.\n'
+PATH="$brew_prefix/opt/zig@0.15/bin:$PATH" \
+    "$rustup_bin" run stable cargo install --locked --root "$HOME/.local" terminal-control
+[ -x "$HOME/.local/bin/termctrl" ] \
+    || die "Terminal Control did not install an executable at $HOME/.local/bin/termctrl"
+terminal_control_version=$("$HOME/.local/bin/termctrl" --version)
+terminal_control_version=${terminal_control_version##* }
+[[ "$terminal_control_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]] \
+    || die "could not resolve the installed Terminal Control version"
 
 # herdr is the terminal multiplexer agent sessions run inside — an AI tool by
 # the boundary rubric, so AgentStart's, not the machine's. It is bound to the
@@ -822,6 +852,14 @@ install_private_skill_pack https://github.com/shadcn/ui shadcn
 
 printf 'Installing the Native SDK discovery skill.\n'
 install_private_skill_pack https://github.com/vercel-labs/native native-sdk
+
+# Bind the runbook to the same release as the CLI. The skills CLI accepts a
+# GitHub ref suffix, and Terminal Control publishes v<crate-version> tags, so a
+# new crates.io release and its skill converge together instead of teaching a
+# command surface from repository head against an older installed binary.
+printf 'Installing the version-matched Terminal Control skill.\n'
+install_private_skill_pack \
+    "anomalyco/terminal-control@v$terminal_control_version" terminal-control
 
 # Hunk ships its agent-facing review surface inside the installed binary. Use
 # `hunk skill path` as the authority instead of copying the GitHub head: the
