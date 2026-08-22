@@ -976,6 +976,19 @@ grep -F 'plugin pane open --plugin agentsurface --entrypoint voice' \
     || fail "agentvoice binding does not open its AgentSurface plugin pane"
 grep -F 'HERDR_ACTIVE_PANE_CWD' config/herdr/config.toml >/dev/null \
     || fail "AgentSurface plugin popup does not preserve the active pane cwd"
+for action in pane tab workspace; do
+    grep -Fqx "close_${action} = \"\"" config/herdr/config.toml \
+        || fail "Herdr's immediate close_${action} action is still enabled"
+done
+for target in pane tab workspace; do
+    grep -F "plugin pane open --plugin agentsurface --entrypoint confirm-close-${target}" \
+        config/herdr/config.toml >/dev/null \
+        || fail "Herdr ${target} close does not open its AgentSurface confirmation pane"
+done
+close_target_count=$(grep -Fc -- "--target-pane \"\$HERDR_ACTIVE_PANE_ID\"" \
+    config/herdr/config.toml || true)
+[ "$close_target_count" -eq 3 ] \
+    || fail "Herdr close confirmations do not capture all three active targets"
 grep -F 'command = "agentsurface launch"' config/herdr/config.toml >/dev/null \
     && fail "AgentSurface binding still opens an untitled generic popup"
 grep -F 'command = "escape-to-quit agentusage"' config/herdr/config.toml >/dev/null \
