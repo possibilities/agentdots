@@ -86,6 +86,12 @@ patch_markers_present() {
                 "$fx_branch" >&2
             return 1
         }
+    grep -F 'processEffortOverride' "$checkout/src/core/config/config_runtime.zig" >/dev/null \
+        || {
+            printf 'AgentStart Fx installer: %s lost the FX_EFFORT patch marker.\n' \
+                "$fx_branch" >&2
+            return 1
+        }
 }
 
 verify_patch_markers() {

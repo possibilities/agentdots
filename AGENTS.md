@@ -28,15 +28,16 @@
   owned by agentusage's `scripts/install-providers.sh`; it is not in the
   `install-agent-clis` loop, which is why that loop runs agentusage before
   agentlaunch. Fx is owned directly here by `scripts/install-fx`, which carries
-  the external-editor, transcript-resume, and Codex-capacity PRs, runs the
-  ReleaseSafe gate before publishing a rebase, installs the source build to
-  `~/.local/bin/fx`, and disables Fx's independent auto-updater. Both refuse a
-  checkout whose fork remote is not ours. The `fork-rebase-policy` wiki page is
-  the contract. `codex-multi-auth` is no longer a managed fork dependency:
-  upstream merged PRs #664 and #665, so codex-swap installs the exact stock npm
-  pin instead. Its installer keeps the fork behind `NDY_FORK_ACTIVE=0` —
-  dormant rather than deleted, which is what makes reviving it an edit rather
-  than a rewrite. `herdr` is the other bound outside checkout — `~/src/herdr`
+  the external-editor, transcript-resume, Codex-capacity, and FX_EFFORT PRs,
+  runs the ReleaseSafe gate before publishing a rebase, installs the source
+  build to `~/.local/bin/fx`, and disables Fx's independent auto-updater. Both
+  refuse a checkout whose fork remote is not ours. The `fork-rebase-policy`
+  wiki page is the contract. `codex-multi-auth` is no longer a managed fork
+  dependency: upstream merged PRs #664 and #665, so codex-swap installs the
+  exact stock npm pin instead. Its installer keeps the fork behind
+  `NDY_FORK_ACTIVE=0` — dormant rather than deleted, which is what makes
+  reviving it an edit rather than a rewrite. `herdr` is the other bound
+  outside checkout — `~/src/herdr`
   at upstream `master`, no patches carried — and
   `scripts/update-herdr` owns that binding: it only ever fast-forwards a
   clean checkout and reports anything else with a notification, and it is
