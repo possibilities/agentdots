@@ -54,26 +54,27 @@ resize_pane_down = "alt+shift+j"
 resize_pane_up = "alt+shift+k"
 resize_pane_right = "alt+shift+l"
 
-# The key command captures the active pane explicitly when it asks Herdr to
-# open the plugin entrypoint. AgentSurface's plugin owns each popup's title and
-# geometry, while the session-modal popup keeps that context stable during the
-# decision.
+# Opening a popup entrypoint makes Herdr capture the active pane in the plugin
+# context. AgentSurface's plugin owns each popup's title and geometry, while
+# the session-modal popup keeps that captured context stable during the
+# decision. Popup placement deliberately takes no --target-pane; Herdr rejects
+# layout targeting for session-modal popups.
 [[keys.command]]
 key = "prefix+x"
 type = "shell"
-command = '"$HERDR_BIN_PATH" plugin pane open --plugin agentsurface --entrypoint confirm-close-pane --target-pane "$HERDR_ACTIVE_PANE_ID"'
+command = '"$HERDR_BIN_PATH" plugin pane open --plugin agentsurface --entrypoint confirm-close-pane'
 description = "close pane (confirm)"
 
 [[keys.command]]
 key = "prefix+shift+x"
 type = "shell"
-command = '"$HERDR_BIN_PATH" plugin pane open --plugin agentsurface --entrypoint confirm-close-tab --target-pane "$HERDR_ACTIVE_PANE_ID"'
+command = '"$HERDR_BIN_PATH" plugin pane open --plugin agentsurface --entrypoint confirm-close-tab'
 description = "close tab (confirm)"
 
 [[keys.command]]
 key = "prefix+shift+d"
 type = "shell"
-command = '"$HERDR_BIN_PATH" plugin pane open --plugin agentsurface --entrypoint confirm-close-workspace --target-pane "$HERDR_ACTIVE_PANE_ID"'
+command = '"$HERDR_BIN_PATH" plugin pane open --plugin agentsurface --entrypoint confirm-close-workspace'
 description = "close workspace (confirm)"
 
 # Herdr 0.8.0 has no keybind action that creates a tab and starts a harness in

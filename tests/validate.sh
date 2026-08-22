@@ -985,10 +985,10 @@ for target in pane tab workspace; do
         config/herdr/config.toml >/dev/null \
         || fail "Herdr ${target} close does not open its AgentSurface confirmation pane"
 done
-close_target_count=$(grep -Fc -- "--target-pane \"\$HERDR_ACTIVE_PANE_ID\"" \
-    config/herdr/config.toml || true)
-[ "$close_target_count" -eq 3 ] \
-    || fail "Herdr close confirmations do not capture all three active targets"
+if grep -E 'confirm-close-(pane|tab|workspace).*--target-pane' \
+    config/herdr/config.toml >/dev/null; then
+    fail "Herdr popup close confirmations pass unsupported layout targets"
+fi
 grep -F 'command = "agentsurface launch"' config/herdr/config.toml >/dev/null \
     && fail "AgentSurface binding still opens an untitled generic popup"
 grep -F 'command = "escape-to-quit agentusage"' config/herdr/config.toml >/dev/null \
