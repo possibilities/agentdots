@@ -1,0 +1,4 @@
+project_roots = ["~/code", "~/src"]
+
+[keys]
+prefix = "ctrl+space"

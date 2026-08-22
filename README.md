@@ -38,7 +38,7 @@ believing any of this.
     directly into the Claude Code, Codex, and Pi global slots. Advice belongs
     in the extension prompts.
 - `config/` — harness configuration, the private core-plugin manifests, the
-  generated Herdr config, and the launchd templates for fleet services
+  Herdr and fmx operator configs, and the launchd templates for fleet services
   AgentStart owns.
 - `skills/` — skills this checkout exports through the agent* scan, like any
   other fleet repo. `fleet/` is the dependency map of the whole ecosystem.
@@ -58,7 +58,8 @@ flags, and skip-versus-fail semantics are load-bearing:
   - Claude Code, Codex, and Pi, by their official installers;
   - Zig (an intentional duplicate of the machine's Brewfile), `llm`, and the
     Homebrew-installed Hunk review TUI with its version-matched bundled skill;
-  - the generated live Herdr config;
+  - the editable `bun link` install of the fmx checkout, plus the generated
+    live Herdr config and linked fmx key config;
   - the pinned `@native-sdk/cli` and `agent-browser` npm globals;
   - the shadcn MCP registration for Codex and Claude Code;
   - the `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md` guidance links, and
@@ -97,6 +98,15 @@ into `~/.config/herdr/config.toml`, checks the candidate with `herdr config
 check`, atomically replaces the live file, and asks a running server to reload.
 It is rendered rather than linked because Herdr writes its own keys into that
 file, and neither checkout may become program-written state.
+
+fmx installs editable from `~/code/fmx`: a frozen `bun install` plus
+`bun link`, so `~/.bun/bin/fmx` runs the checkout's `src/index.ts` and edits
+there are live without a reinstall. A machine without the checkout skips.
+
+`scripts/fmx-config install` links `config/fmx/config.toml` into
+`~/.config/fmx/config.toml`. fmx does not write that file, and its `[keys]`
+schema is a strict subset of Herdr's; both operator configs use `ctrl+space` as
+their prefix.
 
 ## Working on it
 

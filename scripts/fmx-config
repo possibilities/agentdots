@@ -1,0 +1,62 @@
+#!/bin/bash
+
+set -euo pipefail
+
+die() {
+    printf 'fmx-config: %s\n' "$*" >&2
+    exit 1
+}
+
+# Resolve through any command link so the checkout that performed the install
+# remains the source of truth.
+script_path="$0"
+while [ -L "$script_path" ]; do
+    link_target=$(readlink "$script_path")
+    case "$link_target" in
+        /*) script_path="$link_target" ;;
+        *) script_path="$(dirname -- "$script_path")/$link_target" ;;
+    esac
+done
+script_dir=$(cd -P -- "$(dirname -- "$script_path")" && pwd)
+repo_root=$(cd -P -- "$script_dir/.." && pwd)
+
+config_source="${AGENTSTART_FMX_CONFIG_SOURCE:-$repo_root/config/fmx/config.toml}"
+config_target="${AGENTSTART_FMX_CONFIG_TARGET:-${XDG_CONFIG_HOME:-$HOME/.config}/fmx/config.toml}"
+
+install_config() {
+    [ -s "$config_source" ] \
+        || die "fmx config is missing or empty: $config_source"
+    if [ ! -L "$config_target" ] && [ -e "$config_target" ]; then
+        die "refusing to replace independent fmx config: $config_target"
+    fi
+
+    mkdir -p -- "$(dirname -- "$config_target")"
+    ln -sfn -- "$config_source" "$config_target"
+    [ -L "$config_target" ] \
+        || die "fmx config target is not a link: $config_target"
+    cmp -s -- "$config_source" "$config_target" \
+        || die "linked fmx config does not resolve to $config_source: $config_target"
+}
+
+usage() {
+    cat <<'EOF'
+Usage: fmx-config <command>
+
+Commands:
+  install   Link AgentStart's fmx config into the XDG config directory
+EOF
+}
+
+case "${1:-}" in
+    install)
+        [ "$#" -eq 1 ] || die "install takes no arguments"
+        install_config
+        ;;
+    -h|--help)
+        usage
+        ;;
+    *)
+        usage >&2
+        exit 64
+        ;;
+esac

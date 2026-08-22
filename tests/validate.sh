@@ -20,8 +20,10 @@ scripts/install-core-plugin
 scripts/install-agentvoice-cli
 scripts/remove-retired-integrations
 scripts/install-launchagents
+scripts/fmx-config
 scripts/herdr-config
 tests/validate.sh
+tests/fmx-config.sh
 tests/herdr-config.sh
 tests/fixtures/npx
 "
@@ -38,9 +40,11 @@ fi
 for script in scripts/install.sh scripts/install-fx scripts/sync-skills scripts/install-agent-clis \
     scripts/install-agentlaunch-shims scripts/install-core-plugin scripts/install-launchagents \
     scripts/install-agentvoice-cli scripts/remove-retired-integrations \
-    scripts/herdr-config; do
+    scripts/fmx-config scripts/herdr-config; do
     [ -x "$script" ] || fail "installer script is not executable: $script"
 done
+[ -x tests/fmx-config.sh ] \
+    || fail "fmx config test is not executable: tests/fmx-config.sh"
 [ -x tests/herdr-config.sh ] \
     || fail "Herdr config test is not executable: tests/herdr-config.sh"
 [ -x scripts/remove-retired-json-hooks.ts ] \
@@ -708,6 +712,8 @@ for required_install in \
     'scripts/update-herdr  # herdr from the bound ~/src/herdr checkout: fast-forward clean master, build, install to ~/.local/bin; blocked checkouts notify instead of forcing' \
     'brew uninstall herdr if the formula lingers  # retired: it would shadow the checkout build on PATH' \
     'herdr integration install claude, codex, and pi  # Claude and Codex are pinned to canonical ~/.claude and ~/.codex, and stale swap-session hooks are pruned' \
+    'bun install --frozen-lockfile and bun link in ~/code/fmx  # global editable fmx: ~/.bun/bin/fmx runs the checkout'"'"'s src/index.ts, so edits are live' \
+    'scripts/fmx-config install  # link the Herdr-compatible fmx key subset with the operator'"'"'s Ctrl-Space prefix' \
     'scripts/herdr-config install  # render, validate, and activate the generated Herdr config, then reload it' \
     'remove AgentStart-owned ~/Library/Application Support/io.datasette.llm/extra-openai-models.yaml symlink  # its extra model records are obsolete' \
     'remove ownership-verified AgentSurface, AgentBus, and Orca harness integrations' \
@@ -1002,6 +1008,23 @@ theme_manager_refs=$(grep -R -Eih 'tinty|tinted-theming|base16|base24|chalk' \
     || fail "the retired Tinty configuration is still in the checkout"
 [ ! -e scripts/herdr-tinty ] \
     || fail "the retired herdr-tinty helper is still in the checkout"
+# fmx installs editable: a frozen dependency install plus bun link, so the
+# global command runs the checkout source directly.
+# shellcheck disable=SC2016 # Match the literal installer variables.
+grep -F 'bun install --cwd "$fmx_root" --frozen-lockfile' scripts/install.sh >/dev/null \
+    || fail "installer does not install fmx dependencies frozen"
+# shellcheck disable=SC2016 # Match the literal installer variables.
+grep -F '(cd "$fmx_root" && bun link)' scripts/install.sh >/dev/null \
+    || fail "installer does not bun-link fmx editable"
+# fmx's config is linked because fmx does not mutate it; both the tracked source
+# and the installer stay pinned to the same Ctrl-Space prefix used by Herdr.
+grep -Fqx 'prefix = "ctrl+space"' config/fmx/config.toml \
+    || fail "fmx config does not use the operator's Ctrl-Space prefix"
+# shellcheck disable=SC2016 # Match the literal installer variable.
+grep -F '"$script_dir/fmx-config" install' scripts/install.sh >/dev/null \
+    || fail "installer does not link the fmx config"
+tests/fmx-config.sh
+
 # shellcheck disable=SC2016 # Match the literal installer variable.
 grep -F '"$script_dir/herdr-config" install' scripts/install.sh >/dev/null \
     || fail "installer does not render the Herdr config"

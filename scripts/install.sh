@@ -320,6 +320,8 @@ Command-line tools:
   brew uninstall herdr if the formula lingers  # retired: it would shadow the checkout build on PATH
   herdr integration install claude, codex, and pi  # Claude and Codex are pinned to canonical ~/.claude and ~/.codex, and stale swap-session hooks are pruned
   herdr plugin link ~/code/agentsurface/plugin  # the fleet popup panes + tab-naming plugin; a link registers the checkout path, so relinking is a safe converge
+  bun install --frozen-lockfile and bun link in ~/code/fmx  # global editable fmx: ~/.bun/bin/fmx runs the checkout's src/index.ts, so edits are live
+  scripts/fmx-config install  # link the Herdr-compatible fmx key subset with the operator's Ctrl-Space prefix
   scripts/herdr-config install  # render, validate, and activate the generated Herdr config, then reload it
   npm install --global @native-sdk/cli@0.7  # the line the native-sdk skill documents
   npm install --global agent-browser@0.33.2  # Agentweb's config.json digest-locks this exact build
@@ -733,6 +735,29 @@ install_herdr_plugins() {
 }
 
 install_herdr_plugins
+
+# fmx — the fx-session terminal multiplexer — is a bun checkout with no
+# installer of its own, so AgentStart owns the editable install: a frozen
+# dependency install plus bun link, which serves ~/.bun/bin/fmx straight from
+# the checkout's src/index.ts, so edits in the checkout are live without a
+# reinstall. A machine without the checkout skips; a present checkout that
+# fails to install is a real error.
+fmx_root="$code_root/fmx"
+if [ -f "$fmx_root/package.json" ]; then
+    command -v bun >/dev/null 2>&1 || die "bun is required to install fmx"
+    printf 'Linking fmx editable from %s.\n' "$fmx_root"
+    bun install --cwd "$fmx_root" --frozen-lockfile \
+        || die "installing fmx dependencies failed"
+    (cd "$fmx_root" && bun link) || die "bun link failed for fmx"
+else
+    printf 'AgentStart installer: no fmx checkout at %s; skipping fmx.\n' \
+        "$fmx_root"
+fi
+
+# fmx never writes its configuration, so its Herdr-compatible key subset can
+# stay linked directly to AgentStart's tracked operator configuration.
+printf "Linking AgentStart's fmx configuration.\n"
+"$script_dir/fmx-config" install
 
 # Herdr's live configuration is rendered rather than linked, because Herdr
 # writes its own keys into it and neither checkout may become program-written
